@@ -1,8 +1,8 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { User, Ad, Order } from '../types';
 import { AdCard } from './AdCard';
+import { getLevelInfo } from '../utils';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -13,6 +13,7 @@ interface UserProfileModalProps {
   allAds: Ad[];
   onToggleFavorite: (id: string) => void;
   onShowAd: (ad: Ad) => void;
+  onEditAd?: (ad: Ad) => void;
   onUpdateUser: (user: User) => void;
   onOpenAdminPanel: () => void;
   onOpenMerchantDashboard: () => void;
@@ -20,11 +21,13 @@ interface UserProfileModalProps {
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({ 
-  isOpen, onClose, user, onLogout, favorites, allAds, onToggleFavorite, onShowAd, onUpdateUser, onOpenAdminPanel, onOpenMerchantDashboard, onOpenPartnerModal
+  isOpen, onClose, user, onLogout, favorites, allAds, onToggleFavorite, onShowAd, onEditAd, onUpdateUser, onOpenAdminPanel, onOpenMerchantDashboard, onOpenPartnerModal
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'favorites' | 'orders' | 'my_ads'>('profile');
   const [name, setName] = useState(user.name || '');
   const [avatar, setAvatar] = useState(user.avatar || '');
+
+  const levelInfo = getLevelInfo(user.xp || 0);
 
   useEffect(() => {
       setName(user.name || '');
@@ -44,7 +47,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   ];
 
   const handleSave = () => {
+      const isNewProfile = !user.name;
       onUpdateUser({ ...user, name, avatar });
+      if (isNewProfile) {
+          alert('Профиль заполнен! +30 XP');
+      }
   };
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,24 +74,45 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   return (
     <div className="fixed inset-0 bg-dark/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div 
-        className="bg-background w-full max-w-4xl h-[85vh] md:h-[80vh] rounded-3xl shadow-2xl relative overflow-hidden animate-fade-in-up flex flex-col md:flex-row"
+        className="bg-background w-full max-w-4xl h-[90vh] md:h-[80vh] rounded-3xl shadow-2xl relative overflow-hidden animate-fade-in-up flex flex-col md:flex-row"
         onClick={e => e.stopPropagation()}
       >
         
         {/* --- MOBILE LAYOUT HEADER (Visible only on mobile) --- */}
-        <div className="md:hidden bg-white p-4 flex items-center justify-between border-b border-gray-100 shrink-0">
-             <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm overflow-hidden">
-                     {avatar ? <img src={avatar} className="w-full h-full object-cover" alt="User" /> : user.name?.charAt(0) || user.email.charAt(0)}
-                 </div>
-                 <div className="leading-tight">
-                     <p className="font-bold text-dark text-sm">{name || 'Пользователь'}</p>
-                     <p className="text-[10px] text-secondary truncate max-w-[150px]">{user.email}</p>
-                 </div>
-             </div>
-             <button onClick={onLogout} className="p-2 bg-gray-100 rounded-full text-red-500">
-                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+        <div className="md:hidden bg-white p-4 flex flex-col border-b border-gray-100 shrink-0 gap-4 relative">
+             {/* Close Button (Absolute Top Right) */}
+             <button 
+                onClick={onClose} 
+                className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition-colors z-10"
+             >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
+
+             <div className="flex items-center justify-between pr-12">
+                <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm overflow-hidden border-2 border-white shadow-sm">
+                        {avatar ? <img src={avatar} className="w-full h-full object-cover" alt="User" /> : user.name?.charAt(0) || user.email.charAt(0)}
+                    </div>
+                    <div className="leading-tight">
+                        <div className="flex items-center gap-2">
+                            <p className="font-bold text-dark text-base">{name || 'Пользователь'}</p>
+                            <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-full ${levelInfo.color}`}>Lvl {levelInfo.level}</span>
+                        </div>
+                        <p className="text-[10px] text-secondary font-medium">{levelInfo.title}</p>
+                    </div>
+                </div>
+             </div>
+             
+             {/* Mobile XP Bar */}
+             <div className="w-full">
+                <div className="flex justify-between text-[10px] text-secondary mb-1">
+                    <span>XP: {user.xp || 0}</span>
+                    <span>До уровня {levelInfo.level + 1}: {levelInfo.nextLevelXp - (user.xp || 0)}</span>
+                </div>
+                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full ${levelInfo.color} transition-all duration-500`} style={{ width: `${levelInfo.progressPercent}%` }}></div>
+                </div>
+             </div>
         </div>
 
         {/* --- MOBILE TAB BAR (Visible only on mobile) --- */}
@@ -117,18 +145,36 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         {/* --- DESKTOP SIDEBAR (Hidden on mobile) --- */}
         <div className="hidden md:flex w-72 bg-white border-r border-gray-200 p-6 flex-col shrink-0">
-           <div className="flex flex-col items-center mb-8">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white text-3xl font-bold mb-3 shadow-lg overflow-hidden">
-                 {avatar ? <img src={avatar} className="w-full h-full object-cover" alt="User" /> : user.name?.charAt(0) || user.email.charAt(0)}
+           <div className="flex flex-col items-center mb-6">
+              <div className="relative">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white text-3xl font-bold mb-3 shadow-lg overflow-hidden border-4 border-white">
+                    {avatar ? <img src={avatar} className="w-full h-full object-cover" alt="User" /> : user.name?.charAt(0) || user.email.charAt(0)}
+                  </div>
+                  <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white px-3 py-0.5 rounded-full ${levelInfo.color} border-2 border-white shadow-sm whitespace-nowrap`}>
+                      Lvl {levelInfo.level} {levelInfo.title}
+                  </div>
               </div>
-              <h2 className="text-xl font-bold text-dark text-center">{name || `Пользователь`}</h2>
+
+              <h2 className="text-xl font-bold text-dark text-center mt-2">{name || `Пользователь`}</h2>
               <p className="text-sm text-secondary">{user.email}</p>
+
+              {/* Desktop XP Bar */}
+              <div className="w-full mt-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                  <div className="flex justify-between text-[10px] font-bold text-secondary mb-1">
+                      <span>{user.xp || 0} XP</span>
+                      <span>{levelInfo.nextLevelXp} XP</span>
+                  </div>
+                  <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div className={`h-full ${levelInfo.color} transition-all duration-500`} style={{ width: `${levelInfo.progressPercent}%` }}></div>
+                  </div>
+                  <p className="text-[10px] text-center text-gray-400 mt-1">До след. уровня: {levelInfo.nextLevelXp - (user.xp || 0)} XP</p>
+              </div>
               
               {user.isAdmin && <span className="mt-2 bg-red-100 text-red-600 text-xs font-bold px-3 py-1 rounded-full">Администратор</span>}
               {user.managedShopId && <span className="mt-2 bg-blue-100 text-blue-600 text-xs font-bold px-3 py-1 rounded-full">{user.managedShopId.startsWith('cinema') ? 'Кинотеатр' : 'Владелец бизнеса'}</span>}
            </div>
 
-           <nav className="space-y-2 flex-grow overflow-y-auto">
+           <nav className="space-y-2 flex-grow overflow-y-auto custom-scrollbar">
               {/* Access Panels */}
               {user.isAdmin && (
                   <button onClick={onOpenAdminPanel} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-red-600 to-red-500 text-white shadow-md hover:scale-[1.02] transition-transform mb-2 group">
@@ -180,10 +226,23 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       {user.managedShopId && (
                            <button onClick={onOpenMerchantDashboard} className="w-full bg-gray-800 text-white py-3 rounded-xl font-bold">Бизнес Кабинет</button>
                       )}
-                      {/* Note: Partner Modal button removed from mobile profile as requested to be in sidebar on desktop */}
                   </div>
 
                   <div className="space-y-4">
+                     {/* Avatar Row (Explicitly First) */}
+                     <div>
+                         <label className="block text-sm font-bold text-secondary mb-1">Аватар</label>
+                         <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-300">
+                                {avatar ? <img src={avatar} className="w-full h-full object-cover" alt="Avatar" /> : <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold text-xl">{user.name?.charAt(0) || user.email.charAt(0)}</div>}
+                            </div>
+                            <label className="bg-white border border-gray-200 px-4 py-2 rounded-lg text-dark font-bold text-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                                Изменить фото
+                                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                            </label>
+                         </div>
+                     </div>
+                     
                      <div>
                         <label className="block text-sm font-bold text-secondary mb-1">Имя</label>
                         <input 
@@ -198,24 +257,24 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         <label className="block text-sm font-bold text-secondary mb-1">Email</label>
                         <input type="text" value={user.email} disabled className="w-full p-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed" />
                      </div>
-                     <div>
-                         <label className="block text-sm font-bold text-secondary mb-1">Аватар</label>
-                         <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-full bg-gray-200 overflow-hidden shrink-0">
-                                {avatar ? <img src={avatar} className="w-full h-full object-cover" alt="Avatar" /> : <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold text-xl">{user.name?.charAt(0) || user.email.charAt(0)}</div>}
-                            </div>
-                            <label className="bg-white border border-gray-200 px-4 py-2 rounded-lg text-dark font-bold text-sm cursor-pointer hover:bg-gray-50 transition-colors">
-                                Изменить
-                                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                            </label>
-                         </div>
-                     </div>
+
                      <button 
                         onClick={handleSave}
                         className="bg-primary text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-primary/20 mt-4 hover:bg-primary-dark transition-all active:scale-95 w-full md:w-auto"
                      >
                         Сохранить изменения
                      </button>
+                     
+                     {/* Logout Button (At bottom, under Save) */}
+                     <div className="mt-8 border-t border-gray-200 pt-4 md:hidden">
+                        <button 
+                            onClick={() => { onLogout(); onClose(); }}
+                            className="w-full bg-red-50 text-red-600 font-bold py-3 px-6 rounded-xl hover:bg-red-100 transition-all flex items-center justify-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                            Выйти из аккаунта
+                        </button>
+                     </div>
                   </div>
                </div>
             )}
@@ -268,9 +327,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                                             </span>
                                         </div>
                                         <p className="text-primary font-bold text-sm mt-1">{ad.price} ₽</p>
-                                        <div className="mt-2 text-xs text-gray-400 flex gap-3">
-                                            <span>Просмотров: 0</span>
+                                        <div className="mt-2 text-xs text-gray-400 flex flex-wrap gap-3 items-center">
                                             <button onClick={() => { onShowAd(ad); onClose(); }} className="text-primary hover:underline">Открыть</button>
+                                            {onEditAd && (
+                                                <button 
+                                                    onClick={() => { onEditAd(ad); onClose(); }} 
+                                                    className="bg-gray-100 text-dark px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+                                                >
+                                                    Редактировать
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

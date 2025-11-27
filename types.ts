@@ -18,6 +18,8 @@ export interface BookingWidgetConfig {
 export interface Ad {
   id: string;
   userId?: string; // Links ad to the user in Supabase
+  authorName?: string; // Display name of the seller
+  authorLevel?: number; // Level of the seller (1-5)
   title: string;
   description: string;
   price: number;
@@ -95,6 +97,7 @@ export interface User {
   favorites?: string[]; // Array of Ad IDs
   orders?: Order[];
   isAdmin?: boolean;
+  xp?: number; // Experience points
 }
 
 export interface CatalogCategory {
@@ -175,7 +178,7 @@ export interface Story {
 export interface Notification {
   id: number;
   message: string;
-  type: 'success' | 'info' | 'error';
+  type: 'success' | 'info' | 'error' | 'level_up'; // Added level_up type
 }
 
 // --- Chat Types ---

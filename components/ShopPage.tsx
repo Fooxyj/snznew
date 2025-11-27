@@ -17,6 +17,15 @@ export const ShopPage: React.FC<ShopPageProps> = ({ shop, onBack, variant = 'sho
     window.scrollTo(0, 0); // Scroll to top on mount
   }, [shop]);
 
+  const handleActionClick = () => {
+    if (isCinema) {
+        onBack(); // Go back to schedule
+    } else {
+        // Cafe/Shop: Call action
+        window.location.href = `tel:${shop.phone}`;
+    }
+  };
+
   return (
     <div className="animate-fade-in-up pb-10">
       {/* Navigation */}
@@ -79,10 +88,10 @@ export const ShopPage: React.FC<ShopPageProps> = ({ shop, onBack, variant = 'sho
                   </div>
 
                   <button 
-                    onClick={isCinema ? onBack : undefined}
+                    onClick={handleActionClick}
                     className="w-full mt-6 bg-gray-100 hover:bg-gray-200 text-dark font-bold py-3 rounded-xl transition-colors text-sm"
                   >
-                      {isCinema ? 'Расписание сеансов' : isCafe ? 'Забронировать столик' : 'Написать сообщение'}
+                      {isCinema ? 'Расписание сеансов' : isCafe ? 'Позвонить / Бронь' : 'Позвонить'}
                   </button>
               </div>
           </div>

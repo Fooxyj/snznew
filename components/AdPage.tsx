@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Ad, ChatSession } from '../types';
 import { ReviewsModal } from './ReviewsModal';
 import { BookingModal } from './BookingModal';
-import { formatPhoneNumber } from '../utils';
+import { formatPhoneNumber, getLevelInfo } from '../utils';
 
 interface AdPageProps {
   ad: Ad;
@@ -19,7 +19,23 @@ export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenC
   const [isReviewsModalOpen, setIsReviewsModalOpen] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   
+  // Robust image handling: ensure we display array if it exists, otherwise single image
   const images = ad.images && ad.images.length > 0 ? ad.images : [ad.image];
+
+  // Mock seller level if not present (random 1-5 for demonstration if missing)
+  const sellerLevel = ad.authorLevel || Math.floor(Math.random() * 4) + 1;
+  const sellerLevelInfo = getLevelInfo(sellerLevel === 1 ? 50 : sellerLevel === 2 ? 150 : sellerLevel === 3 ? 400 : 800); 
+  // Note: getLevelInfo takes XP, so we reverse map a bit just for visuals in this mock. 
+  // In real app, ad.authorLevel should probably be XP or calculated from backend.
+  // For now, let's just use the level number to pick a color manually or assume ad has authorLevel set.
+
+  const getBadgeColor = (lvl: number) => {
+      if (lvl <= 1) return 'bg-gray-400';
+      if (lvl === 2) return 'bg-blue-500';
+      if (lvl === 3) return 'bg-green-500';
+      if (lvl === 4) return 'bg-purple-500';
+      return 'bg-yellow-500';
+  };
 
   useEffect(() => {
     setActiveImage(ad.image);
@@ -121,12 +137,21 @@ export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenC
 
         <div className="space-y-4">
            <div className="flex items-center gap-3 mb-2 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors" onClick={handleReviewClick}>
-              <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white font-bold text-xl shadow-md">
-                 {ad.contact.charAt(0)}
+              <div className="relative">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white font-bold text-xl shadow-md overflow-hidden">
+                    {/* Show first letter of Author Name */}
+                    {ad.authorName ? ad.authorName.charAt(0).toUpperCase() : 'Ч'}
+                  </div>
+                  {/* Seller Level Badge */}
+                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full ${getBadgeColor(sellerLevel)} border-2 border-white flex items-center justify-center text-[10px] font-bold text-white shadow-sm`} title={`Уровень продавца: ${sellerLevel}`}>
+                      {sellerLevel}
+                  </div>
               </div>
               <div className="flex-grow">
-                 <p className="text-xs text-secondary font-bold uppercase">Продавец</p>
-                 <p className="font-bold text-dark text-lg leading-tight">Частное лицо</p>
+                 <div className="flex items-center gap-2">
+                    <p className="text-xs text-secondary font-bold uppercase">Продавец</p>
+                 </div>
+                 <p className="font-bold text-dark text-lg leading-tight">{ad.authorName || 'Частное лицо'}</p>
                  {rating ? (
                     <div className="flex items-center gap-1 mt-1">
                        <div className="flex text-yellow-400 text-xs">
@@ -234,7 +259,7 @@ export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenC
              </div>
            </div>
 
-           {/* Thumbnails Gallery */}
+           {/* Thumbnails Gallery - Shows if more than 1 image is available */}
            {images.length > 1 && (
              <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
                 {images.map((img, idx) => (
@@ -356,7 +381,7 @@ export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenC
         <ReviewsModal
           isOpen={isReviewsModalOpen}
           onClose={() => setIsReviewsModalOpen(false)}
-          sellerName={'Частное лицо'}
+          sellerName={ad.authorName || 'Частное лицо'}
           reviews={ad.reviews || []}
           onAddReview={(r, t) => onAddReview(ad.id, r, t)}
         />

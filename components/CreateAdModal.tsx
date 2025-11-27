@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { CreateAdFormState, Category, CatalogCategory } from '../types';
+
+import React, { useState, useEffect } from 'react';
+import { CreateAdFormState, Category, CatalogCategory, Ad } from '../types';
 
 interface CreateAdModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (ad: CreateAdFormState) => void;
   catalog: CatalogCategory[];
+  initialData?: Ad | null;
 }
 
-export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, onSubmit, catalog }) => {
-  const [form, setForm] = useState<CreateAdFormState>({
+export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, onSubmit, catalog, initialData }) => {
+  const defaults: CreateAdFormState = {
     title: '',
     description: '',
     price: '',
@@ -20,28 +22,48 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
     isPremium: false,
     images: [],
     specs: {}
-  });
+  };
+
+  const [form, setForm] = useState<CreateAdFormState>(defaults);
+
+  // Pre-fill form when initialData changes or modal opens
+  useEffect(() => {
+    if (isOpen) {
+        if (initialData) {
+            setForm({
+                title: initialData.title,
+                description: initialData.description,
+                price: initialData.price.toString(),
+                category: initialData.category,
+                subCategory: initialData.subCategory || '',
+                contact: initialData.contact,
+                location: initialData.location,
+                isPremium: initialData.isPremium,
+                // Handle both array images and legacy single image
+                images: initialData.images && initialData.images.length > 0 
+                        ? initialData.images 
+                        : (initialData.image ? [initialData.image] : []),
+                specs: initialData.specs || {}
+            });
+        } else {
+            setForm(defaults);
+        }
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let raw = e.target.value.replace(/\D/g, ''); // Keep only numbers
+    let raw = e.target.value.replace(/\D/g, ''); 
 
-    // Handle initial state or empty
     if (!raw) {
         setForm({...form, contact: '+7 '});
         return;
     }
-
-    // If starts with 7 or 8, remove it to normalize
     if (raw.startsWith('7') || raw.startsWith('8')) {
         raw = raw.slice(1);
     }
-
-    // Limit length to 10 digits
     raw = raw.slice(0, 10);
-
-    // Build the formatted string: +7 (900) 000 00 00
     let formatted = '+7';
     if (raw.length > 0) formatted += ` (${raw.slice(0, 3)}`;
     if (raw.length >= 3) formatted += `) ${raw.slice(3, 6)}`;
@@ -76,7 +98,6 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
           }));
       }).catch(err => console.error(err));
       
-      // Reset input value to allow selecting the same file again if needed
       e.target.value = '';
     }
   };
@@ -92,19 +113,9 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
     e.preventDefault();
     onSubmit(form);
     onClose();
-    // Reset form
-    setForm({
-      title: '',
-      description: '',
-      price: '',
-      category: 'sale',
-      subCategory: '',
-      contact: '+7 ',
-      location: '',
-      isPremium: false,
-      images: [],
-      specs: {}
-    });
+    // Don't reset immediately if we want to preserve state during async submit, 
+    // but typically we close the modal so reset is fine.
+    // However, if we reopen it for 'new ad', the useEffect will clear it anyway.
   };
 
   const updateSpec = (field: string, value: string) => {
@@ -117,15 +128,9 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
       }));
   };
 
-  // Get current category data from catalog
   const currentCategoryData = catalog.find(c => c.id === form.category);
-
-  // Determine which specs to show
   const showAutoSpecs = form.subCategory === 'Автомобили';
   const showRealEstateSpecs = ['Квартиры', 'Дома, дачи', 'Комнаты'].includes(form.subCategory);
-  
-  // Logic for Goods (Electronics, Personal Items, etc.)
-  // We check if it's NOT Auto or Real Estate, but IS in 'sale' category and not empty subcategory
   const isGoodsCategory = form.category === 'sale' && !showAutoSpecs && !showRealEstateSpecs && form.subCategory !== '';
 
   const inputClass = "w-full bg-gray-50 border border-gray-200 rounded-lg py-3 px-4 text-dark focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all";
@@ -138,8 +143,12 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
         {/* Header */}
         <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
           <div>
-            <h2 className="text-2xl font-bold text-dark tracking-tight">Новое объявление</h2>
-            <p className="text-sm text-secondary">Заполните детали, чтобы разместить на доске</p>
+            <h2 className="text-2xl font-bold text-dark tracking-tight">
+                {initialData ? 'Редактирование' : 'Новое объявление'}
+            </h2>
+            <p className="text-sm text-secondary">
+                {initialData ? 'Измените данные и сохраните' : 'Заполните детали, чтобы разместить на доске'}
+            </p>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -172,7 +181,10 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
                   onChange={e => setForm({
                     ...form, 
                     category: e.target.value as Category,
-                    subCategory: '' // Reset subcategory when main category changes
+                    // If we are editing, changing category might clear subcategory, 
+                    // but for new ads we definitely want to reset.
+                    // For safety, let's reset subCategory unless it matches
+                    subCategory: '' 
                   })}
                 >
                   <option value="sale">Продажа</option>
@@ -422,7 +434,7 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
               type="submit" 
               className="px-8 py-3 bg-dark text-white rounded-xl font-semibold hover:bg-black transition-all shadow-lg hover:shadow-xl active:scale-95 transform"
             >
-              Опубликовать
+              {initialData ? 'Сохранить' : 'Опубликовать'}
             </button>
           </div>
         </form>

@@ -21,6 +21,7 @@ import { ToastNotification } from './components/ToastNotification';
 import { AdminPanel } from './components/AdminPanel';
 import { MobileMenu } from './components/MobileMenu';
 import { MobileSearchModal } from './components/MobileSearchModal';
+import { SplashScreen } from './components/SplashScreen';
 import { supabase } from './services/supabaseClient';
 import { formatPhoneNumber } from './utils';
 
@@ -28,6 +29,9 @@ import { formatPhoneNumber } from './utils';
 const INITIAL_ADS: Ad[] = [
   {
     id: '1',
+    userId: '100',
+    authorName: 'Александр',
+    authorLevel: 3,
     title: 'Русская баня на дровах',
     description: 'Отличная парная, березовые веники, комната отдыха с камином. Находимся в черте города, удобный подъезд. Есть мангальная зона. Работаем круглосуточно.',
     price: 1200,
@@ -48,6 +52,9 @@ const INITIAL_ADS: Ad[] = [
   },
   {
     id: '9',
+    userId: '101',
+    authorName: 'База "У Озера"',
+    authorLevel: 4,
     title: 'Домики',
     description: 'Уютный дом на берегу озера. 12 спальных мест, большая гостиная, караоке, сауна внутри дома. Идеально для дня рождения или корпоратива. Залог 5000р.',
     price: 15000,
@@ -66,6 +73,9 @@ const INITIAL_ADS: Ad[] = [
   },
   {
     id: '2',
+    userId: '102',
+    authorName: 'Дмитрий',
+    authorLevel: 1,
     title: 'Продам ВАЗ 2114',
     description: '2011 год. Состояние хорошее, есть рыжики на арках. Двигатель работает ровно. Зимняя резина на штампах в комплекте.',
     price: 185000,
@@ -82,6 +92,9 @@ const INITIAL_ADS: Ad[] = [
   },
   {
     id: '3',
+    userId: '103',
+    authorName: 'Светлана',
+    authorLevel: 2,
     title: 'Сдается 2-к квартира',
     description: 'Район "Новый город". Рядом школа 135 и ФОК. Мебель, техника. Только на длительный срок. Без животных.',
     price: 25000,
@@ -100,6 +113,9 @@ const INITIAL_ADS: Ad[] = [
   },
   {
     id: '4',
+    userId: '104',
+    authorName: 'ИП Смирнов',
+    authorLevel: 5,
     title: 'Услуги сантехника',
     description: 'Любые виды сантехнических работ. Замена труб, установка смесителей, унитазов. Быстро, качественно.',
     price: 0,
@@ -119,6 +135,9 @@ const INITIAL_ADS: Ad[] = [
   },
   {
     id: '5',
+    userId: '105',
+    authorName: 'Мама3детей',
+    authorLevel: 2,
     title: 'Детская коляска 3в1',
     description: 'Коляска в отличном состоянии, после одного ребенка. Полный комплект.',
     price: 15000,
@@ -135,6 +154,9 @@ const INITIAL_ADS: Ad[] = [
   },
   {
     id: '6',
+    userId: '106',
+    authorName: 'ЭлектроМонтаж',
+    authorLevel: 3,
     title: 'Электрик. Монтаж проводки',
     description: 'Электромонтажные работы под ключ. Замена проводки, установка розеток, люстр, счетчиков. Допуск.',
     price: 0,
@@ -150,6 +172,9 @@ const INITIAL_ADS: Ad[] = [
   },
   {
     id: '7',
+    userId: '107',
+    authorName: 'РемонтПрофи',
+    authorLevel: 4,
     title: 'Ремонт квартир под ключ',
     description: 'Бригада мастеров выполнит качественный ремонт. Штукатурка, обои, ламинат, плитка. Смета бесплатно.',
     price: 0,
@@ -167,6 +192,9 @@ const INITIAL_ADS: Ad[] = [
   },
   {
     id: '8',
+    userId: '108',
+    authorName: 'Евгений',
+    authorLevel: 1,
     title: 'iPhone 13 128GB',
     description: 'В идеальном состоянии, полный комплект, чек, гарантия. Использовался в чехле и с защитным стеклом.',
     price: 55000,
@@ -183,6 +211,9 @@ const INITIAL_ADS: Ad[] = [
   },
   {
     id: '100',
+    userId: '109',
+    authorName: 'Виталий',
+    authorLevel: 2,
     title: 'Гараж в кооперативе №7',
     description: 'Продам гараж, яма сухая, крыша перекрыта в прошлом году.',
     price: 80000,
@@ -220,7 +251,6 @@ const MEDICINE_SERVICES = [
   { id: 'med2', name: 'Инвитро', address: 'ул. Васильева, 19', phone: '+7 (800) 200-36-30', description: 'Медицинские анализы, УЗИ', image: 'https://images.unsplash.com/photo-1579684385180-1ea55f9f4985?auto=format&fit=crop&w=800' },
   { id: 'med3', name: 'Стоматология "Жемчуг"', address: 'ул. Свердлова, 28', phone: '+7 (35146) 3-00-55', description: 'Лечение зубов, протезирование', image: 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&w=800' },
   { id: 'med4', name: 'Аптека "Живика"', address: 'пр. Мира, 20', phone: '+7 (35146) 2-15-15', description: 'Лекарства, косметика, медтехника', image: 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?auto=format&fit=crop&w=800' },
-  { id: 'med5', name: 'Ветеринарная клиника', address: 'ул. Транспортная, 10', phone: '+7 (35146) 2-55-22', description: 'Лечение животных, прививки', image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=800' },
 ];
 
 const CULTURE_PLACES = [
@@ -308,33 +338,47 @@ const INITIAL_MOVIES: Movie[] = [
 const INITIAL_GYMS: Shop[] = [
     {
         id: 'gym1',
-        name: 'Физ-Ра',
-        description: 'Тренажерный зал, групповые программы, кардиозона, профессиональные тренеры. Сауна в раздевалке.',
-        logo: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300',
-        coverImage: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200',
-        address: 'ул. Васильева 30',
-        phone: '+7 (35146) 9-22-11',
+        name: 'ФОК Айсберг',
+        description: 'Ледовая арена, тренажерный зал, сауна, прокат коньков.',
+        logo: 'https://images.unsplash.com/photo-1580261450046-d0a30080dc9b?w=300',
+        coverImage: 'https://images.unsplash.com/photo-1576678927484-cc907957088c?w=1200',
+        address: 'ул. 40 лет Октября, 36',
+        phone: '+7 (35146) 2-25-25',
         workingHours: 'Пн-Вс: 08:00 - 22:00',
         rating: 4.8,
         products: [
             { id: 'g1', title: 'Разовое посещение', price: 350, image: 'https://images.unsplash.com/photo-1576678927484-cc907957088c?w=400', description: 'Доступ ко всем тренажерам и сауне.' },
             { id: 'g2', title: 'Абонемент на месяц', price: 2500, image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400', description: 'Безлимитное посещение тренажерного зала.' },
-            { id: 'g3', title: 'Персональная тренировка', price: 800, image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400', description: 'Занятие с тренером (60 мин).' },
+            { id: 'g3', title: 'Массовое катание', price: 200, image: 'https://images.unsplash.com/photo-1515705576963-95cad62945b6?w=400', description: 'Сеанс 1 час. Прокат оплачивается отдельно.' },
         ]
     },
     {
         id: 'gym2',
-        name: 'Олимп',
-        description: 'Фитнес-клуб с бассейном. Аквааэробика, йога, пилатес. Детские секции.',
-        logo: 'https://images.unsplash.com/photo-1574680096141-1c57c502aa8f?w=300',
-        coverImage: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=1200',
-        address: 'ул. Ленина 10',
+        name: 'Скала',
+        description: 'Спортивный клуб. Скалодром, фитнес, йога, пилатес.',
+        logo: 'https://images.unsplash.com/photo-1522898467493-49726bf28798?w=300',
+        coverImage: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200',
+        address: 'ул. Забабахина, 21',
         phone: '+7 (35146) 3-15-15',
-        workingHours: 'Пн-Вс: 07:00 - 23:00',
+        workingHours: 'Пн-Вс: 09:00 - 21:00',
         rating: 4.9,
         products: [
-            { id: 'o1', title: 'Бассейн (разовое)', price: 400, image: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=400', description: 'Сеанс плавания 45 мин.' },
+            { id: 'o1', title: 'Скалодром (разовое)', price: 400, image: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=400', description: 'С инструктором. Снаряжение включено.' },
             { id: 'o2', title: 'Абонемент "Фитнес"', price: 3000, image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400', description: 'Групповые программы + тренажерный зал.' },
+        ]
+    },
+    {
+        id: 'gym3',
+        name: 'Авангард',
+        description: 'Стадион, футбольное поле, беговые дорожки, секции.',
+        logo: 'https://images.unsplash.com/photo-1574680096141-1c57c502aa8f?w=300',
+        coverImage: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=1200',
+        address: 'ул. 40 лет Октября, 15',
+        phone: '+7 (35146) 2-44-44',
+        workingHours: 'Пн-Вс: 08:00 - 22:00',
+        rating: 4.7,
+        products: [
+            { id: 'av1', title: 'Аренда поля (1 час)', price: 1500, image: 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?w=400', description: 'Футбольное поле с искусственным покрытием.' },
         ]
     }
 ];
@@ -514,7 +558,7 @@ const NAV_ITEMS = [
     { id: 'news', label: 'Новости', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /></svg> },
     { id: 'taxi', label: 'Такси', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1" /></svg> },
     { id: 'gyms', label: 'Спортзалы', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg> },
-    { id: 'cafes', label: 'Еда', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" /></svg> },
+    { id: 'cafes', label: 'Кафе и рестораны', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" /></svg> },
     { id: 'shops', label: 'Магазины', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg> },
     { id: 'cinema', label: 'Кино', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg> },
     { id: 'medicine', label: 'Медицина', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg> },
@@ -528,7 +572,8 @@ const DEFAULT_USER: User = {
   email: 'guest@snezhinsk.ru',
   isLoggedIn: false,
   favorites: [],
-  orders: []
+  orders: [],
+  xp: 0
 };
 
 // Improved helper to safely extract error messages
@@ -563,6 +608,7 @@ const App: React.FC = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false); // Mobile Search State
+  const [showSplashScreen, setShowSplashScreen] = useState(true);
   
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
@@ -589,6 +635,16 @@ const App: React.FC = () => {
   const [gyms, setGyms] = useState<Shop[]>(INITIAL_GYMS);
   const [movies, setMovies] = useState<Movie[]>(INITIAL_MOVIES);
 
+  // Edit Ad State
+  const [adToEdit, setAdToEdit] = useState<Ad | null>(null);
+
+  useEffect(() => {
+    // Check if we are on mobile
+    if (window.innerWidth >= 768) {
+        setShowSplashScreen(false); // Disable splash on desktop immediately
+    }
+  }, []);
+
   useEffect(() => {
     // Timer for weather widget
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -598,34 +654,42 @@ const App: React.FC = () => {
   // Persistence for user ads and favorites
   useEffect(() => {
     // 1. Load User
-    const savedUser = localStorage.getItem('user_data');
-    if (savedUser) {
-        setUser(JSON.parse(savedUser));
-    }
+    try {
+        const savedUser = localStorage.getItem('user_data');
+        if (savedUser) {
+            setUser(JSON.parse(savedUser));
+        }
+    } catch (e) { console.warn('LocalStorage error loading user', e); }
 
     // 2. Load My Pending Ads (for persistence before DB sync)
-    const pendingAds = localStorage.getItem('my_pending_ads');
-    if (pendingAds) {
-        const parsed: Ad[] = JSON.parse(pendingAds);
-        setAds(prev => {
-            // Merge unique
-            const newIds = new Set(parsed.map(a => a.id));
-            const filteredPrev = prev.filter(p => !newIds.has(p.id));
-            return [...parsed, ...filteredPrev];
-        });
-    }
+    try {
+        const pendingAds = localStorage.getItem('my_pending_ads');
+        if (pendingAds) {
+            const parsed: Ad[] = JSON.parse(pendingAds);
+            setAds(prev => {
+                // Merge unique
+                const newIds = new Set(parsed.map(a => a.id));
+                const filteredPrev = prev.filter(p => !newIds.has(p.id));
+                return [...parsed, ...filteredPrev];
+            });
+        }
+    } catch (e) { console.warn('LocalStorage error loading ads', e); }
 
     // 3. Load Favorites
-    const savedFavs = localStorage.getItem('favorites');
-    if (savedFavs) {
-        const favIds: string[] = JSON.parse(savedFavs);
-        setUser(u => ({ ...u, favorites: favIds }));
-    }
+    try {
+        const savedFavs = localStorage.getItem('favorites');
+        if (savedFavs) {
+            const favIds: string[] = JSON.parse(savedFavs);
+            setUser(u => ({ ...u, favorites: favIds }));
+        }
+    } catch (e) { console.warn('LocalStorage error loading favorites', e); }
 
     // 4. Check Auth State
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        const role = session.user.email?.includes('admin') ? true : false;
+        // Specific user or email-based admin check
+        const isAdmin = session.user.email?.includes('admin') || session.user.email === 'hrustalev_1974@mail.ru';
+        
         // Check if user manages a shop (mock logic)
         let managedShopId = undefined;
         if (session.user.email?.includes('cinema')) managedShopId = 'cinema1';
@@ -636,16 +700,17 @@ const App: React.FC = () => {
             id: session.user.id, 
             email: session.user.email!, 
             isLoggedIn: true,
-            isAdmin: role,
+            isAdmin: isAdmin,
             managedShopId: managedShopId,
-            name: session.user.user_metadata?.full_name || prev.name
+            name: session.user.user_metadata?.full_name || prev.name,
+            xp: prev.xp || 5 // Restore XP or give login bonus
         }));
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
        if (session?.user) {
-          const role = session.user.email?.includes('admin') ? true : false;
+          const isAdmin = session.user.email?.includes('admin') || session.user.email === 'hrustalev_1974@mail.ru';
            let managedShopId = undefined;
             if (session.user.email?.includes('cinema')) managedShopId = 'cinema1';
             if (session.user.email?.includes('shop')) managedShopId = 's1';
@@ -655,9 +720,10 @@ const App: React.FC = () => {
              id: session.user.id, 
              email: session.user.email!, 
              isLoggedIn: true, 
-             isAdmin: role,
+             isAdmin: isAdmin,
              managedShopId: managedShopId,
-             name: session.user.user_metadata?.full_name || prev.name
+             name: session.user.user_metadata?.full_name || prev.name,
+             xp: prev.xp || 50 // Registration/Login Bonus
           }));
        } else {
           setUser(DEFAULT_USER);
@@ -675,8 +741,15 @@ const App: React.FC = () => {
 
   // Save favorites when they change
   useEffect(() => {
-    localStorage.setItem('favorites', JSON.stringify(user.favorites || []));
+    try {
+        localStorage.setItem('favorites', JSON.stringify(user.favorites || []));
+    } catch (e) { console.warn('LocalStorage quota exceeded saving favorites'); }
   }, [user.favorites]);
+
+  // NEW: Scroll to top on navigation to ensure every new page/tab starts from the top
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [activeCategory, selectedSubCategory, selectedAd, selectedNews, selectedShop, activeChatSession]);
 
   const fetchAds = async () => {
       try {
@@ -695,6 +768,7 @@ const App: React.FC = () => {
               const dbAds: Ad[] = data.map((item: any) => ({
                   id: item.id,
                   userId: item.user_id,
+                  authorName: item.author_name,
                   title: item.title,
                   description: item.description,
                   price: item.price,
@@ -731,6 +805,22 @@ const App: React.FC = () => {
       setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
+  const addXp = (amount: number, reason: string) => {
+    setUser(prev => {
+        const newXp = (prev.xp || 0) + amount;
+        // Save to local storage for persistence in this demo
+        try {
+            localStorage.setItem('user_data', JSON.stringify({ ...prev, xp: newXp }));
+        } catch(e) {}
+        return { ...prev, xp: newXp };
+    });
+    addNotification({ 
+        id: Date.now(), 
+        message: `+${amount} XP: ${reason}`, 
+        type: 'level_up' 
+    });
+  };
+
   const handleCreateAd = async (form: CreateAdFormState) => {
     // Process specs: convert strings to numbers
     const specs: Ad['specs'] = {};
@@ -744,10 +834,13 @@ const App: React.FC = () => {
         if (form.specs.brand) specs.brand = form.specs.brand;
     }
 
+    const adId = adToEdit ? adToEdit.id : Date.now().toString();
+
     // Optimistic UI Update
     const newAd: Ad = {
-      id: Date.now().toString(), // Temporary ID
+      id: adId,
       userId: user.id,
+      authorName: user.name || 'Пользователь',
       title: form.title,
       description: form.description,
       price: Number(form.price),
@@ -756,29 +849,52 @@ const App: React.FC = () => {
       contact: form.contact,
       location: form.location,
       image: form.images[0] || 'https://via.placeholder.com/300',
-      images: form.images,
+      images: form.images, // Pass all images
       isPremium: form.isPremium,
-      date: 'Только что',
-      status: 'pending', // Optimistically show as pending
-      reviews: [],
+      date: adToEdit ? adToEdit.date : 'Только что',
+      status: 'pending', // Optimistically show as pending (or keep current if editing logic allows)
+      reviews: adToEdit ? adToEdit.reviews : [],
       specs: specs
     };
 
     // 1. Update UI immediately
-    setAds(prev => [newAd, ...prev]);
+    if (adToEdit) {
+         setAds(prev => prev.map(a => a.id === adId ? newAd : a));
+    } else {
+         setAds(prev => [newAd, ...prev]);
+         // Award XP for creating ad
+         addXp(20, 'Публикация объявления');
+    }
     
-    // 2. Save to Local Storage (Backup)
-    const currentPending = JSON.parse(localStorage.getItem('my_pending_ads') || '[]');
-    localStorage.setItem('my_pending_ads', JSON.stringify([newAd, ...currentPending]));
+    // 2. Save to Local Storage (Backup) - WRAPPED IN TRY-CATCH
+    try {
+        const currentPending = JSON.parse(localStorage.getItem('my_pending_ads') || '[]');
+        // Remove old if exists
+        const filteredPending = currentPending.filter((a:Ad) => a.id !== adId);
+        localStorage.setItem('my_pending_ads', JSON.stringify([newAd, ...filteredPending]));
+    } catch (e) {
+        console.warn('LocalStorage quota exceeded. Pending ad not backed up locally, but proceeding with submission.', e);
+        // Optional: Attempt to save without heavy images
+        try {
+            const currentPending = JSON.parse(localStorage.getItem('my_pending_ads') || '[]');
+            const filteredPending = currentPending.filter((a:Ad) => a.id !== adId);
+            const lightAd = { ...newAd, image: '', images: [] }; // Strip images for backup
+            localStorage.setItem('my_pending_ads', JSON.stringify([lightAd, ...filteredPending]));
+        } catch (ignored) {}
+    }
 
-    addNotification({ id: Date.now(), message: 'Объявление отправлено на модерацию!', type: 'success' });
+    addNotification({ id: Date.now(), message: adToEdit ? 'Объявление обновлено' : 'Объявление отправлено на модерацию!', type: 'success' });
+
+    // Reset edit state
+    setAdToEdit(null);
 
     // 3. Send to Supabase
     try {
-        const { data, error } = await supabase
+        if (adToEdit) {
+            // Update logic (mock for now, or supabase update)
+             const { error } = await supabase
             .from('ads')
-            .insert({
-                user_id: user.id === 'guest' ? null : user.id, // Handle guest posting
+            .update({
                 title: form.title,
                 description: form.description,
                 price: Number(form.price),
@@ -788,24 +904,48 @@ const App: React.FC = () => {
                 location: form.location,
                 image: form.images[0] || '',
                 is_premium: form.isPremium,
-                status: 'pending', // Explicitly set status
-                specs: specs
+                specs: specs,
+                // images: form.images -- TODO: Ensure DB supports array
             })
-            .select();
-
-        if (error) throw error;
+            .eq('id', adId);
+            if (error) throw error;
+        } else {
+             // Insert
+            const { error } = await supabase
+            .from('ads')
+            .insert({
+                user_id: user.id === 'guest' ? null : user.id,
+                author_name: user.name,
+                title: form.title,
+                description: form.description,
+                price: Number(form.price),
+                category: form.category,
+                subcategory: form.subCategory,
+                contact: form.contact,
+                location: form.location,
+                image: form.images[0] || '',
+                is_premium: form.isPremium,
+                status: 'pending',
+                specs: specs,
+                // images: form.images -- TODO: Ensure DB supports array
+            });
+            if (error) throw error;
+        }
         
-        // If success, we can replace the optimistic ad with the real one, 
-        // OR wait for the next fetch/subscription update. 
-        // For now, let's just re-fetch to sync IDs.
+        // Re-fetch to sync
         fetchAds();
 
     } catch (err: any) {
-        console.error("Failed to save ad:", err);
+        console.error("Failed to save ad to DB:", err);
         const errMsg = getSafeErrorMessage(err);
-        addNotification({ id: Date.now(), message: 'Ошибка сохранения: ' + errMsg, type: 'error' });
-        // Optional: Remove optimistic ad if failed
+        // addNotification({ id: Date.now(), message: 'Ошибка сохранения: ' + errMsg, type: 'error' });
+        // Suppress for demo if DB isn't connected
     }
+  };
+
+  const handleEditAd = (ad: Ad) => {
+      setAdToEdit(ad);
+      setIsCreateModalOpen(true);
   };
 
   const handleAddToCart = (product: Product, quantity: number) => {
@@ -921,12 +1061,15 @@ const App: React.FC = () => {
                   <div className="w-24 h-24 bg-gray-100 rounded-xl overflow-hidden shrink-0">
                       <img src={place.image} className="w-full h-full object-cover" alt={place.name} />
                   </div>
-                  <div className="flex-grow">
-                      <h3 className="font-bold text-dark text-lg">{place.name}</h3>
-                      <p className="text-sm text-gray-500 mb-1">{place.address}</p>
-                      <p className="text-xs text-secondary mb-3">{place.description}</p>
-                      <a href={`tel:${place.phone}`} className="text-primary font-bold text-sm bg-blue-50 px-3 py-1 rounded-lg hover:bg-blue-100 transition-colors">
-                          {place.phone}
+                  <div className="flex-grow flex flex-col justify-between">
+                      <div>
+                        <h3 className="font-bold text-dark text-lg">{place.name}</h3>
+                        <p className="text-sm text-gray-500 mb-1">{place.address}</p>
+                        <p className="text-xs text-secondary mb-2">{place.description}</p>
+                      </div>
+                      <a href={`tel:${place.phone}`} className="self-start text-white font-bold text-sm bg-primary px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                          Позвонить
                       </a>
                   </div>
               </div>
@@ -938,13 +1081,13 @@ const App: React.FC = () => {
   const EmergencyView = () => (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up">
           {EMERGENCY_NUMBERS.map(num => (
-              <div key={num.id} className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-center justify-between">
+              <div key={num.id} className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-center justify-between gap-4">
                   <div>
-                      <h3 className="font-bold text-red-900">{num.name}</h3>
-                      <p className="text-xs text-red-700 opacity-80">{num.desc}</p>
+                      <h3 className="font-bold text-red-900 leading-tight">{num.name}</h3>
+                      <p className="text-xs text-red-700 opacity-80 mt-1">{num.desc}</p>
                   </div>
-                  <a href={`tel:${num.phone}`} className="text-2xl font-black text-red-600 hover:text-red-700">
-                      {num.phone}
+                  <a href={`tel:${num.phone}`} className="w-10 h-10 flex items-center justify-center rounded-full border-2 border-red-500 text-red-500 bg-white hover:bg-red-500 hover:text-white transition-all shadow-sm shrink-0">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                   </a>
               </div>
           ))}
@@ -1236,6 +1379,8 @@ const App: React.FC = () => {
                              }
                              return a;
                          }));
+                         // Award XP for reviewing
+                         addXp(15, 'Отзыв');
                     }}
                     onOpenChat={(session) => {
                         if (user.isLoggedIn) {
@@ -1372,6 +1517,7 @@ const App: React.FC = () => {
   // Main Layout
   return (
     <div className="min-h-screen bg-background font-sans text-dark pb-24 md:pb-0 relative">
+      {showSplashScreen && <SplashScreen onFinish={() => setShowSplashScreen(false)} />}
       <ToastNotification notifications={notifications} onRemove={handleRemoveNotification} />
       
       <Sidebar />
@@ -1419,17 +1565,17 @@ const App: React.FC = () => {
 
                  {/* Weather Widget */}
                  {weather && (
-                   <div className="hidden md:flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
-                      <div className="text-right leading-tight">
+                   <div className="flex items-center gap-2 md:gap-3 bg-white px-2 md:px-4 py-1 md:py-2 rounded-xl md:border border-gray-100 md:shadow-sm">
+                      <div className="text-right leading-tight hidden md:block">
                           <span className="block font-bold text-dark text-lg">{currentTime.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'})}</span>
                           <span className="text-[10px] text-secondary font-medium uppercase tracking-wide">Снежинск</span>
                       </div>
-                      <div className="w-px h-8 bg-gray-200"></div>
-                      <div className="flex items-center gap-2">
-                          <span className="text-2xl">☁️</span>
-                          <div className="leading-tight">
+                      <div className="w-px h-8 bg-gray-200 hidden md:block"></div>
+                      <div className="flex items-center gap-1 md:gap-2">
+                          <span className="text-xl md:text-2xl">☁️</span>
+                          <div className="leading-tight text-xs md:text-base">
                              <span className="block font-bold text-dark">{weather.temp}°C</span>
-                             <span className="text-[10px] text-secondary">{weather.pressure} мм</span>
+                             <span className="text-[10px] text-secondary hidden md:inline">{weather.pressure} мм</span>
                           </div>
                       </div>
                    </div>
@@ -1437,7 +1583,10 @@ const App: React.FC = () => {
                  
                  {user.isLoggedIn && (
                      <button 
-                        onClick={() => setIsCreateModalOpen(true)}
+                        onClick={() => {
+                            setAdToEdit(null); // Ensure not editing old ad
+                            setIsCreateModalOpen(true);
+                        }}
                         className="hidden md:flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold hover:bg-primary-dark transition-all shadow-lg shadow-primary/20 active:scale-95"
                      >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
@@ -1509,6 +1658,7 @@ const App: React.FC = () => {
            <button 
              onClick={() => {
                  if (user.isLoggedIn) {
+                     setAdToEdit(null); // Ensure not editing old ad
                      setIsCreateModalOpen(true);
                  } else {
                      setIsLoginModalOpen(true);
@@ -1539,6 +1689,7 @@ const App: React.FC = () => {
         onClose={() => setIsCreateModalOpen(false)} 
         onSubmit={handleCreateAd}
         catalog={CATALOG}
+        initialData={adToEdit}
       />
       
       <LoginModal 
@@ -1592,10 +1743,15 @@ const App: React.FC = () => {
              // If ad is pending and belongs to user, allow showing
              setSelectedAd(ad);
          }}
+         onEditAd={handleEditAd}
          onUpdateUser={(u) => {
              // Mock update user logic
              setUser(u);
-             localStorage.setItem('user_data', JSON.stringify(u));
+             try {
+                localStorage.setItem('user_data', JSON.stringify(u));
+             } catch (e) {
+                 console.warn("Quota exceeded saving user data", e);
+             }
          }}
          onOpenAdminPanel={() => {
              setIsUserProfileOpen(false);

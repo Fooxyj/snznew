@@ -69,11 +69,6 @@ export const AdCard: React.FC<AdCardProps> = ({ ad, variant = 'standard', onShow
                 </svg>
             </button>
         </div>
-
-        {/* Mobile VIP Indicator Strip */}
-        {isPremium && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-yellow-400 md:hidden"></div>
-        )}
       </div>
 
       {/* Content: Adjusted for mobile readability */}
