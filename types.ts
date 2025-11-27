@@ -1,5 +1,5 @@
 
-export type Category = 'all' | 'sale' | 'rent' | 'services' | 'jobs' | 'cinema' | 'shops' | 'cafes' | 'gyms' | 'news' | 'taxi' | 'medicine' | 'emergency' | 'culture';
+export type Category = 'all' | 'sale' | 'rent' | 'services' | 'jobs' | 'cinema' | 'shops' | 'cafes' | 'gyms' | 'news' | 'taxi' | 'medicine' | 'emergency' | 'culture' | 'beauty';
 
 export interface Review {
   id: string;

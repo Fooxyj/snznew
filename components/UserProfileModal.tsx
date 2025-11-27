@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Ad, Order } from '../types';
 import { AdCard } from './AdCard';
 import { getLevelInfo } from '../utils';
+import { api } from '../services/api';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [activeTab, setActiveTab] = useState<'profile' | 'favorites' | 'orders' | 'my_ads'>('profile');
   const [name, setName] = useState(user.name || '');
   const [avatar, setAvatar] = useState(user.avatar || '');
+  const [isUploading, setIsUploading] = useState(false);
 
   const levelInfo = getLevelInfo(user.xp || 0);
 
@@ -54,20 +56,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       }
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-        if (file.size > 500 * 1024) {
-            alert('Файл слишком большой! Пожалуйста, выберите изображение меньше 500 КБ.');
-            return;
+        setIsUploading(true);
+        try {
+            const publicUrl = await api.uploadFile(file);
+            setAvatar(publicUrl);
+        } catch (err) {
+            console.error(err);
+            alert("Ошибка загрузки аватара");
+        } finally {
+            setIsUploading(false);
         }
-        const reader = new FileReader();
-        reader.onload = () => {
-            if (reader.result) {
-                setAvatar(reader.result as string);
-            }
-        };
-        reader.readAsDataURL(file);
     }
   };
 
@@ -236,9 +237,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                             <div className="w-16 h-16 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-300">
                                 {avatar ? <img src={avatar} className="w-full h-full object-cover" alt="Avatar" /> : <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold text-xl">{user.name?.charAt(0) || user.email.charAt(0)}</div>}
                             </div>
-                            <label className="bg-white border border-gray-200 px-4 py-2 rounded-lg text-dark font-bold text-sm cursor-pointer hover:bg-gray-50 transition-colors">
-                                Изменить фото
-                                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                            <label className="bg-white border border-gray-200 px-4 py-2 rounded-lg text-dark font-bold text-sm cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-2">
+                                {isUploading ? 'Загрузка...' : 'Изменить фото'}
+                                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={isUploading} />
                             </label>
                          </div>
                      </div>

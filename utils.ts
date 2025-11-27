@@ -93,3 +93,53 @@ export const getLevelInfo = (xp: number = 0): LevelInfo => {
     color
   };
 };
+
+/**
+ * Compresses an image file using Canvas.
+ * Max width/height: 1280px, Quality: 0.8 (JPEG)
+ */
+export const compressImage = async (file: File): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const elem = document.createElement('canvas');
+        const maxWidth = 1280;
+        const maxHeight = 1280;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        elem.width = width;
+        elem.height = height;
+        const ctx = elem.getContext('2d');
+        if (!ctx) {
+            reject(new Error("Canvas context is null"));
+            return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        ctx.canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error("Compression failed"));
+        }, 'image/jpeg', 0.8);
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+};

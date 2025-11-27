@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Category } from '../types';
 
@@ -45,7 +44,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, onSelec
                             ? 'bg-primary text-white shadow-md shadow-primary/20' 
                             : 'text-secondary hover:bg-gray-50 hover:text-dark'}`}
                   >
-                      <span className="text-xl w-6 flex justify-center">{item.icon}</span>
+                      <span className="w-6 flex justify-center">{item.icon}</span>
                       {item.label}
                   </button>
               ))}

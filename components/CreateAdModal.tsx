@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { CreateAdFormState, Category, CatalogCategory, Ad } from '../types';
+import { api } from '../services/api';
 
 interface CreateAdModalProps {
   isOpen: boolean;
@@ -25,6 +25,7 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
   };
 
   const [form, setForm] = useState<CreateAdFormState>(defaults);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Pre-fill form when initialData changes or modal opens
   useEffect(() => {
@@ -73,32 +74,31 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
     setForm({...form, contact: formatted});
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      const fileArray = Array.from(files);
-      
-      Promise.all(fileArray.map(file => {
-          return new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => {
-                  if (reader.result) {
-                      resolve(reader.result as string);
-                  } else {
-                      reject("Failed to read file");
-                  }
-              };
-              reader.onerror = () => reject(reader.error);
-              reader.readAsDataURL(file as Blob);
-          });
-      })).then(newImages => {
+      setIsUploading(true);
+      const fileArray = Array.from(files) as File[];
+      const uploadedUrls: string[] = [];
+
+      try {
+          for (const file of fileArray) {
+              // Use API service which handles compression and upload to 'images' bucket
+              const publicUrl = await api.uploadFile(file);
+              uploadedUrls.push(publicUrl);
+          }
+          
           setForm(prev => ({ 
               ...prev, 
-              images: [...prev.images, ...newImages] 
+              images: [...prev.images, ...uploadedUrls] 
           }));
-      }).catch(err => console.error(err));
-      
-      e.target.value = '';
+      } catch (err) {
+          console.error("Upload failed", err);
+          alert("Ошибка при загрузке изображения. Попробуйте еще раз.");
+      } finally {
+          setIsUploading(false);
+          e.target.value = ''; // Reset input
+      }
     }
   };
 
@@ -111,11 +111,12 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUploading) {
+        alert("Пожалуйста, дождитесь окончания загрузки фото.");
+        return;
+    }
     onSubmit(form);
     onClose();
-    // Don't reset immediately if we want to preserve state during async submit, 
-    // but typically we close the modal so reset is fine.
-    // However, if we reopen it for 'new ad', the useEffect will clear it anyway.
   };
 
   const updateSpec = (field: string, value: string) => {
@@ -326,18 +327,23 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
             
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {/* Upload Button */}
-                <div className="aspect-square border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 hover:border-primary/50 transition-all cursor-pointer relative group">
+                <div className={`aspect-square border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 hover:border-primary/50 transition-all cursor-pointer relative group ${isUploading ? 'opacity-50 cursor-wait' : ''}`}>
                     <input 
                         type="file" 
                         accept="image/*"
                         multiple 
+                        disabled={isUploading}
                         onChange={handleImageUpload} 
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     />
                     <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mb-2 group-hover:bg-primary/10 transition-colors">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                        {isUploading ? (
+                             <svg className="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        ) : (
+                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                        )}
                     </div>
-                    <span className="text-xs font-semibold">Добавить</span>
+                    <span className="text-xs font-semibold">{isUploading ? 'Загрузка...' : 'Добавить'}</span>
                 </div>
 
                 {/* Image Previews */}
@@ -361,6 +367,7 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
                     </div>
                 ))}
             </div>
+            <p className="text-xs text-secondary mt-2">Картинки автоматически сжимаются для быстрой загрузки.</p>
           </div>
 
           <div>
@@ -432,9 +439,10 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
             </button>
             <button 
               type="submit" 
-              className="px-8 py-3 bg-dark text-white rounded-xl font-semibold hover:bg-black transition-all shadow-lg hover:shadow-xl active:scale-95 transform"
+              disabled={isUploading}
+              className="px-8 py-3 bg-dark text-white rounded-xl font-semibold hover:bg-black transition-all shadow-lg hover:shadow-xl active:scale-95 transform disabled:opacity-50 disabled:cursor-wait"
             >
-              {initialData ? 'Сохранить' : 'Опубликовать'}
+              {isUploading ? 'Загрузка фото...' : (initialData ? 'Сохранить' : 'Опубликовать')}
             </button>
           </div>
         </form>
