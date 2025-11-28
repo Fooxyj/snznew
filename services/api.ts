@@ -5,7 +5,7 @@ import { compressImage } from '../utils';
 
 // Define the fields we actually need for the list view to reduce payload.
 // Explicitly removed author_name to fix "column does not exist" error
-const AD_LIST_FIELDS = 'id, user_id, title, description, price, category, subcategory, contact, location, image, images, is_premium, created_at, status, specs';
+const AD_LIST_FIELDS = 'id, user_id, title, description, price, category, sub_category, contact, location, image, images, is_premium, created_at, status, specs';
 
 export const api = {
   // Helper to upload files to Supabase Storage
