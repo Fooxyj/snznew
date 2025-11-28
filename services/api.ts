@@ -9,25 +9,36 @@ const AD_LIST_FIELDS = 'id, user_id, title, description, price, category, subcat
 
 export const api = {
   // Helper to upload files to Supabase Storage
-  uploadFile: async (file: File, bucket: string = 'images'): Promise<string> => {
+  // Fetches current session to ensure path matches auth.uid() for RLS
+  uploadFile: async (file: File, bucket: string = 'images', _userId?: string): Promise<string> => {
       try {
-          // 1. Compress
+          // 1. Get current authenticated user directly from Supabase
+          const { data: { user } } = await supabase.auth.getUser();
+          const currentUserId = user?.id;
+
+          // 2. Compress
           const compressedBlob = await compressImage(file);
           const compressedFile = new File([compressedBlob], file.name, { type: 'image/jpeg' });
 
-          // 2. Generate unique path
+          // 3. Generate unique path
           const fileExt = 'jpg'; // Always converting to jpeg
           const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-          const filePath = `${fileName}`;
+          
+          // 4. Structure path as 'userId/fileName' if user is logged in
+          // This matches standard RLS policies: (storage.foldername(name))[1] = auth.uid()
+          // If not logged in, uploads to root (likely will fail RLS unless public)
+          const filePath = currentUserId ? `${currentUserId}/${fileName}` : fileName;
 
-          // 3. Upload
+          // 5. Upload
           const { error: uploadError } = await supabase.storage
               .from(bucket)
-              .upload(filePath, compressedFile);
+              .upload(filePath, compressedFile, {
+                  upsert: false
+              });
 
           if (uploadError) throw uploadError;
 
-          // 4. Get Public URL
+          // 6. Get Public URL
           const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
           return data.publicUrl;
       } catch (error) {

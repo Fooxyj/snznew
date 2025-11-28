@@ -1,34 +1,36 @@
-
 import { GoogleGenAI } from "@google/genai";
-
-// Используем безопасную проверку или заглушку, чтобы не ломать приложение, если ключа нет
-// В браузере process.env вызовет ошибку, поэтому здесь мы либо хардкодим (для тестов), либо оставляем пустым.
-const apiKey = ''; // Сюда можно вставить ключ для локальных тестов, но для деплоя лучше через Vercel Env
 
 let ai: GoogleGenAI | null = null;
 
-if (apiKey) {
-  try {
-    ai = new GoogleGenAI({ apiKey });
-  } catch (e) {
-    console.warn("Ошибка инициализации Gemini:", e);
-  }
-}
+const getAiClient = () => {
+    if (!ai) {
+        // Initialize lazy to prevent crash at startup if environment is not ready
+        let apiKey = '';
+        try {
+            // Strict check: verify process exists before accessing process.env
+            // This prevents "ReferenceError: process is not defined" in pure browser environments
+            if (typeof process !== 'undefined' && process && typeof process.env === 'object') {
+                apiKey = process.env.API_KEY || '';
+            }
+        } catch (e) {
+            console.warn("Could not access process.env.API_KEY", e);
+        }
+        
+        ai = new GoogleGenAI({ apiKey });
+    }
+    return ai;
+};
 
 export const generateAdDescription = async (title: string, category: string, keywords: string): Promise<string> => {
-  if (!ai) {
-    console.warn("Gemini API Key is missing.");
-    return "Автоматическое описание недоступно (нет ключа API).";
-  }
-
   try {
+    const client = getAiClient();
     const prompt = `Напиши короткое, привлекательное объявление (максимум 40 слов) для продажи или аренды в городе Снежинск. 
     Заголовок: ${title}. 
     Категория: ${category}. 
     Ключевые особенности: ${keywords}.
     Стиль: Газетное объявление, вежливое, но продающее.`;
 
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
     });

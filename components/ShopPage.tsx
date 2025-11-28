@@ -1,17 +1,19 @@
 
+
 import React, { useEffect } from 'react';
 import { Shop, Product } from '../types';
 
 interface ShopPageProps {
   shop: Shop;
   onBack: () => void;
-  variant?: 'shop' | 'cafe' | 'cinema';
+  variant?: 'shop' | 'cafe' | 'cinema' | 'tourism';
   onProductClick?: (product: Product) => void;
 }
 
 export const ShopPage: React.FC<ShopPageProps> = ({ shop, onBack, variant = 'shop', onProductClick }) => {
   const isCafe = variant === 'cafe';
   const isCinema = variant === 'cinema';
+  const isTourism = variant === 'tourism';
 
   useEffect(() => {
     window.scrollTo(0, 0); // Scroll to top on mount
@@ -21,7 +23,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ shop, onBack, variant = 'sho
     if (isCinema) {
         onBack(); // Go back to schedule
     } else {
-        // Cafe/Shop: Call action
+        // Cafe/Shop/Tourism: Call action
         window.location.href = `tel:${shop.phone}`;
     }
   };
@@ -34,8 +36,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ shop, onBack, variant = 'sho
           onClick={onBack}
           className="hover:text-primary transition-colors flex items-center gap-1 font-medium"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-          {isCinema ? 'К расписанию' : isCafe ? 'Все кафе' : 'Все магазины'}
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          {isCinema ? 'К расписанию' : isCafe ? 'Все кафе' : isTourism ? 'Все места' : 'Все магазины'}
         </button>
         <span className="text-gray-300">/</span>
         <span className="text-dark font-medium">{shop.name}</span>
@@ -82,7 +84,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ shop, onBack, variant = 'sho
                           <a href={`tel:${shop.phone}`} className="font-medium text-primary hover:underline">{shop.phone}</a>
                       </div>
                       <div>
-                          <p className="text-gray-400 text-xs mb-1">О {isCafe ? 'заведении' : 'компании'}</p>
+                          <p className="text-gray-400 text-xs mb-1">О {isCafe ? 'заведении' : isTourism ? 'месте' : 'компании'}</p>
                           <p className="text-secondary leading-relaxed">{shop.description}</p>
                       </div>
                   </div>
@@ -91,7 +93,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ shop, onBack, variant = 'sho
                     onClick={handleActionClick}
                     className="w-full mt-6 bg-gray-100 hover:bg-gray-200 text-dark font-bold py-3 rounded-xl transition-colors text-sm"
                   >
-                      {isCinema ? 'Расписание сеансов' : isCafe ? 'Позвонить / Бронь' : 'Позвонить'}
+                      {isCinema ? 'Расписание сеансов' : isCafe ? 'Позвонить / Бронь' : isTourism ? 'Записаться / Позвонить' : 'Позвонить'}
                   </button>
               </div>
           </div>
@@ -99,7 +101,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ shop, onBack, variant = 'sho
           {/* Right Content: Products */}
           <div className="lg:col-span-3">
               <h2 className="text-2xl font-bold text-dark mb-6 flex items-center gap-2">
-                  {isCafe || isCinema ? 'Меню' : 'Витрина товаров'}
+                  {isCafe || isCinema ? 'Меню' : isTourism ? 'Услуги и цены' : 'Витрина товаров'}
                   <span className="bg-gray-100 text-secondary text-sm font-normal px-2 py-1 rounded-lg">{shop.products.length}</span>
               </h2>
 

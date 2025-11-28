@@ -61,7 +61,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     if (file) {
         setIsUploading(true);
         try {
-            const publicUrl = await api.uploadFile(file);
+            // Use API which handles auth automatically now
+            const publicUrl = await api.uploadFile(file, 'images');
             setAvatar(publicUrl);
         } catch (err) {
             console.error(err);

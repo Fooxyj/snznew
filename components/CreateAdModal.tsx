@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CreateAdFormState, Category, CatalogCategory, Ad } from '../types';
 import { api } from '../services/api';
@@ -44,7 +45,15 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
                 images: initialData.images && initialData.images.length > 0 
                         ? initialData.images 
                         : (initialData.image ? [initialData.image] : []),
-                specs: initialData.specs || {}
+                specs: initialData.specs ? {
+                    year: initialData.specs.year?.toString(),
+                    mileage: initialData.specs.mileage?.toString(),
+                    rooms: initialData.specs.rooms?.toString(),
+                    area: initialData.specs.area?.toString(),
+                    floor: initialData.specs.floor?.toString(),
+                    condition: initialData.specs.condition,
+                    brand: initialData.specs.brand
+                } : {}
             });
         } else {
             setForm(defaults);
@@ -83,8 +92,8 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
 
       try {
           for (const file of fileArray) {
-              // Use API service which handles compression and upload to 'images' bucket
-              const publicUrl = await api.uploadFile(file);
+              // API now handles user session check internally for RLS
+              const publicUrl = await api.uploadFile(file, 'images');
               uploadedUrls.push(publicUrl);
           }
           
@@ -94,7 +103,7 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
           }));
       } catch (err) {
           console.error("Upload failed", err);
-          alert("Ошибка при загрузке изображения. Попробуйте еще раз.");
+          alert("Ошибка при загрузке изображения. Проверьте соединение или права доступа.");
       } finally {
           setIsUploading(false);
           e.target.value = ''; // Reset input

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Ad, Category, CreateAdFormState, NewsItem, User, CatalogCategory, Review, Movie, Shop, Product, CartItem, Story, Notification, ChatSession } from './types';
 import { AdCard } from './components/AdCard';
 import { CreateAdModal } from './components/CreateAdModal';
@@ -24,11 +24,10 @@ import { MobileMenu } from './components/MobileMenu';
 import { MobileSearchModal } from './components/MobileSearchModal';
 import { SplashScreen } from './components/SplashScreen';
 import { supabase } from './services/supabaseClient';
-import { api } from './services/api'; // Optimized API service
+import { api } from './services/api';
 import { formatPhoneNumber } from './utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-// ... (KEEP INITIAL DATA AS IS) ...
 const INITIAL_ADS: Ad[] = [
   {
     id: '1',
@@ -214,12 +213,120 @@ const INITIAL_ADS: Ad[] = [
   }
 ];
 
-// ... (Rest of CONSTANTS like TAXI_SERVICES etc. preserved) ...
 const TAXI_SERVICES = [
   { id: 't1', name: 'Яндекс Go', phone: '', link: 'https://go.yandex.ru/', description: 'Быстрая подача, оплата картой', icon: '🚕' },
   { id: 't2', name: 'Везёт', phone: '+7 (35146) 3-33-33', description: 'Городское такси, эконом', icon: '🚙' },
   { id: 't3', name: 'Снежинское', phone: '+7 (35146) 9-22-22', description: 'Надежное такси, трансферы', icon: '🚖' },
   { id: 't4', name: 'Максим', phone: '+7 (35146) 2-22-22', description: 'Заказ через оператора', icon: '🚗' },
+];
+
+const FREIGHT_PROVIDERS: Shop[] = [
+    {
+        id: 'fr1',
+        name: 'Грузоперевозки "Снежинск"',
+        description: 'Быстрые и аккуратные переезды. Город, межгород. Опытные грузчики.',
+        coverImage: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=1200',
+        logo: 'https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=200',
+        address: 'г. Снежинск',
+        phone: '+7 (912) 345-67-89',
+        workingHours: 'Ежедневно: 08:00 - 20:00',
+        rating: 4.9,
+        products: [
+            { id: 'fr_p1', title: 'Газель 3 метра', price: 600, image: 'https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=400', description: 'Перевозка мебели, вещей. Цена за час.' },
+            { id: 'fr_p2', title: 'Услуги грузчиков', price: 400, image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400', description: 'Крепкие ребята, этаж не имеет значения. Цена за час/чел.' },
+            { id: 'fr_p3', title: 'Вывоз мусора', price: 2000, image: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=400', description: 'Вывоз строительного мусора на полигон.' }
+        ]
+    },
+    {
+        id: 'fr2',
+        name: 'ИП Иванов (Грузотакси)',
+        description: 'Личный грузовик 5 тонн. Доставка стройматериалов, переезды.',
+        coverImage: 'https://images.unsplash.com/photo-1519003722824-194d4455a60c?w=1200',
+        logo: 'https://images.unsplash.com/photo-1625218827366-2428591af9f3?w=200',
+        address: 'г. Снежинск',
+        phone: '+7 (900) 555-44-33',
+        workingHours: 'Пн-Сб: 09:00 - 18:00',
+        rating: 4.5,
+        products: [
+            { id: 'fr_p4', title: 'Грузовик 5т', price: 1200, image: 'https://images.unsplash.com/photo-1519003722824-194d4455a60c?w=400', description: 'Бортовой, длина 6м. Цена за час.' },
+            { id: 'fr_p5', title: 'Доставка щебня/песка', price: 3000, image: 'https://images.unsplash.com/photo-1513828583688-652e92742670?w=400', description: 'Доставка по городу (рейс).' }
+        ]
+    }
+];
+
+const TOURISM_CLUBS: Shop[] = [
+  { 
+      id: 'tc1', 
+      name: 'Яхт-клуб "Парус"', 
+      description: 'Прогулки на яхтах, обучение парусному спорту, аренда сап-бордов. Проведение регат и корпоративов на берегу озера Синара.', 
+      coverImage: 'https://images.unsplash.com/photo-1543489822-c49534f3271f?w=1200',
+      logo: 'https://images.unsplash.com/photo-1543489822-c49534f3271f?w=200', 
+      address: 'оз. Синара, эллинг 1',
+      phone: '+7 (900) 111-22-33',
+      workingHours: 'Пн-Вс: 09:00 - 21:00',
+      rating: 4.9,
+      products: [
+          { id: 'ts1', title: 'Аренда яхты (1 час)', price: 2500, image: 'https://images.unsplash.com/photo-1540946485063-a40da27545f8?w=400', description: 'Прогулка с капитаном вместимостью до 5 человек.' },
+          { id: 'ts2', title: 'Сап-борд', price: 500, image: 'https://images.unsplash.com/photo-1543489822-c49534f3271f?w=400', description: 'Аренда сап-борда на 1 час.' },
+          { id: 'ts3', title: 'Обучение', price: 1500, image: 'https://images.unsplash.com/photo-1559380991-7844aa492718?w=400', description: 'Индивидуальное занятие с инструктором.' }
+      ]
+  },
+  { 
+      id: 'tc2', 
+      name: 'ГЛК "Вишневая"', 
+      description: 'Горнолыжный комплекс. Подготовленные трассы, прокат лыж и сноубордов, услуги инструкторов. Тюбинг для детей. Кафе на вершине.', 
+      coverImage: 'https://images.unsplash.com/photo-1518112390430-f4ab02e9c2c8?w=1200',
+      logo: 'https://images.unsplash.com/photo-1518112390430-f4ab02e9c2c8?w=200',
+      address: 'гора Вишневая',
+      phone: '+7 (35146) 9-55-11',
+      workingHours: 'Вт-Вс: 10:00 - 18:00',
+      rating: 4.7,
+      products: [
+          { id: 'ts4', title: 'Ски-пасс (3 часа)', price: 800, image: 'https://images.unsplash.com/photo-1518112390430-f4ab02e9c2c8?w=400', description: 'Доступ ко всем подъемникам.' },
+          { id: 'ts5', title: 'Прокат снаряжения', price: 600, image: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400', description: 'Полный комплект: лыжи/борд, ботинки.' },
+          { id: 'ts6', title: 'Инструктор (1 час)', price: 1200, image: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400', description: 'Обучение катанию с нуля.' }
+      ]
+  },
+  { 
+      id: 'tc3', 
+      name: 'Конный клуб "Мустанг"', 
+      description: 'Конные прогулки по лесу, фотосессии с лошадьми, иппотерапия для детей. Уроки верховой езды.', 
+      coverImage: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=1200',
+      logo: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=200',
+      address: 'пос. Сокол',
+      phone: '+7 (922) 333-44-55',
+      workingHours: 'Пн-Вс: 10:00 - 19:00',
+      rating: 4.8,
+      products: [
+          { id: 'ts7', title: 'Конная прогулка', price: 1000, image: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=400', description: 'Часовая прогулка по лесному маршруту.' },
+          { id: 'ts8', title: 'Фотосессия', price: 1500, image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400', description: 'Аренда лошади для фотосессии (30 мин).' },
+      ]
+  },
+  { 
+      id: 'tc4', 
+      name: 'База отдыха "Озеро"', 
+      description: 'Беседки с мангалами, пляж, прокат лодок и катамаранов. Домики для ночевки на берегу озера.', 
+      coverImage: 'https://images.unsplash.com/photo-1547528026-6f3c58941783?w=1200',
+      logo: 'https://images.unsplash.com/photo-1547528026-6f3c58941783?w=200',
+      address: 'оз. Иткуль',
+      phone: '+7 (35146) 2-12-12',
+      workingHours: 'Круглосуточно',
+      rating: 4.6,
+      products: [
+          { id: 'ts9', title: 'Аренда беседки', price: 500, image: 'https://images.unsplash.com/photo-1561577553-614763328eb9?w=400', description: 'Беседка с мангалом на час (до 10 чел).' },
+          { id: 'ts10', title: 'Домик на сутки', price: 3500, image: 'https://images.unsplash.com/photo-1449156493391-d2cfa28e468b?w=400', description: 'Уютный домик с удобствами.' },
+      ]
+  },
+];
+
+const BUS_SCHEDULES = [
+    // City Routes first
+    { number: '52', route: 'Кольцевой (по городу)', times: 'Каждые 15 минут (06:00 - 23:00)', type: 'city' },
+    { number: '24', route: 'пл. Ленина - 40 сады', times: '08:00, 09:30, 17:15, 18:45', type: 'city' },
+    { number: '9', route: 'пос. Сокол - Вокзал', times: '07:15, 08:30, 12:45, 17:20', type: 'city' },
+    // Intercity Routes
+    { number: '551', route: 'Снежинск - Екатеринбург', times: '05:30, 09:00, 14:00, 18:00', type: 'intercity' },
+    { number: '119', route: 'Снежинск - Челябинск', times: '06:00, 10:00, 15:00, 19:00', type: 'intercity' },
 ];
 
 const EMERGENCY_NUMBERS = [
@@ -285,7 +392,6 @@ const INITIAL_NEWS: NewsItem[] = [
   }
 ];
 
-// ... (KEEP MOVIES, SHOPS, CAFES AS IS) ...
 const INITIAL_MOVIES: Movie[] = [
   {
     id: 'm1',
@@ -572,18 +678,18 @@ const CATALOG: CatalogCategory[] = [
   }
 ];
 
-// Reordered NAV_ITEMS for logical flow and removed text-xl from MobileMenu
 const NAV_ITEMS = [
     { id: 'all', label: 'Главная', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> },
     { id: 'news', label: 'Новости', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /></svg> },
     { id: 'shops', label: 'Магазины', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg> },
     { id: 'cafes', label: 'Кафе и рестораны', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" /></svg> },
     { id: 'cinema', label: 'Кино', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg> },
+    { id: 'tourism', label: 'Туризм', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
     { id: 'culture', label: 'Культура', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg> },
     { id: 'beauty', label: 'Красота', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
     { id: 'gyms', label: 'Спортзалы', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg> },
     { id: 'medicine', label: 'Медицина', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg> },
-    { id: 'taxi', label: 'Такси', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1" /></svg> },
+    { id: 'transport', label: 'Транспорт', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg> },
     { id: 'emergency', label: 'Экстренные', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> },
 ];
 
@@ -626,7 +732,6 @@ const App: React.FC = () => {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [showSplashScreen, setShowSplashScreen] = useState(true);
   
-  // Public Profile Modal State
   const [publicProfileUser, setPublicProfileUser] = useState<any>(null);
 
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
@@ -658,6 +763,24 @@ const App: React.FC = () => {
   
   const queryClient = useQueryClient();
 
+  const handleNavigate = (category: Category) => {
+    setActiveCategory(category);
+    setSelectedSubCategory(null);
+    setSearchQuery('');
+    
+    setSelectedAd(null);
+    setSelectedShop(null);
+    setSelectedNews(null);
+    setSelectedProduct(null);
+    setActiveChatSession(null);
+    setActiveMovie(null);
+    
+    setIsMobileMenuOpen(false);
+    setIsCatalogOpen(false);
+  };
+
+  const totalCartCount = useMemo(() => cart.reduce((acc, item) => acc + item.quantity, 0), [cart]);
+
   useEffect(() => {
     if (window.innerWidth >= 768) {
         setShowSplashScreen(false);
@@ -669,16 +792,14 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Use the new optimized API service
   const { data: fetchedAds } = useQuery({
-    queryKey: ['ads', activeCategory], // Add dependency on category for caching
+    queryKey: ['ads', activeCategory],
     queryFn: async () => {
        try {
            if (activeCategory === 'beauty') {
-               // Beauty uses the 'services' category from DB
                return await api.ads.getByCategory('services');
            }
-           if (activeCategory === 'all' || activeCategory === 'news' || activeCategory === 'shops' || activeCategory === 'cinema' || activeCategory === 'cafes' || activeCategory === 'gyms' || activeCategory === 'emergency' || activeCategory === 'taxi' || activeCategory === 'medicine' || activeCategory === 'culture') {
+           if (activeCategory === 'all' || activeCategory === 'news' || activeCategory === 'shops' || activeCategory === 'cinema' || activeCategory === 'cafes' || activeCategory === 'gyms' || activeCategory === 'emergency' || activeCategory === 'transport' || activeCategory === 'medicine' || activeCategory === 'culture' || activeCategory === 'tourism') {
                return await api.ads.list();
            } else {
                return await api.ads.getByCategory(activeCategory);
@@ -688,17 +809,15 @@ const App: React.FC = () => {
            return null;
        }
     },
-    staleTime: 1000 * 60 * 2, // 2 minutes stale time
+    staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 10,
   });
 
   useEffect(() => {
-      // Prioritize DB ads over everything else. 
-      if (fetchedAds) {
+      if (fetchedAds && fetchedAds.length > 0) {
           const dbAds: Ad[] = fetchedAds.map((item: any) => ({
               id: item.id,
               userId: item.user_id,
-              // DB might not return author_name if column missing, fallback to safe default
               authorName: item.author_name || 'Продавец', 
               authorLevel: item.author_level || 1,
               title: item.title,
@@ -710,16 +829,19 @@ const App: React.FC = () => {
               location: item.location,
               image: item.image,
               isPremium: item.is_premium,
+              bookingAvailable: false, 
               date: new Date(item.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
               status: item.status || 'pending',
               specs: item.specs || {}
           }));
 
-          // When DB data is available, USE IT exclusively. 
-          // Do NOT merge with INITIAL_ADS to prevent duplicates and local ghost ads.
-          setAds(dbAds);
+          setAds(currentAds => {
+             if (JSON.stringify(currentAds) !== JSON.stringify(dbAds)) {
+                 return dbAds;
+             }
+             return currentAds;
+          });
       }
-      // If fetchedAds is null/undefined (loading or error), we keep current state (which defaults to INITIAL_ADS)
   }, [fetchedAds]);
 
   useEffect(() => {
@@ -817,7 +939,6 @@ const App: React.FC = () => {
   };
 
   const handleCreateAd = async (form: CreateAdFormState) => {
-    // 1. Enforce Authentication
     if (!user.isLoggedIn || user.id === 'guest') {
         addNotification({ id: Date.now(), message: 'Войдите в аккаунт, чтобы опубликовать объявление', type: 'error' });
         setIsLoginModalOpen(true);
@@ -855,8 +976,7 @@ const App: React.FC = () => {
             addNotification({ id: Date.now(), message: 'Объявление обновлено!', type: 'success' });
         } else {
             await api.ads.create({
-                user_id: user.id, // Authenticated user ID
-                // author_name removed to fix DB error
+                user_id: user.id,
                 title: form.title,
                 description: form.description,
                 price: Number(form.price),
@@ -874,7 +994,6 @@ const App: React.FC = () => {
             addXp(20, 'Публикация объявления');
         }
         
-        // Force Refetch
         queryClient.invalidateQueries({ queryKey: ['ads'] });
         setAdToEdit(null);
 
@@ -896,7 +1015,7 @@ const App: React.FC = () => {
              return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item);
          }
          let shopId = 'unknown';
-         const allShops = [...shops, ...cafes, ...gyms, ...beautyShops]; 
+         const allShops = [...shops, ...cafes, ...gyms, ...beautyShops, ...TOURISM_CLUBS, ...FREIGHT_PROVIDERS]; 
          const ownerShop = allShops.find(s => s.products.some(p => p.id === product.id));
          if (ownerShop) shopId = ownerShop.id;
 
@@ -936,7 +1055,7 @@ const App: React.FC = () => {
   };
 
   const handleOpenShop = (shopId: string) => {
-      const shop = [...shops, ...cafes, ...gyms, ...beautyShops].find(s => s.id === shopId);
+      const shop = [...shops, ...cafes, ...gyms, ...beautyShops, ...TOURISM_CLUBS, ...FREIGHT_PROVIDERS].find(s => s.id === shopId);
       if (shop) setSelectedShop(shop);
   };
   
@@ -946,8 +1065,6 @@ const App: React.FC = () => {
         setActiveCategory('cinema');
         return;
     }
-    // Check if it's a beauty shop to return to beauty category?
-    // Not strictly necessary as activeCategory remains 'beauty'
     setSelectedShop(null);
   };
 
@@ -955,42 +1072,136 @@ const App: React.FC = () => {
       setPublicProfileUser({
           id: userId,
           name: userName,
-          level: 1, // Default level for public view
+          level: 1, 
           avatar: '', 
       });
   };
 
-  const getShopVariant = (shop: Shop): 'cinema' | 'cafe' | 'shop' => {
+  const getShopVariant = (shop: Shop): 'cinema' | 'cafe' | 'shop' | 'tourism' => {
       if (shop.id.includes('cinema')) return 'cinema';
+      if (shop.id.includes('tc')) return 'tourism';
       if (cafes.some(c => c.id === shop.id)) return 'cafe';
       return 'shop';
   };
 
   // --- Views ---
-  const TaxiView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up">
-       {TAXI_SERVICES.map(taxi => (
-          <div key={taxi.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                  <div className="text-4xl">{taxi.icon}</div>
-                  <div>
-                      <h3 className="font-bold text-dark text-lg">{taxi.name}</h3>
-                      <p className="text-secondary text-xs">{taxi.description}</p>
-                  </div>
+  const TransportView = () => {
+      const [viewMode, setViewMode] = useState<'taxi' | 'bus' | 'freight'>('freight');
+
+      const cityBuses = BUS_SCHEDULES.filter(b => b.type === 'city');
+      const intercityBuses = BUS_SCHEDULES.filter(b => b.type === 'intercity');
+
+      return (
+          <div className="space-y-6 animate-fade-in-up">
+              {/* Toggle Buttons */}
+              <div className="flex bg-gray-100 p-1 rounded-xl w-full md:w-auto self-start overflow-x-auto no-scrollbar">
+                   <button 
+                      onClick={() => setViewMode('freight')}
+                      className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${viewMode === 'freight' ? 'bg-white shadow-sm text-dark' : 'text-secondary hover:text-dark'}`}
+                  >
+                      Грузоперевозки
+                  </button>
+                  <button 
+                      onClick={() => setViewMode('taxi')}
+                      className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${viewMode === 'taxi' ? 'bg-white shadow-sm text-dark' : 'text-secondary hover:text-dark'}`}
+                  >
+                      Такси
+                  </button>
+                  <button 
+                      onClick={() => setViewMode('bus')}
+                      className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${viewMode === 'bus' ? 'bg-white shadow-sm text-dark' : 'text-secondary hover:text-dark'}`}
+                  >
+                      Автобусы
+                  </button>
               </div>
-              {taxi.phone ? (
-                  <a href={`tel:${taxi.phone}`} className="bg-green-500 text-white font-bold py-2 px-6 rounded-xl hover:bg-green-600 transition-colors shadow-lg shadow-green-200">
-                      Вызвать
-                  </a>
+
+              {viewMode === 'taxi' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {TAXI_SERVICES.map(taxi => (
+                          <div key={taxi.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                  <div className="text-4xl">{taxi.icon}</div>
+                                  <div>
+                                      <h3 className="font-bold text-dark text-lg">{taxi.name}</h3>
+                                      <p className="text-secondary text-xs">{taxi.description}</p>
+                                  </div>
+                              </div>
+                              {taxi.phone ? (
+                                  <a href={`tel:${taxi.phone}`} className="bg-green-500 text-white font-bold py-2 px-6 rounded-xl hover:bg-green-600 transition-colors shadow-lg shadow-green-200">
+                                      Вызвать
+                                  </a>
+                              ) : (
+                                  <a href={taxi.link} target="_blank" rel="noreferrer" className="bg-yellow-400 text-dark font-bold py-2 px-6 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-200">
+                                      Приложение
+                                  </a>
+                              )}
+                          </div>
+                      ))}
+                  </div>
+              ) : viewMode === 'freight' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {FREIGHT_PROVIDERS.map(shop => (
+                          <ShopCard key={shop.id} shop={shop} onClick={setSelectedShop} />
+                      ))}
+                  </div>
               ) : (
-                  <a href={taxi.link} target="_blank" rel="noreferrer" className="bg-yellow-400 text-dark font-bold py-2 px-6 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-200">
-                      Приложение
-                  </a>
+                  <div className="space-y-8">
+                      <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-blue-800 text-sm">
+                          Расписание может меняться в праздничные дни.
+                      </div>
+                      
+                      {/* City Routes */}
+                      <div>
+                          <h3 className="text-xl font-bold text-dark mb-4 flex items-center gap-2">
+                             <span className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm">🏠</span>
+                             Городские маршруты
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {cityBuses.map((bus, idx) => (
+                                  <div key={idx} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                                      <div className="flex items-center gap-3 mb-3">
+                                          <div className="w-10 h-10 bg-primary text-white font-black text-xl flex items-center justify-center rounded-lg">
+                                              {bus.number}
+                                          </div>
+                                          <div className="font-bold text-dark leading-tight">{bus.route}</div>
+                                      </div>
+                                      <div className="text-sm text-secondary bg-gray-50 p-3 rounded-lg">
+                                          <span className="font-semibold block mb-1 text-xs uppercase text-gray-400">Отправление:</span>
+                                          {bus.times}
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+
+                      {/* Intercity Routes */}
+                      <div>
+                          <h3 className="text-xl font-bold text-dark mb-4 flex items-center gap-2">
+                             <span className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center text-sm">🛣️</span>
+                             Межгород
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {intercityBuses.map((bus, idx) => (
+                                  <div key={idx} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                                      <div className="flex items-center gap-3 mb-3">
+                                          <div className="w-10 h-10 bg-indigo-500 text-white font-black text-xl flex items-center justify-center rounded-lg">
+                                              {bus.number}
+                                          </div>
+                                          <div className="font-bold text-dark leading-tight">{bus.route}</div>
+                                      </div>
+                                      <div className="text-sm text-secondary bg-gray-50 p-3 rounded-lg">
+                                          <span className="font-semibold block mb-1 text-xs uppercase text-gray-400">Отправление:</span>
+                                          {bus.times}
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  </div>
               )}
           </div>
-       ))}
-    </div>
-  );
+      );
+  };
 
   const MedicineView = () => (
       <div className="space-y-4 animate-fade-in-up">
@@ -1028,6 +1239,36 @@ const App: React.FC = () => {
                   </a>
               </div>
           ))}
+      </div>
+  );
+
+  const TourismView = () => (
+      <div className="space-y-6 animate-fade-in-up">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {TOURISM_CLUBS.map(club => (
+                  <div key={club.id} onClick={() => setSelectedShop(club)} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 group flex flex-col h-full cursor-pointer hover:shadow-lg transition-all">
+                      <div className="h-48 overflow-hidden relative">
+                          <img src={club.coverImage} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={club.name} />
+                          <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
+                               {club.products?.slice(0, 2).map(prod => (
+                                   <span key={prod.id} className="bg-white/90 backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold text-dark">{prod.title}</span>
+                               ))}
+                          </div>
+                      </div>
+                      <div className="p-5 flex-grow flex flex-col">
+                          <h3 className="font-bold text-dark text-lg mb-2">{club.name}</h3>
+                          <p className="text-sm text-secondary leading-relaxed mb-4 flex-grow">{club.description}</p>
+                          
+                          <button 
+                            className="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-dark transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20 pointer-events-none"
+                          >
+                              <span className="text-sm">Подробнее</span>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                          </button>
+                      </div>
+                  </div>
+              ))}
+          </div>
       </div>
   );
 
@@ -1072,20 +1313,157 @@ const App: React.FC = () => {
   );
 
   const renderContent = () => {
-    // 0. Global Search
     if (searchQuery) {
-        return <div className="p-4">Поиск...</div>;
+        const q = searchQuery.toLowerCase().trim();
+
+        const isMedicine = q.includes('больниц') || q.includes('врач') || q.includes('аптек') || q.includes('лекарств');
+        const isFood = q.includes('еда') || q.includes('кафе') || q.includes('пицц') || q.includes('суши');
+        const isAuto = q.includes('авто') || q.includes('машин') || q.includes('колес');
+
+        const foundAds = ads.filter(ad => 
+            (ad.title.toLowerCase().includes(q) || ad.description.toLowerCase().includes(q) || (isAuto && ad.category === 'sale' && ad.subCategory === 'Автомобили')) &&
+            (ad.status === 'approved')
+        );
+
+        const allShops = [...shops, ...cafes, ...gyms, ...beautyShops, ...TOURISM_CLUBS, ...FREIGHT_PROVIDERS];
+        const foundShops = allShops.filter(s => 
+            s.name.toLowerCase().includes(q) || 
+            s.description.toLowerCase().includes(q) ||
+            (isMedicine && s.id.includes('med')) || 
+            (isFood && (s.id.includes('c') || s.description.toLowerCase().includes('ресторан')))
+        );
+
+        const foundProducts: { product: Product, shop: Shop }[] = [];
+        allShops.forEach(shop => {
+            shop.products.forEach(p => {
+                if (p.title.toLowerCase().includes(q)) {
+                    foundProducts.push({ product: p, shop });
+                }
+            });
+        });
+
+        const foundNews = news.filter(n => n.title.toLowerCase().includes(q) || n.excerpt.toLowerCase().includes(q));
+        const foundMovies = movies.filter(m => m.title.toLowerCase().includes(q) || m.genre.toLowerCase().includes(q));
+
+        const hasResults = foundAds.length > 0 || foundShops.length > 0 || foundProducts.length > 0 || foundNews.length > 0 || foundMovies.length > 0;
+
+        return (
+            <div className="space-y-10 animate-fade-in-up pb-10">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold text-dark">Результаты поиска: "{searchQuery}"</h2>
+                    <button 
+                        onClick={() => setSearchQuery('')}
+                        className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full text-secondary transition-colors"
+                    >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                {!hasResults ? (
+                    <div className="text-center py-20 text-secondary bg-white rounded-3xl border border-gray-100 shadow-sm">
+                        <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        </div>
+                        <p className="text-lg font-medium text-dark">Ничего не найдено</p>
+                        <p className="text-sm">Попробуйте изменить запрос</p>
+                    </div>
+                ) : (
+                    <>
+                        {foundShops.length > 0 && (
+                            <div>
+                                <h3 className="text-lg font-bold text-secondary uppercase mb-4 tracking-wider text-xs">Магазины и Места</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {foundShops.map(shop => <ShopCard key={shop.id} shop={shop} onClick={setSelectedShop} />)}
+                                </div>
+                            </div>
+                        )}
+
+                        {foundProducts.length > 0 && (
+                            <div>
+                                <h3 className="text-lg font-bold text-secondary uppercase mb-4 tracking-wider text-xs">Товары</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                    {foundProducts.map(({product, shop}) => (
+                                        <div key={product.id} onClick={() => setSelectedProduct(product)} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer">
+                                            <div className="aspect-square bg-gray-50 rounded-lg overflow-hidden mb-3">
+                                                <img src={product.image} className="w-full h-full object-cover" />
+                                            </div>
+                                            <h4 className="font-bold text-sm text-dark line-clamp-1">{product.title}</h4>
+                                            <p className="text-xs text-secondary mb-2">{shop.name}</p>
+                                            <span className="text-primary font-bold text-sm">{product.price} ₽</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {foundAds.length > 0 && (
+                            <div>
+                                <h3 className="text-lg font-bold text-secondary uppercase mb-4 tracking-wider text-xs">Объявления</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                    {foundAds.map(ad => (
+                                        <AdCard 
+                                            key={ad.id} 
+                                            ad={ad} 
+                                            onShow={handleShowAd}
+                                            isFavorite={user.favorites?.includes(ad.id)}
+                                            onToggleFavorite={handleToggleFavorite}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {foundNews.length > 0 && (
+                            <div>
+                                <h3 className="text-lg font-bold text-secondary uppercase mb-4 tracking-wider text-xs">Новости</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {foundNews.map(item => (
+                                        <div key={item.id} onClick={() => setSelectedNews(item)} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md cursor-pointer flex gap-4">
+                                            <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                                                <img src={item.image} className="w-full h-full object-cover" />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-dark mb-1">{item.title}</h4>
+                                                <p className="text-xs text-secondary line-clamp-2">{item.excerpt}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {foundMovies.length > 0 && (
+                            <div>
+                                <h3 className="text-lg font-bold text-secondary uppercase mb-4 tracking-wider text-xs">Кино</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                    {foundMovies.map(movie => (
+                                        <div key={movie.id} onClick={() => setActiveMovie(movie)} className="cursor-pointer group">
+                                            <div className="aspect-[2/3] rounded-xl overflow-hidden mb-2 relative">
+                                                <img src={movie.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
+                                            </div>
+                                            <h4 className="font-bold text-sm text-dark line-clamp-1">{movie.title}</h4>
+                                            <p className="text-xs text-secondary">{movie.genre}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+        );
     }
 
-    if (activeCategory === 'taxi') return <TaxiView />;
+    if (activeCategory === 'transport') return <TransportView />;
     if (activeCategory === 'medicine') return <MedicineView />;
     if (activeCategory === 'emergency') return <EmergencyView />;
     if (activeCategory === 'culture') return <CultureView />;
+    if (activeCategory === 'tourism') return <TourismView />;
 
     if (activeCategory === 'beauty') {
         const beautySubcats = ['Маникюр', 'Педикюр', 'Парикмахер', 'Массаж', 'Брови и ресницы', 'Косметолог', 'Эпиляция', 'Тату'];
         
-        // Filter loaded ads by category 'services' and subCategory in beauty list
         let displayAds = ads.filter(ad => ad.category === 'services' && ad.subCategory && beautySubcats.includes(ad.subCategory));
         
         if (selectedSubCategory) {
@@ -1094,7 +1472,6 @@ const App: React.FC = () => {
 
         return (
             <div className="space-y-8 animate-fade-in-up">
-                {/* 1. Salons Section (Horizontal Scroll) */}
                 {!selectedSubCategory && (
                     <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-3xl p-6 border border-purple-100">
                         <h3 className="text-xl font-bold text-dark mb-4 px-1 flex items-center gap-2">
@@ -1110,14 +1487,12 @@ const App: React.FC = () => {
                     </div>
                 )}
 
-                {/* 2. Individual Masters Section */}
                 <div>
                     <h3 className="text-xl font-bold text-dark mb-4 px-1 flex items-center justify-between">
                         <span>Частные мастера</span>
                         <span className="text-sm font-normal text-secondary bg-gray-100 px-2 py-1 rounded-lg">{displayAds.length}</span>
                     </h3>
 
-                    {/* Horizontal Scrollable Filter Pills */}
                     <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0 mb-2">
                         <button 
                             onClick={() => setSelectedSubCategory(null)}
@@ -1277,16 +1652,12 @@ const App: React.FC = () => {
         );
     }
 
-    // 10. Ads List (Default)
     let filteredAds = ads;
     
-    // Client-side subcategory filter (Category is now handled by DB query if applicable)
     if (selectedSubCategory) {
         filteredAds = filteredAds.filter(ad => ad.subCategory === selectedSubCategory);
     }
 
-    // Filter by Status (Approved or Owned)
-    // FIX: Fallback to approved for legacy data without status
     filteredAds = filteredAds.filter(ad => {
         if (ad.status === 'approved' || !ad.status) return true;
         return ad.userId === user.id || (user.id === 'guest' && ad.userId === undefined);
@@ -1348,7 +1719,7 @@ const App: React.FC = () => {
                     <p className="text-lg font-medium text-dark">Объявлений не найдено</p>
                     <p className="text-sm">Попробуйте изменить категорию или фильтры</p>
                     {(activeCategory !== 'all') && (
-                        <button onClick={() => { setActiveCategory('all'); setSelectedSubCategory(null); setSearchQuery(''); }} className="mt-4 text-primary font-bold hover:underline">
+                        <button onClick={() => handleNavigate('all')} className="mt-4 text-primary font-bold hover:underline">
                             Сбросить фильтры
                         </button>
                     )}
@@ -1358,15 +1729,13 @@ const App: React.FC = () => {
     );
   };
 
-  // ... (Keep component return JSX structure mostly the same, updated Sidebar/Header calls) ...
   return (
     <div className="min-h-screen bg-background font-sans text-dark pb-24 md:pb-0 relative">
       {showSplashScreen && <SplashScreen onFinish={() => setShowSplashScreen(false)} />}
       <ToastNotification notifications={notifications} onRemove={handleRemoveNotification} />
       
-      {/* Sidebar Component would go here (Simplified for brevity, code is unchanged) */}
       <aside className="hidden md:flex flex-col w-64 fixed left-0 top-0 bottom-0 bg-white border-r border-gray-100 z-50 p-6 overflow-y-auto">
-          <div className="flex items-center gap-2 mb-8 cursor-pointer" onClick={() => { setActiveCategory('all'); setSelectedSubCategory(null); }}>
+          <div className="flex items-center gap-2 mb-8 cursor-pointer" onClick={() => handleNavigate('all')}>
              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-primary/30">
                С
              </div>
@@ -1380,7 +1749,7 @@ const App: React.FC = () => {
               {NAV_ITEMS.map(cat => (
                   <button 
                     key={cat.id}
-                    onClick={() => { setActiveCategory(cat.id as Category); setSelectedSubCategory(null); setSearchQuery(''); }}
+                    onClick={() => handleNavigate(cat.id as Category)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all
                         ${activeCategory === cat.id 
                             ? 'bg-primary text-white shadow-md shadow-primary/20' 
@@ -1413,7 +1782,7 @@ const App: React.FC = () => {
           <header className="bg-surface/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-100 shadow-sm">
             <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between gap-4">
               
-              <div className="md:hidden flex items-center gap-2 cursor-pointer" onClick={() => { setActiveCategory('all'); setSelectedSubCategory(null); }}>
+              <div className="md:hidden flex items-center gap-2 cursor-pointer" onClick={() => handleNavigate('all')}>
                  <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg">С</div>
                  <span className="font-bold text-lg text-dark ml-1">Твой Снежинск</span>
               </div>
@@ -1434,9 +1803,17 @@ const App: React.FC = () => {
                         type="text" 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all sm:text-sm" 
+                        className="block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all sm:text-sm" 
                         placeholder="Поиск объявлений..." 
                      />
+                     {searchQuery && (
+                        <button 
+                            onClick={() => setSearchQuery('')}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-dark transition-colors"
+                        >
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                     )}
                   </div>
               </div>
 
@@ -1461,6 +1838,18 @@ const App: React.FC = () => {
                       </div>
                    </div>
                  )}
+                 
+                 <button 
+                    onClick={() => setIsCartOpen(true)}
+                    className="relative p-2 text-dark hover:text-primary transition-colors hidden md:block"
+                 >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                    {totalCartCount > 0 && (
+                        <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full shadow-sm">
+                            {totalCartCount}
+                        </span>
+                    )}
+                 </button>
                  
                  {user.isLoggedIn && (
                      <button 
@@ -1542,7 +1931,7 @@ const App: React.FC = () => {
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 flex justify-between items-center z-40 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
         
-        <button onClick={() => setActiveCategory('all')} className={`flex flex-col items-center gap-1 p-2 w-16 ${activeCategory === 'all' ? 'text-primary' : 'text-gray-400'}`}>
+        <button onClick={() => handleNavigate('all')} className={`flex flex-col items-center gap-1 p-2 w-16 ${activeCategory === 'all' ? 'text-primary' : 'text-gray-400'}`}>
            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
            <span className="text-[10px] font-medium">Главная</span>
         </button>
@@ -1586,6 +1975,18 @@ const App: React.FC = () => {
         </button>
       </nav>
 
+      {totalCartCount > 0 && (
+         <button 
+            onClick={() => setIsCartOpen(true)}
+            className="md:hidden fixed bottom-24 right-4 z-50 w-14 h-14 bg-white border-2 border-primary rounded-full text-primary shadow-xl flex items-center justify-center animate-bounce shadow-primary/30"
+         >
+             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+             <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white">
+                {totalCartCount}
+             </span>
+         </button>
+      )}
+
       <CreateAdModal 
         isOpen={isCreateModalOpen} 
         onClose={() => setIsCreateModalOpen(false)} 
@@ -1614,7 +2015,7 @@ const App: React.FC = () => {
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         activeCategory={activeCategory}
-        onSelectCategory={setActiveCategory}
+        onSelectCategory={handleNavigate}
         navItems={NAV_ITEMS}
       />
 
@@ -1626,7 +2027,7 @@ const App: React.FC = () => {
             setSearchQuery(val);
         }}
         ads={ads}
-        shops={[...shops, ...cafes, ...gyms, ...beautyShops]}
+        shops={[...shops, ...cafes, ...gyms, ...beautyShops, ...TOURISM_CLUBS, ...FREIGHT_PROVIDERS]}
         news={news}
         movies={movies}
         onSelectAd={handleShowAd}
@@ -1710,7 +2111,7 @@ const App: React.FC = () => {
          isOpen={isCartOpen} 
          onClose={() => setIsCartOpen(false)}
          items={cart}
-         shops={[...shops, ...cafes, ...gyms, ...beautyShops]}
+         shops={[...shops, ...cafes, ...gyms, ...beautyShops, ...TOURISM_CLUBS, ...FREIGHT_PROVIDERS]}
          onUpdateQuantity={handleUpdateCartQuantity}
          onRemove={handleRemoveFromCart}
       />
