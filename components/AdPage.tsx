@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Ad, ChatSession } from '../types';
 import { ReviewsModal } from './ReviewsModal';
@@ -13,7 +12,7 @@ interface AdPageProps {
   onOpenChat: (session: ChatSession) => void;
   isLoggedIn: boolean;
   onRequireLogin: () => void;
-  onOpenProfile?: (userId: string, userName: string, userAvatar?: string) => void;
+  onOpenProfile?: (userId: string, userName: string) => void;
 }
 
 export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenChat, isLoggedIn, onRequireLogin, onOpenProfile }) => {
@@ -81,7 +80,7 @@ export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenC
 
   const handleProfileClick = () => {
       if (onOpenProfile && ad.userId && ad.authorName) {
-          onOpenProfile(ad.userId, ad.authorName, ad.authorAvatar);
+          onOpenProfile(ad.userId, ad.authorName);
       }
   };
 
@@ -122,6 +121,11 @@ export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenC
               </button>
            </div>
            
+           <div className="flex justify-between items-center mt-2">
+              <span className="text-3xl font-extrabold text-primary">
+                {ad.price > 0 ? `${ad.price.toLocaleString('ru-RU')} ₽` : 'Договорная'}
+              </span>
+           </div>
            <div className="mt-4 flex gap-2 flex-wrap">
               <span className="text-xs font-semibold px-2.5 py-1 bg-gray-100 rounded-md text-secondary">
                  {ad.date}
@@ -141,11 +145,7 @@ export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenC
            >
               <div className="relative">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white font-bold text-xl shadow-md overflow-hidden">
-                    {ad.authorAvatar ? (
-                        <img src={ad.authorAvatar} alt={ad.authorName} className="w-full h-full object-cover" />
-                    ) : (
-                        ad.authorName ? ad.authorName.charAt(0).toUpperCase() : 'Ч'
-                    )}
+                    {ad.authorName ? ad.authorName.charAt(0).toUpperCase() : 'Ч'}
                   </div>
                   <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full ${getBadgeColor(sellerLevel)} border-2 border-white flex items-center justify-center text-[10px] font-bold text-white shadow-sm`}>
                       {sellerLevel}
@@ -166,13 +166,6 @@ export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenC
                  )}
               </div>
               <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-           </div>
-           
-           {/* Price - Moved to bottom (before footer) with mt-auto to push it down */}
-           <div className="mt-auto mb-4 flex items-center justify-between">
-              <span className="text-3xl font-extrabold text-primary">
-                {ad.price > 0 ? `${ad.price.toLocaleString('ru-RU')} ₽` : 'Договорная'}
-              </span>
            </div>
 
            {ad.bookingAvailable && (

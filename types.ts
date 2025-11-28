@@ -20,7 +20,6 @@ export interface Ad {
   id: string;
   userId?: string; // Links ad to the user in Supabase
   authorName?: string; // Display name of the seller
-  authorAvatar?: string; // Avatar of the seller
   authorLevel?: number; // Level of the seller (1-5)
   title: string;
   description: string;

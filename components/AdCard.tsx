@@ -97,8 +97,8 @@ export const AdCard: React.FC<AdCardProps> = ({ ad, variant = 'standard', onShow
           </h3>
         </div>
 
-        {/* Description - Now visible on mobile too */}
-        <p className="text-secondary text-[10px] md:text-xs leading-snug line-clamp-2 mb-2 break-words">
+        {/* Description - Desktop Only */}
+        <p className="hidden md:block text-secondary text-xs leading-snug line-clamp-2 mb-2 break-words">
           {ad.description}
         </p>
         
