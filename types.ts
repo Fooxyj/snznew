@@ -10,6 +10,15 @@ export interface Review {
   date: string;
 }
 
+export interface Comment {
+  id: string;
+  authorName: string;
+  authorAvatar?: string;
+  text: string;
+  date: string;
+  likes: number;
+}
+
 export interface BookingWidgetConfig {
   type: 'litepms';
   id: number;
@@ -76,6 +85,7 @@ export interface NewsItem {
   date: string;
   category: string;
   image: string;
+  comments?: Comment[];
 }
 
 export interface Order {
@@ -197,4 +207,27 @@ export interface ChatSession {
   adTitle: string;
   category: Category;
   subCategory?: string;
+}
+
+// --- Code Analysis Types ---
+export enum Severity {
+  CRITICAL = 'CRITICAL',
+  HIGH = 'HIGH',
+  MEDIUM = 'MEDIUM',
+  LOW = 'LOW',
+}
+
+export interface CodeIssue {
+  title: string;
+  description: string;
+  severity: Severity;
+  line?: number;
+  suggestion?: string;
+}
+
+export interface CodeAnalysisResult {
+  score: number;
+  language: string;
+  issues: CodeIssue[];
+  securityRisks: string[];
 }

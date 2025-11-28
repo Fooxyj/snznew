@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Ad, Order } from '../types';
 import { AdCard } from './AdCard';
-import { getLevelInfo } from '../utils';
+import { getLevelInfo, getAchievements } from '../utils';
 import { api } from '../services/api';
 import { supabase } from '../services/supabaseClient';
 
@@ -26,13 +26,14 @@ interface UserProfileModalProps {
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({ 
   isOpen, onClose, user, onLogout, favorites, allAds, onToggleFavorite, onShowAd, onEditAd, onDeleteAd, onUpdateUser, onOpenAdminPanel, onOpenMerchantDashboard, onOpenPartnerModal
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'favorites' | 'orders' | 'my_ads'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'favorites' | 'orders' | 'my_ads' | 'achievements'>('profile');
   const [name, setName] = useState(user.name || '');
   const [avatar, setAvatar] = useState(user.avatar || '');
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const levelInfo = getLevelInfo(user.xp || 0);
+  const achievements = getAchievements(user.xp || 0, allAds.filter(a => a.userId === user.id).length);
 
   useEffect(() => {
       setName(user.name || '');
@@ -107,10 +108,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       >
         
         {/* --- MOBILE LAYOUT HEADER (Visible only on mobile) --- */}
-        <div className="md:hidden bg-white p-4 flex flex-col border-b border-gray-100 shrink-0 gap-4 relative">
+        <div className="md:hidden bg-white dark:bg-gray-900 p-4 flex flex-col border-b border-gray-100 dark:border-gray-800 shrink-0 gap-4 relative">
              <button 
                 onClick={onClose} 
-                className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition-colors z-10"
+                className="absolute top-4 right-4 p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 hover:bg-gray-200 transition-colors z-10"
              >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
@@ -125,7 +126,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                             <p className="font-bold text-dark text-base">{name || 'Пользователь'}</p>
                             <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-full ${levelInfo.color}`}>Lvl {levelInfo.level}</span>
                         </div>
-                        <p className="text-[10px] text-secondary font-medium">{levelInfo.title}</p>
+                        <p className="text-[10px] text-secondary font-medium">{levelInfo.title} {levelInfo.badge}</p>
                     </div>
                 </div>
              </div>
@@ -135,61 +136,67 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     <span>XP: {user.xp || 0}</span>
                     <span>До уровня {levelInfo.level + 1}: {levelInfo.nextLevelXp - (user.xp || 0)}</span>
                 </div>
-                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                     <div className={`h-full ${levelInfo.color} transition-all duration-500`} style={{ width: `${levelInfo.progressPercent}%` }}></div>
                 </div>
              </div>
         </div>
 
         {/* --- MOBILE TAB BAR (Visible only on mobile) --- */}
-        <div className="md:hidden bg-white border-b border-gray-100 px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar shrink-0">
+        <div className="md:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar shrink-0">
             <button 
                 onClick={() => setActiveTab('profile')} 
-                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'profile' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary'}`}
+                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'profile' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary dark:bg-gray-800'}`}
             >
                 Профиль
             </button>
             <button 
-                onClick={() => setActiveTab('favorites')} 
-                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'favorites' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary'}`}
+                onClick={() => setActiveTab('achievements')} 
+                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'achievements' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary dark:bg-gray-800'}`}
             >
-                Избранное ({favorites.length})
+                Награды 🏆
+            </button>
+            <button 
+                onClick={() => setActiveTab('favorites')} 
+                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'favorites' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary dark:bg-gray-800'}`}
+            >
+                Избранное
             </button>
              <button 
                 onClick={() => setActiveTab('my_ads')} 
-                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'my_ads' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary'}`}
+                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'my_ads' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary dark:bg-gray-800'}`}
             >
                 Мои объявления
             </button>
             <button 
                 onClick={() => setActiveTab('orders')} 
-                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'orders' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary'}`}
+                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'orders' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary dark:bg-gray-800'}`}
             >
                 Заказы
             </button>
         </div>
 
         {/* --- DESKTOP SIDEBAR (Hidden on mobile) --- */}
-        <div className="hidden md:flex w-72 bg-white border-r border-gray-200 p-6 flex-col shrink-0">
+        <div className="hidden md:flex w-72 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-6 flex-col shrink-0">
            <div className="flex flex-col items-center mb-6">
               <div className="relative">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white text-3xl font-bold mb-3 shadow-lg overflow-hidden border-4 border-white">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white text-3xl font-bold mb-3 shadow-lg overflow-hidden border-4 border-white dark:border-gray-800">
                     {avatar ? <img src={avatar} className="w-full h-full object-cover" alt="User" /> : user.name?.charAt(0) || user.email.charAt(0)}
                   </div>
-                  <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white px-3 py-0.5 rounded-full ${levelInfo.color} border-2 border-white shadow-sm whitespace-nowrap`}>
-                      Lvl {levelInfo.level} {levelInfo.title}
+                  <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white px-3 py-0.5 rounded-full ${levelInfo.color} border-2 border-white dark:border-gray-900 shadow-sm whitespace-nowrap`}>
+                      {levelInfo.badge} Lvl {levelInfo.level}
                   </div>
               </div>
 
               <h2 className="text-xl font-bold text-dark text-center mt-2">{name || `Пользователь`}</h2>
               <p className="text-sm text-secondary">{user.email}</p>
 
-              <div className="w-full mt-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+              <div className="w-full mt-4 bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
                   <div className="flex justify-between text-[10px] font-bold text-secondary mb-1">
                       <span>{user.xp || 0} XP</span>
                       <span>{levelInfo.nextLevelXp} XP</span>
                   </div>
-                  <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div className={`h-full ${levelInfo.color} transition-all duration-500`} style={{ width: `${levelInfo.progressPercent}%` }}></div>
                   </div>
                   <p className="text-[10px] text-center text-gray-400 mt-1">До след. уровня: {levelInfo.nextLevelXp - (user.xp || 0)} XP</p>
@@ -211,18 +218,21 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </button>
               )}
 
-              <div className="h-px bg-gray-100 my-2"></div>
+              <div className="h-px bg-gray-100 dark:bg-gray-800 my-2"></div>
 
-              <button onClick={() => setActiveTab('profile')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${activeTab === 'profile' ? 'bg-gray-100 text-dark' : 'text-secondary hover:bg-gray-50'}`}>
+              <button onClick={() => setActiveTab('profile')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${activeTab === 'profile' ? 'bg-gray-100 dark:bg-gray-800 text-dark' : 'text-secondary hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
                  Профиль
               </button>
-              <button onClick={() => setActiveTab('favorites')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${activeTab === 'favorites' ? 'bg-gray-100 text-dark' : 'text-secondary hover:bg-gray-50'}`}>
-                 Избранное <span className="ml-auto bg-gray-200 text-xs px-2 py-0.5 rounded-full">{favorites.length}</span>
+              <button onClick={() => setActiveTab('achievements')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${activeTab === 'achievements' ? 'bg-gray-100 dark:bg-gray-800 text-dark' : 'text-secondary hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+                 Награды <span className="ml-auto bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">New</span>
               </button>
-               <button onClick={() => setActiveTab('my_ads')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${activeTab === 'my_ads' ? 'bg-gray-100 text-dark' : 'text-secondary hover:bg-gray-50'}`}>
-                 Мои объявления <span className="ml-auto bg-gray-200 text-xs px-2 py-0.5 rounded-full">{myAds.length}</span>
+              <button onClick={() => setActiveTab('favorites')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${activeTab === 'favorites' ? 'bg-gray-100 dark:bg-gray-800 text-dark' : 'text-secondary hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+                 Избранное <span className="ml-auto bg-gray-200 dark:bg-gray-700 text-xs px-2 py-0.5 rounded-full">{favorites.length}</span>
               </button>
-              <button onClick={() => setActiveTab('orders')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${activeTab === 'orders' ? 'bg-gray-100 text-dark' : 'text-secondary hover:bg-gray-50'}`}>
+               <button onClick={() => setActiveTab('my_ads')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${activeTab === 'my_ads' ? 'bg-gray-100 dark:bg-gray-800 text-dark' : 'text-secondary hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+                 Мои объявления <span className="ml-auto bg-gray-200 dark:bg-gray-700 text-xs px-2 py-0.5 rounded-full">{myAds.length}</span>
+              </button>
+              <button onClick={() => setActiveTab('orders')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${activeTab === 'orders' ? 'bg-gray-100 dark:bg-gray-800 text-dark' : 'text-secondary hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
                  Мои заказы
               </button>
            </nav>
@@ -233,14 +243,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         </div>
 
         {/* --- MAIN CONTENT AREA --- */}
-        <div className="flex-grow p-4 md:p-8 overflow-y-auto bg-gray-50 custom-scrollbar relative">
-            <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-white rounded-full text-gray-500 hover:text-dark shadow-sm z-10 hidden md:block">
+        <div className="flex-grow p-4 md:p-8 overflow-y-auto bg-gray-50 dark:bg-gray-950 custom-scrollbar relative">
+            <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-white dark:bg-gray-800 rounded-full text-gray-500 hover:text-dark shadow-sm z-10 hidden md:block">
                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
 
             {activeTab === 'profile' && (
                <div className="max-w-md mx-auto md:mx-0">
-                  <h2 className="text-2xl font-bold mb-6 hidden md:block">Настройки профиля</h2>
+                  <h2 className="text-2xl font-bold mb-6 hidden md:block text-dark">Настройки профиля</h2>
                   
                   <div className="md:hidden mb-6 space-y-2">
                       {user.isAdmin && (
@@ -255,10 +265,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                      <div>
                          <label className="block text-sm font-bold text-secondary mb-1">Аватар</label>
                          <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-300">
+                            <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden shrink-0 border border-gray-300 dark:border-gray-600">
                                 {avatar ? <img src={avatar} className="w-full h-full object-cover" alt="Avatar" /> : <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold text-xl">{user.name?.charAt(0) || user.email.charAt(0)}</div>}
                             </div>
-                            <label className="bg-white border border-gray-200 px-4 py-2 rounded-lg text-dark font-bold text-sm cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-2">
+                            <label className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg text-dark font-bold text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2">
                                 {isUploading ? 'Загрузка...' : 'Изменить фото'}
                                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={isUploading} />
                             </label>
@@ -272,12 +282,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                             value={name} 
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Ваше имя" 
-                            className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" 
+                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" 
                         />
                      </div>
                      <div>
                         <label className="block text-sm font-bold text-secondary mb-1">Email</label>
-                        <input type="text" value={user.email} disabled className="w-full p-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed" />
+                        <input type="text" value={user.email} disabled className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-not-allowed" />
                      </div>
 
                      <button 
@@ -288,7 +298,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
                      </button>
                      
-                     <div className="mt-8 border-t border-gray-200 pt-4 md:hidden">
+                     <div className="mt-8 border-t border-gray-200 dark:border-gray-800 pt-4 md:hidden">
                         <button 
                             onClick={() => { onLogout(); onClose(); }}
                             className="w-full bg-red-50 text-red-600 font-bold py-3 px-6 rounded-xl hover:bg-red-100 transition-all flex items-center justify-center gap-2"
@@ -301,9 +311,29 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                </div>
             )}
 
+            {activeTab === 'achievements' && (
+                <div className="max-w-xl mx-auto md:mx-0">
+                    <h2 className="text-2xl font-bold mb-6 hidden md:block text-dark">Мои награды</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {achievements.map(ach => (
+                            <div key={ach.id} className={`p-4 rounded-2xl border flex flex-col items-center text-center transition-all ${ach.unlocked ? 'bg-white dark:bg-gray-800 border-yellow-200 shadow-sm' : 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800 opacity-60 grayscale'}`}>
+                                <div className="text-4xl mb-3">{ach.icon}</div>
+                                <h4 className="font-bold text-dark text-sm mb-1">{ach.title}</h4>
+                                <p className="text-xs text-secondary">{ach.description}</p>
+                                {ach.unlocked ? (
+                                    <span className="mt-2 text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Получено</span>
+                                ) : (
+                                    <span className="mt-2 text-[10px] bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">Закрыто</span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {activeTab === 'favorites' && (
                <div>
-                  <h2 className="text-2xl font-bold mb-6 hidden md:block">Избранное</h2>
+                  <h2 className="text-2xl font-bold mb-6 hidden md:block text-dark">Избранное</h2>
                   {favoriteAds.length === 0 ? (
                       <div className="text-center py-20 text-secondary">
                           <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
@@ -329,16 +359,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
             {activeTab === 'my_ads' && (
                 <div>
-                    <h2 className="text-2xl font-bold mb-6 hidden md:block">Мои объявления</h2>
+                    <h2 className="text-2xl font-bold mb-6 hidden md:block text-dark">Мои объявления</h2>
                     {myAds.length === 0 ? (
-                        <div className="text-center py-20 text-secondary bg-white rounded-2xl border border-gray-100">
+                        <div className="text-center py-20 text-secondary bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
                              <p>Вы еще не разместили ни одного объявления</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
                             {myAds.map(ad => (
-                                <div key={ad.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex gap-4">
-                                    <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                                <div key={ad.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex gap-4">
+                                    <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden shrink-0">
                                         <img src={ad.image} className="w-full h-full object-cover" />
                                     </div>
                                     <div className="flex-grow">
@@ -354,7 +384,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                                             {onEditAd && (
                                                 <button 
                                                     onClick={() => { onEditAd(ad); onClose(); }} 
-                                                    className="bg-gray-100 text-dark px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+                                                    className="bg-gray-100 dark:bg-gray-700 text-dark dark:text-white px-2 py-1 rounded hover:bg-gray-200 transition-colors"
                                                 >
                                                     Редактировать
                                                 </button>
@@ -378,14 +408,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
             {activeTab === 'orders' && (
                 <div>
-                   <h2 className="text-2xl font-bold mb-6 hidden md:block">История заказов</h2>
+                   <h2 className="text-2xl font-bold mb-6 hidden md:block text-dark">История заказов</h2>
                    <div className="space-y-4">
                       {orders.map(order => (
-                         <div key={order.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+                         <div key={order.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center">
                             <div>
                                <div className="flex items-center gap-2 mb-1">
                                   <span className="font-bold text-dark">{order.shopName}</span>
-                                  <span className="text-xs text-secondary bg-gray-100 px-2 py-0.5 rounded-md">{order.date}</span>
+                                  <span className="text-xs text-secondary bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md">{order.date}</span>
                                </div>
                                <p className="text-sm text-secondary">{order.itemsString}</p>
                                <p className="text-sm font-bold mt-1 text-primary">{order.total} ₽</p>

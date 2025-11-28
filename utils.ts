@@ -1,4 +1,5 @@
 
+
 export const formatPhoneNumber = (phone: string): string => {
   if (!phone) return '';
   
@@ -42,6 +43,7 @@ export interface LevelInfo {
   progressPercent: number;
   nextLevelXp: number;
   color: string;
+  badge: string;
 }
 
 export const getLevelInfo = (xp: number = 0): LevelInfo => {
@@ -50,6 +52,7 @@ export const getLevelInfo = (xp: number = 0): LevelInfo => {
   let minXp = 0;
   let maxXp = 100;
   let color = 'bg-gray-400';
+  let badge = '🌱';
 
   if (xp >= 101 && xp <= 300) {
     level = 2;
@@ -57,24 +60,28 @@ export const getLevelInfo = (xp: number = 0): LevelInfo => {
     minXp = 101;
     maxXp = 300;
     color = 'bg-blue-500';
+    badge = '🏙️';
   } else if (xp >= 301 && xp <= 600) {
     level = 3;
     title = 'Активист';
     minXp = 301;
     maxXp = 600;
     color = 'bg-green-500';
+    badge = '🔥';
   } else if (xp >= 601 && xp <= 1000) {
     level = 4;
     title = 'Знаток';
     minXp = 601;
     maxXp = 1000;
     color = 'bg-purple-500';
+    badge = '🧠';
   } else if (xp > 1000) {
     level = 5;
     title = 'Легенда';
     minXp = 1001;
     maxXp = 5000; // Cap visual
     color = 'bg-yellow-500';
+    badge = '👑';
   }
 
   // Calculate percentage within current level range
@@ -90,8 +97,27 @@ export const getLevelInfo = (xp: number = 0): LevelInfo => {
     maxXp,
     progressPercent,
     nextLevelXp: maxXp,
-    color
+    color,
+    badge
   };
+};
+
+export interface Achievement {
+    id: string;
+    title: string;
+    description: string;
+    icon: string;
+    unlocked: boolean;
+}
+
+export const getAchievements = (xp: number, postCount: number = 0): Achievement[] => {
+    return [
+        { id: '1', title: 'Первые шаги', description: 'Зарегистрироваться в приложении', icon: '🐣', unlocked: true },
+        { id: '2', title: 'Опытный', description: 'Достичь 2 уровня', icon: '⭐', unlocked: xp >= 101 },
+        { id: '3', title: 'Продавец', description: 'Разместить первое объявление', icon: '📢', unlocked: postCount > 0 },
+        { id: '4', title: 'Топ Рейтинг', description: 'Получить 5 звезд за сделку', icon: '🏆', unlocked: false }, // Mock logic
+        { id: '5', title: 'Меценат', description: 'Купить VIP размещение', icon: '💎', unlocked: false }
+    ];
 };
 
 /**

@@ -11,15 +11,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
+        darkMode: 'class', // Enable class-based dark mode
         theme: {
           extend: {
             colors: {
-              background: '#f3f4f6', // Light gray background
-              surface: '#ffffff',    // Pure white cards
+              background: 'var(--color-background)', 
+              surface: 'var(--color-surface)',
               primary: '#2563eb',    // Modern Blue
               'primary-dark': '#1d4ed8',
-              secondary: '#64748b',  // Slate gray for secondary text
-              dark: '#0f172a',       // Deep slate for headings
+              secondary: 'var(--color-secondary)',
+              dark: 'var(--color-text-main)', 
             },
             fontFamily: {
               sans: ['"Inter"', 'sans-serif'],
@@ -43,10 +44,26 @@
       }
     </script>
     <style>
+      :root {
+        --color-background: #f3f4f6;
+        --color-surface: #ffffff;
+        --color-text-main: #0f172a;
+        --color-secondary: #64748b;
+      }
+
+      /* Dark Theme Variables */
+      .dark {
+        --color-background: #0f172a; /* Slate 900 */
+        --color-surface: #1e293b;    /* Slate 800 */
+        --color-text-main: #f8fafc;  /* Slate 50 */
+        --color-secondary: #94a3b8;  /* Slate 400 */
+      }
+
       body {
-        background-color: #f3f4f6;
-        color: #0f172a;
+        background-color: var(--color-background);
+        color: var(--color-text-main);
         font-family: "Inter", sans-serif;
+        transition: background-color 0.3s, color 0.3s;
       }
       /* Custom Scrollbar for desktop generally */
       ::-webkit-scrollbar {
@@ -64,6 +81,13 @@
         background: #94a3b8; 
       }
       
+      .dark ::-webkit-scrollbar-thumb {
+        background: #475569;
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
+      }
+
       /* Hide scrollbar utility class */
       .no-scrollbar::-webkit-scrollbar {
         display: none;
@@ -86,7 +110,9 @@
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "vite": "https://aistudiocdn.com/vite@^7.2.4",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.1"
   }
 }
 </script>
