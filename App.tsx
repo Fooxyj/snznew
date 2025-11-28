@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Ad, Category, CreateAdFormState, NewsItem, User, CatalogCategory, Review, Movie, Shop, Product, CartItem, Story, Notification, ChatSession } from './types';
 import { AdCard } from './components/AdCard';
@@ -29,6 +28,7 @@ import { api } from './services/api';
 import { formatPhoneNumber } from './utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+// --- DATA CONSTANTS ---
 const INITIAL_ADS: Ad[] = [
   {
     id: '1',
@@ -154,63 +154,6 @@ const INITIAL_ADS: Ad[] = [
     reviews: [],
     specs: { condition: 'used', brand: 'Tutis' },
     status: 'approved'
-  },
-  {
-    id: '6',
-    userId: '106',
-    authorName: 'ЭлектроМонтаж',
-    authorLevel: 3,
-    title: 'Электрик. Монтаж проводки',
-    description: 'Электромонтажные работы под ключ. Замена проводки, установка розеток, люстр, счетчиков. Допуск.',
-    price: 0,
-    category: 'services',
-    subCategory: 'Электрика',
-    contact: '+7 (955) 444 33 22',
-    location: 'Снежинск',
-    image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=800&q=80',
-    isPremium: false,
-    date: 'Сегодня',
-    reviews: [],
-    status: 'approved'
-  },
-  {
-    id: '7',
-    userId: '107',
-    authorName: 'РемонтПрофи',
-    authorLevel: 4,
-    title: 'Ремонт квартир под ключ',
-    description: 'Бригада мастеров выполнит качественный ремонт. Штукатурка, обои, ламинат, плитка. Смета бесплатно.',
-    price: 0,
-    category: 'services',
-    subCategory: 'Ремонт квартир',
-    contact: '+7 (900) 333 22 11',
-    location: 'Снежинск и область',
-    image: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80',
-    isPremium: true,
-    date: 'Сегодня',
-    reviews: [
-        { id: 'r7', author: 'Дмитрий', rating: 5, text: 'Рекомендую! Сделали ремонт в ванной за неделю.', date: '15 авг' }
-    ],
-    status: 'approved'
-  },
-  {
-    id: '8',
-    userId: '108',
-    authorName: 'Евгений',
-    authorLevel: 1,
-    title: 'iPhone 13 128GB',
-    description: 'В идеальном состоянии, полный комплект, чек, гарантия. Использовался в чехле и с защитным стеклом.',
-    price: 55000,
-    category: 'sale',
-    subCategory: 'Электроника',
-    contact: '+7 (900) 111 00 00',
-    location: 'ТЦ Универмаг',
-    image: 'https://images.unsplash.com/photo-1632661674596-df8be070a5c5?auto=format&fit=crop&w=800&q=80',
-    isPremium: false,
-    date: 'Вчера',
-    reviews: [],
-    specs: { condition: 'used', brand: 'Apple' },
-    status: 'approved'
   }
 ];
 
@@ -269,7 +212,6 @@ const TOURISM_CLUBS: Shop[] = [
       products: [
           { id: 'ts1', title: 'Аренда яхты (1 час)', price: 2500, image: 'https://images.unsplash.com/photo-1540946485063-a40da27545f8?w=400', description: 'Прогулка с капитаном вместимостью до 5 человек.' },
           { id: 'ts2', title: 'Сап-борд', price: 500, image: 'https://images.unsplash.com/photo-1543489822-c49534f3271f?w=400', description: 'Аренда сап-борда на 1 час.' },
-          { id: 'ts3', title: 'Обучение', price: 1500, image: 'https://images.unsplash.com/photo-1559380991-7844aa492718?w=400', description: 'Индивидуальное занятие с инструктором.' }
       ]
   },
   { 
@@ -285,47 +227,14 @@ const TOURISM_CLUBS: Shop[] = [
       products: [
           { id: 'ts4', title: 'Ски-пасс (3 часа)', price: 800, image: 'https://images.unsplash.com/photo-1518112390430-f4ab02e9c2c8?w=400', description: 'Доступ ко всем подъемникам.' },
           { id: 'ts5', title: 'Прокат снаряжения', price: 600, image: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400', description: 'Полный комплект: лыжи/борд, ботинки.' },
-          { id: 'ts6', title: 'Инструктор (1 час)', price: 1200, image: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400', description: 'Обучение катанию с нуля.' }
       ]
-  },
-  { 
-      id: 'tc3', 
-      name: 'Конный клуб "Мустанг"', 
-      description: 'Конные прогулки по лесу, фотосессии с лошадьми, иппотерапия для детей. Уроки верховой езды.', 
-      coverImage: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=1200',
-      logo: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=200',
-      address: 'пос. Сокол',
-      phone: '+7 (922) 333-44-55',
-      workingHours: 'Пн-Вс: 10:00 - 19:00',
-      rating: 4.8,
-      products: [
-          { id: 'ts7', title: 'Конная прогулка', price: 1000, image: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=400', description: 'Часовая прогулка по лесному маршруту.' },
-          { id: 'ts8', title: 'Фотосессия', price: 1500, image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400', description: 'Аренда лошади для фотосессии (30 мин).' },
-      ]
-  },
-  { 
-      id: 'tc4', 
-      name: 'База отдыха "Озеро"', 
-      description: 'Беседки с мангалами, пляж, прокат лодок и катамаранов. Домики для ночевки на берегу озера.', 
-      coverImage: 'https://images.unsplash.com/photo-1547528026-6f3c58941783?w=1200',
-      logo: 'https://images.unsplash.com/photo-1547528026-6f3c58941783?w=200',
-      address: 'оз. Иткуль',
-      phone: '+7 (35146) 2-12-12',
-      workingHours: 'Круглосуточно',
-      rating: 4.6,
-      products: [
-          { id: 'ts9', title: 'Аренда беседки', price: 500, image: 'https://images.unsplash.com/photo-1561577553-614763328eb9?w=400', description: 'Беседка с мангалом на час (до 10 чел).' },
-          { id: 'ts10', title: 'Домик на сутки', price: 3500, image: 'https://images.unsplash.com/photo-1449156493391-d2cfa28e468b?w=400', description: 'Уютный домик с удобствами.' },
-      ]
-  },
+  }
 ];
 
 const BUS_SCHEDULES = [
-    // City Routes first
     { number: '52', route: 'Кольцевой (по городу)', times: 'Каждые 15 минут (06:00 - 23:00)', type: 'city' },
     { number: '24', route: 'пл. Ленина - 40 сады', times: '08:00, 09:30, 17:15, 18:45', type: 'city' },
     { number: '9', route: 'пос. Сокол - Вокзал', times: '07:15, 08:30, 12:45, 17:20', type: 'city' },
-    // Intercity Routes
     { number: '551', route: 'Снежинск - Екатеринбург', times: '05:30, 09:00, 14:00, 18:00', type: 'intercity' },
     { number: '119', route: 'Снежинск - Челябинск', times: '06:00, 10:00, 15:00, 19:00', type: 'intercity' },
 ];
@@ -443,7 +352,6 @@ const INITIAL_GYMS: Shop[] = [
         products: [
             { id: 'g1', title: 'Разовое посещение', price: 350, image: 'https://images.unsplash.com/photo-1576678927484-cc907957088c?w=400', description: 'Доступ ко всем тренажерам и сауне.' },
             { id: 'g2', title: 'Абонемент на месяц', price: 2500, image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400', description: 'Безлимитное посещение тренажерного зала.' },
-            { id: 'g3', title: 'Массовое катание', price: 200, image: 'https://images.unsplash.com/photo-1515705576963-95cad62945b6?w=400', description: 'Сеанс 1 час. Прокат оплачивается отдельно.' },
         ]
     },
     {
@@ -458,23 +366,8 @@ const INITIAL_GYMS: Shop[] = [
         rating: 4.9,
         products: [
             { id: 'o1', title: 'Скалодром (разовое)', price: 400, image: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=400', description: 'С инструктором. Снаряжение включено.' },
-            { id: 'o2', title: 'Абонемент "Фитнес"', price: 3000, image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400', description: 'Групповые программы + тренажерный зал.' },
         ]
     },
-    {
-        id: 'gym3',
-        name: 'Авангард',
-        description: 'Стадион, футбольное поле, беговые дорожки, секции.',
-        logo: 'https://images.unsplash.com/photo-1574680096141-1c57c502aa8f?w=300',
-        coverImage: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=1200',
-        address: 'ул. 40 лет Октября, 15',
-        phone: '+7 (35146) 2-44-44',
-        workingHours: 'Пн-Вс: 08:00 - 22:00',
-        rating: 4.7,
-        products: [
-            { id: 'av1', title: 'Аренда поля (1 час)', price: 1500, image: 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?w=400', description: 'Футбольное поле с искусственным покрытием.' },
-        ]
-    }
 ];
 
 const INITIAL_BEAUTY_SALONS: Shop[] = [
@@ -490,7 +383,6 @@ const INITIAL_BEAUTY_SALONS: Shop[] = [
         rating: 4.5,
         products: [
             { id: 'bp1', title: 'Мужская стрижка', price: 400, image: 'https://images.unsplash.com/photo-1593487568720-92097fb460bf?w=400', description: 'Спортивная, модельная.' },
-            { id: 'bp2', title: 'Женская стрижка', price: 600, image: 'https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?w=400', description: 'Подравнивание, каре, каскад.' },
         ]
     },
     {
@@ -499,13 +391,12 @@ const INITIAL_BEAUTY_SALONS: Shop[] = [
         description: 'Студия эстетики. Маникюр, педикюр, оформление бровей.',
         logo: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=200',
         coverImage: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800',
-        address: 'пр. Мира 22 (ТЦ Универмаг)',
+        address: 'пр. Мира 22',
         phone: '+7 (912) 888 77 77',
         workingHours: '10:00 - 21:00',
         rating: 4.9,
         products: [
             { id: 'bs1', title: 'Маникюр с покрытием', price: 1500, image: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?w=400', description: 'Комбинированный маникюр + гель-лак.' },
-            { id: 'bs2', title: 'Оформление бровей', price: 700, image: 'https://images.unsplash.com/photo-1588510901276-74e1d536873c?w=400', description: 'Коррекция и окрашивание хной.' },
         ]
     }
 ];
@@ -525,9 +416,6 @@ const INITIAL_SHOPS: Shop[] = [
         products: [
             { id: 'p1', title: 'Дрель ударная Makita', price: 5500, image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400', description: 'Мощная дрель для профессиональных работ. В комплекте кейс и набор сверл.' },
             { id: 'p2', title: 'Краска интерьерная', price: 1200, image: 'https://images.unsplash.com/photo-1562259920-47afc305f369?w=400', description: 'Моющаяся матовая краска для стен и потолков. Объем 2.5 литра.' },
-            { id: 'p3', title: 'Набор отверток', price: 800, image: 'https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=400', description: 'Набор из 8 отверток разного размера. Прорезиненные ручки.' },
-            { id: 'p4', title: 'Обои виниловые', price: 1500, image: 'https://images.unsplash.com/photo-1615800098779-1be8e1ea64d4?w=400', description: 'Плотные виниловые обои с геометрическим узором. Ширина 1м.' },
-             { id: 'p5', title: 'Ламинат дуб', price: 900, image: 'https://images.unsplash.com/photo-1516455590571-18256e5bb9ff?w=400', description: 'Ламинат 33 класса. Цвет: натуральный дуб. Цена за кв.м.' },
         ]
     },
     {
@@ -543,26 +431,6 @@ const INITIAL_SHOPS: Shop[] = [
         paymentConfig: { enabled: false, type: 'manual', phone: '+79222223344' }, 
         products: [
             { id: 'f1', title: 'Букет из 51 розы', price: 5500, image: 'https://images.unsplash.com/photo-1562690868-60bbe7293e94?w=400', description: 'Роскошный букет из красных роз сорта Эксплорер (60см).' },
-            { id: 'f2', title: 'Пионы розовые', price: 450, image: 'https://images.unsplash.com/photo-1563241527-3af16059d4c9?w=400', description: 'Свежие голландские пионы. Цена за 1 шт.' },
-            { id: 'f3', title: 'Сборный букет "Нежность"', price: 2300, image: 'https://images.unsplash.com/photo-1596767746566-4c49d280d4f5?w=400', description: 'Авторский букет в пастельных тонах с эустомой и альстромерией.' },
-             { id: 'f4', title: 'Корзина с цветами', price: 3500, image: 'https://images.unsplash.com/photo-1596195759367-27b40974cc9e?w=400', description: 'Плетеная корзина с сезонными цветами и зеленью.' },
-        ]
-    },
-    {
-        id: 's3',
-        name: 'Универмаг',
-        description: 'Одежда, обувь, товары для дома. Большой выбор и доступные цены. Центр города.',
-        logo: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=300',
-        coverImage: 'https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=1200',
-        address: 'ул. Свердлова 1',
-        phone: '+7 (35146) 2 55 55',
-        workingHours: 'Пн-Вс: 10:00 - 19:00',
-        rating: 4.2,
-        paymentConfig: { enabled: false, type: 'manual', phone: '+73514625555' },
-        products: [
-            { id: 'u1', title: 'Платье летнее', price: 2500, image: 'https://images.unsplash.com/photo-1515347619252-60a6bf4fffce?w=400', description: 'Легкое платье из вискозы с цветочным принтом.' },
-            { id: 'u2', title: 'Кроссовки белые', price: 3200, image: 'https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=400', description: 'Классические белые кроссовки. Экокожа.' },
-            { id: 'u3', title: 'Сумка кожаная', price: 4500, image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400', description: 'Сумка-шоппер из натуральной кожи.' },
         ]
     },
     {
@@ -578,8 +446,6 @@ const INITIAL_SHOPS: Shop[] = [
         paymentConfig: { enabled: true, type: 'online' },
         products: [
             { id: 'cp1', title: 'Попкорн Соленый (V)', price: 350, image: 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=400', description: 'Большое ведро соленого попкорна.' },
-            { id: 'cp2', title: 'Начос с сырным соусом', price: 280, image: 'https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=400', description: 'Хрустящие кукурузные чипсы.' },
-            { id: 'cp3', title: 'Coca-Cola 0.5', price: 120, image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400', description: 'Холодная газировка.' },
         ]
     }
 ];
@@ -598,9 +464,6 @@ const INITIAL_CAFES: Shop[] = [
         paymentConfig: { enabled: false, type: 'manual', phone: '+73514694444' },
         products: [
             { id: 'pizza1', title: 'Пицца Пепперони', price: 650, image: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=400', description: 'Классическая пицца с колбасками пепперони и моцареллой.' },
-            { id: 'pasta1', title: 'Паста Карбонара', price: 450, image: 'https://images.unsplash.com/photo-1612874742237-6526221588e3?w=400', description: 'Спагетти, бекон, сливки, пармезан, яйцо.' },
-            { id: 'soup1', title: 'Тыквенный суп', price: 320, image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400', description: 'Крем-суп из тыквы с семечками и гренками.' },
-             { id: 'drink1', title: 'Лимонад домашний', price: 200, image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400', description: 'Освежающий лимонад с мятой и лимоном.' },
         ]
     },
     {
@@ -616,25 +479,6 @@ const INITIAL_CAFES: Shop[] = [
         paymentConfig: { enabled: true, type: 'online' },
         products: [
             { id: 'sushi1', title: 'Филадельфия Лайт', price: 390, image: 'https://images.unsplash.com/photo-1617196019294-dc44df5b90e0?w=400', description: 'Лосось, сливочный сыр, огурец.' },
-             { id: 'sushi2', title: 'Калифорния с крабом', price: 350, image: 'https://images.unsplash.com/photo-1593560708920-63984dc36a79?w=400', description: 'Снежный краб, авокадо, огурец, икра масаго.' },
-            { id: 'set1', title: 'Сет "Запеченный"', price: 1100, image: 'https://images.unsplash.com/photo-1611143669185-af224c5e3252?w=400', description: 'Набор из 3-х популярных запеченных роллов. 24 шт.' },
-        ]
-    },
-    {
-        id: 'c3',
-        name: 'Кофейня "Зерно"',
-        description: 'Правильный кофе, свежая выпечка и уютная атмосфера. Завтраки весь день.',
-        logo: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?w=300',
-        coverImage: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1200',
-        address: 'ул. Ленина 6',
-        phone: '+7 (35146) 2 11 11',
-        workingHours: 'Пн-Пт: 07:30 - 21:00',
-        rating: 4.9,
-        paymentConfig: { enabled: false, type: 'manual', phone: '+73514621111' },
-        products: [
-            { id: 'cof1', title: 'Капучино', price: 180, image: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=400', description: 'Классический капучино. 300мл.' },
-            { id: 'bak1', title: 'Круассан с миндалем', price: 150, image: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400', description: 'Свежие круассан с миндальным кремом.' },
-            { id: 'bak2', title: 'Сырники', price: 250, image: 'https://images.unsplash.com/photo-1567327613485-fbc7bf196198?w=400', description: 'Домашние сырники со сметаной и джемом.' },
         ]
     }
 ];
@@ -764,7 +608,6 @@ const App: React.FC = () => {
   
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = useState(() => {
-      // Check local storage or system preference
       if (typeof window !== 'undefined') {
           return localStorage.getItem('theme') === 'dark' || 
                  (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -774,7 +617,6 @@ const App: React.FC = () => {
 
   const queryClient = useQueryClient();
 
-  // Dark Mode Effect
   useEffect(() => {
       if (isDarkMode) {
           document.documentElement.classList.add('dark');
@@ -842,7 +684,6 @@ const App: React.FC = () => {
           const dbAds: Ad[] = fetchedAds.map((item: any) => ({
               id: item.id,
               userId: item.user_id,
-              // Author Name from DB if available, otherwise 'Продавец'
               authorName: item.author_name || 'Продавец', 
               authorLevel: item.author_level || 1,
               title: item.title,
@@ -853,7 +694,7 @@ const App: React.FC = () => {
               contact: item.contact,
               location: item.location,
               image: item.image,
-              images: item.images, // Load multiple images
+              images: item.images,
               isPremium: item.is_premium,
               bookingAvailable: false, 
               date: new Date(item.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
@@ -884,7 +725,6 @@ const App: React.FC = () => {
         }
     } catch (e) { }
 
-    // Initial Auth Check
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const isAdmin = session.user.email?.includes('admin') || session.user.email === 'hrustalev_1974@mail.ru';
@@ -899,7 +739,6 @@ const App: React.FC = () => {
             isLoggedIn: true, 
             isAdmin: isAdmin,
             managedShopId: managedShopId,
-            // Use metadata from Supabase as source of truth
             name: session.user.user_metadata?.full_name || prev.name,
             avatar: session.user.user_metadata?.avatar_url || prev.avatar,
             xp: prev.xp || 5
@@ -907,7 +746,6 @@ const App: React.FC = () => {
       }
     });
 
-    // Real-time Auth Listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
        if (session?.user) {
           const isAdmin = session.user.email?.includes('admin') || session.user.email === 'hrustalev_1974@mail.ru';
@@ -922,7 +760,6 @@ const App: React.FC = () => {
              isLoggedIn: true, 
              isAdmin: isAdmin,
              managedShopId: managedShopId,
-             // Sync profile data from session metadata
              name: session.user.user_metadata?.full_name || prev.name,
              avatar: session.user.user_metadata?.avatar_url || prev.avatar,
              xp: prev.xp || 50
@@ -1000,10 +837,10 @@ const App: React.FC = () => {
             contact: form.contact,
             location: form.location,
             image: form.images[0] || '',
-            images: form.images, // Save all images
+            images: form.images,
             is_premium: form.isPremium,
             specs: specs,
-            author_name: user.name || 'Пользователь' // Save real name
+            author_name: user.name || 'Пользователь' 
         };
 
         if (adToEdit) {
@@ -1122,9 +959,7 @@ const App: React.FC = () => {
       return 'shop';
   };
 
-  // ... (View Components: TransportView, MedicineView, etc. kept as is but removed from snippet for brevity unless modified)
-  // Re-implementing simplified versions for the update context
-
+  // --- Views ---
   const TransportView = () => {
       const [viewMode, setViewMode] = useState<'taxi' | 'bus' | 'freight'>('freight');
       const cityBuses = BUS_SCHEDULES.filter(b => b.type === 'city');
@@ -1132,7 +967,6 @@ const App: React.FC = () => {
 
       return (
           <div className="space-y-6 animate-fade-in-up">
-              {/* Toggle Buttons */}
               <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-full md:w-auto self-start overflow-x-auto no-scrollbar">
                    <button onClick={() => setViewMode('freight')} className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${viewMode === 'freight' ? 'bg-white dark:bg-gray-700 shadow-sm text-dark dark:text-white' : 'text-secondary hover:text-dark dark:hover:text-white'}`}>Грузоперевозки</button>
                    <button onClick={() => setViewMode('taxi')} className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${viewMode === 'taxi' ? 'bg-white dark:bg-gray-700 shadow-sm text-dark dark:text-white' : 'text-secondary hover:text-dark dark:hover:text-white'}`}>Такси</button>
@@ -1181,7 +1015,181 @@ const App: React.FC = () => {
       );
   };
 
-  // ... (Other views MedicineView, EmergencyView, TourismView, CultureView would be similar, ensuring dark: classes are added)
+  // Helper to render main content
+  const renderCategoryContent = () => {
+    if (activeCategory === 'transport') return <TransportView />;
+    if (activeCategory === 'medicine') return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in-up">
+            {MEDICINE_SERVICES.map(place => (
+                <div key={place.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex gap-4">
+                    <div className="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden shrink-0">
+                        <img src={place.image} loading="lazy" className="w-full h-full object-cover" alt={place.name} />
+                    </div>
+                    <div className="flex-grow flex flex-col justify-between">
+                        <div>
+                            <h3 className="font-bold text-dark dark:text-white text-lg">{place.name}</h3>
+                            <p className="text-sm text-gray-500 mb-1">{place.address}</p>
+                            <p className="text-xs text-secondary mb-2">{place.description}</p>
+                        </div>
+                        <a href={`tel:${place.phone}`} className="self-start text-white font-bold text-sm bg-primary px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors flex items-center gap-2">Позвонить</a>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+    if (activeCategory === 'emergency') return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up">
+            {EMERGENCY_NUMBERS.map(num => (
+                <div key={num.id} className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <div>
+                        <h3 className="text-xl font-bold text-red-500 mb-1">{num.phone}</h3>
+                        <p className="font-bold text-dark dark:text-white">{num.name}</p>
+                        <p className="text-xs text-secondary">{num.desc}</p>
+                    </div>
+                    <a href={`tel:${num.phone}`} className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800 transition-colors">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                    </a>
+                </div>
+            ))}
+        </div>
+    );
+    if (activeCategory === 'culture' || activeCategory === 'tourism') {
+        const data = activeCategory === 'culture' ? CULTURE_PLACES : TOURISM_CLUBS;
+        return (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in-up">
+                {data.map(item => (
+                    <div key={item.id} className="group bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden cursor-pointer hover:shadow-lg transition-all" onClick={() => activeCategory === 'tourism' ? handleOpenShop(item.id) : null}>
+                        <div className="h-40 relative">
+                            <img src={item.image || item.coverImage} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                            <div className="absolute bottom-4 left-4 text-white">
+                                <h3 className="font-bold text-lg">{item.name}</h3>
+                                <p className="text-xs opacity-90">{item.address}</p>
+                            </div>
+                        </div>
+                        <div className="p-4">
+                            <p className="text-sm text-secondary line-clamp-2">{item.description}</p>
+                            {item.phone && <a href={`tel:${item.phone}`} className="mt-4 block w-full text-center bg-gray-100 dark:bg-gray-700 text-dark dark:text-white font-bold py-2 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Позвонить</a>}
+                        </div>
+                    </div>
+                ))}
+             </div>
+        )
+    }
+    
+    if (['shops', 'cafes', 'gyms', 'beauty'].includes(activeCategory)) {
+        let data: Shop[] = [];
+        if (activeCategory === 'shops') data = shops.filter(s => !s.id.includes('cinema'));
+        if (activeCategory === 'cafes') data = cafes;
+        if (activeCategory === 'gyms') data = gyms;
+        if (activeCategory === 'beauty') data = beautyShops;
+
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in-up">
+                {data.map(shop => <ShopCard key={shop.id} shop={shop} onClick={setSelectedShop} />)}
+            </div>
+        );
+    }
+
+    if (activeCategory === 'cinema') {
+         return (
+            <div className="space-y-8 animate-fade-in-up">
+                <div className="bg-gray-900 rounded-3xl p-8 text-white relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl"></div>
+                    <div className="relative z-10">
+                        <h2 className="text-3xl font-bold mb-2">Кинотеатр "Космос"</h2>
+                        <p className="text-gray-400 mb-6">Главные премьеры города. Бронируйте лучшие места онлайн.</p>
+                        <button onClick={() => handleOpenShop('cinema1')} className="bg-white text-dark font-bold py-3 px-6 rounded-xl hover:bg-gray-200 transition-colors">
+                            Расписание и Билеты
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <h3 className="text-xl font-bold text-dark dark:text-white mb-4">Скоро в кино</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {movies.map(m => (
+                            <div key={m.id} onClick={() => setActiveMovie(m)} className="cursor-pointer group">
+                                <div className="aspect-[2/3] rounded-xl overflow-hidden mb-2 relative">
+                                    <img src={m.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                    <div className="absolute top-2 right-2 bg-primary text-white text-xs font-bold px-2 py-1 rounded shadow">{m.rating}</div>
+                                </div>
+                                <h4 className="font-bold text-dark dark:text-white text-sm line-clamp-1">{m.title}</h4>
+                                <p className="text-xs text-secondary">{m.genre}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+         );
+    }
+
+    if (activeCategory === 'news') {
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in-up">
+                {news.map(item => (
+                    <div key={item.id} onClick={() => setSelectedNews(item)} className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group h-full flex flex-col">
+                        <div className="h-48 overflow-hidden relative">
+                            <img src={item.image} loading="lazy" alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-12">
+                                <span className="text-xs font-bold text-white bg-white/20 backdrop-blur px-2 py-1 rounded border border-white/10">{item.category}</span>
+                            </div>
+                        </div>
+                        <div className="p-5 flex flex-col flex-grow">
+                            <div className="text-xs text-gray-400 mb-2 flex items-center gap-2"><span>{item.date}</span><span className="w-1 h-1 bg-gray-300 rounded-full"></span><span>3 мин</span></div>
+                            <h3 className="font-bold text-dark dark:text-white text-lg leading-tight mb-3 group-hover:text-primary transition-colors">{item.title}</h3>
+                            <p className="text-sm text-secondary line-clamp-3 mb-4">{item.excerpt}</p>
+                            <span className="mt-auto text-primary text-sm font-bold flex items-center gap-1 group-hover:gap-2 transition-all">Читать далее <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg></span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    // Default: Ads (all, sale, rent, jobs, services)
+    let filteredAds = ads;
+    
+    // Client-side subcategory filter
+    if (selectedSubCategory) {
+        filteredAds = filteredAds.filter(ad => ad.subCategory === selectedSubCategory);
+    }
+    
+    // Client-side search
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        filteredAds = filteredAds.filter(ad => 
+            ad.title.toLowerCase().includes(q) || 
+            ad.description.toLowerCase().includes(q)
+        );
+    }
+
+    if (filteredAds.length === 0) {
+         return (
+            <div className="col-span-full py-20 text-center text-secondary">
+                <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                </div>
+                <p className="text-lg font-medium text-dark dark:text-white">Здесь пока пусто</p>
+                <p className="text-sm">Станьте первым, кто разместит объявление!</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-fade-in-up">
+            {filteredAds.map(ad => (
+                <AdCard 
+                    key={ad.id} 
+                    ad={ad} 
+                    onShow={handleShowAd}
+                    variant={ad.isPremium ? 'premium' : 'standard'}
+                    isFavorite={user.favorites?.includes(ad.id)}
+                    onToggleFavorite={handleToggleFavorite}
+                />
+            ))}
+        </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background font-sans text-dark dark:text-white pb-24 md:pb-0 relative transition-colors duration-300">
@@ -1380,60 +1388,7 @@ const App: React.FC = () => {
                     onOpenProfile={handleOpenPublicProfile}
                 />
              ) : (
-                // For simplified rendering in this large file, assuming renderContent handles dark classes if components use standard 'bg-surface' etc.
-                activeCategory === 'transport' ? <TransportView /> : 
-                activeCategory === 'medicine' ? (
-                    <div className="space-y-4 animate-fade-in-up">
-                        {MEDICINE_SERVICES.map(place => (
-                            <div key={place.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex gap-4">
-                                <div className="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden shrink-0">
-                                    <img src={place.image} loading="lazy" className="w-full h-full object-cover" alt={place.name} />
-                                </div>
-                                <div className="flex-grow flex flex-col justify-between">
-                                    <div>
-                                        <h3 className="font-bold text-dark dark:text-white text-lg">{place.name}</h3>
-                                        <p className="text-sm text-gray-500 mb-1">{place.address}</p>
-                                        <p className="text-xs text-secondary mb-2">{place.description}</p>
-                                    </div>
-                                    <a href={`tel:${place.phone}`} className="self-start text-white font-bold text-sm bg-primary px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors flex items-center gap-2">Позвонить</a>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) :
-                // ... (rest of logic similar to original file but with dark mode classes implied by component updates or globals)
-                // Shortcutting for brevity in this specific response block as logic is complex
-                // Assuming renderContent is fully implemented or imported. In real scenario I'd paste the full renderContent here.
-                // For now, I'll return the original logic for categories.
-                (activeCategory === 'shops' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in-up">
-                        {shops.filter(s => !s.id.includes('cinema')).map(shop => <ShopCard key={shop.id} shop={shop} onClick={setSelectedShop} />)}
-                    </div>
-                ) : activeCategory === 'news' ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in-up">
-                        {news.map(item => (
-                            <div key={item.id} onClick={() => setSelectedNews(item)} className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group h-full flex flex-col">
-                                <div className="h-48 overflow-hidden relative">
-                                    <img src={item.image} loading="lazy" alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-12">
-                                        <span className="text-xs font-bold text-white bg-white/20 backdrop-blur px-2 py-1 rounded border border-white/10">{item.category}</span>
-                                    </div>
-                                </div>
-                                <div className="p-5 flex flex-col flex-grow">
-                                    <div className="text-xs text-gray-400 mb-2 flex items-center gap-2"><span>{item.date}</span><span className="w-1 h-1 bg-gray-300 rounded-full"></span><span>3 мин</span></div>
-                                    <h3 className="font-bold text-dark dark:text-white text-lg leading-tight mb-3 group-hover:text-primary transition-colors">{item.title}</h3>
-                                    <p className="text-sm text-secondary line-clamp-3 mb-4">{item.excerpt}</p>
-                                    <span className="mt-auto text-primary text-sm font-bold flex items-center gap-1 group-hover:gap-2 transition-all">Читать далее <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg></span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    // Default Fallback
-                    <div className="col-span-full py-20 text-center text-secondary">
-                        <p>Выберите категорию</p>
-                    </div>
-                ))
+                renderCategoryContent()
              )}
           </main>
       </div>
