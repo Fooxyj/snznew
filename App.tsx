@@ -856,6 +856,12 @@ const App: React.FC = () => {
     });
 
     useEffect(() => {
+        console.log('📊 Ads fetch result:', {
+            hasFetchedAds: !!fetchedAds,
+            adsLength: fetchedAds?.length,
+            firstAd: fetchedAds?.[0]
+        });
+
         if (fetchedAds && fetchedAds.length > 0) {
             const dbAds: Ad[] = fetchedAds.map((item: any) => ({
                 id: item.id,
@@ -880,12 +886,12 @@ const App: React.FC = () => {
                 specs: item.specs || {}
             }));
 
-            setAds(currentAds => {
-                if (JSON.stringify(currentAds) !== JSON.stringify(dbAds)) {
-                    return dbAds;
-                }
-                return currentAds;
-            });
+            console.log('✅ Setting ads from DB:', dbAds.length, 'ads');
+            setAds(dbAds);
+        } else if (fetchedAds !== undefined && fetchedAds !== null) {
+            // Database returned empty array - clear mock data
+            console.log('⚠️ Database returned empty, clearing ads');
+            setAds([]);
         }
     }, [fetchedAds]);
 
@@ -1187,7 +1193,8 @@ const App: React.FC = () => {
                 images: form.images, // Save all images
                 is_premium: form.isPremium,
                 specs: specs,
-                author_name: user.name || 'Пользователь' // Save real name
+                author_name: user.name || 'Пользователь', // Save real name
+                author_avatar: user.avatar || '' // Save avatar
             };
 
             if (adToEdit) {
