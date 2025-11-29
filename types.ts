@@ -20,6 +20,7 @@ export interface Ad {
   id: string;
   userId?: string; // Links ad to the user in Supabase
   authorName?: string; // Display name of the seller
+  authorAvatar?: string; // Avatar of the seller
   authorLevel?: number; // Level of the seller (1-5)
   title: string;
   description: string;
@@ -79,12 +80,12 @@ export interface NewsItem {
 }
 
 export interface Order {
-    id: string;
-    date: string;
-    shopName: string;
-    total: number;
-    status: 'completed' | 'processing' | 'cancelled';
-    itemsString: string; 
+  id: string;
+  date: string;
+  shopName: string;
+  total: number;
+  status: 'completed' | 'processing' | 'cancelled';
+  itemsString: string;
 }
 
 export interface User {
@@ -184,12 +185,12 @@ export interface Notification {
 
 // --- Chat Types ---
 export interface ChatMessage {
-    id: string;
-    chatId?: string;
-    senderId: string; // 'me' or user_id
-    text: string;
-    created_at: string;
-    isMe: boolean;
+  id: string;
+  chatId?: string;
+  senderId: string; // 'me' or user_id
+  text: string;
+  created_at: string;
+  isMe: boolean;
 }
 
 export interface ChatSession {
@@ -197,4 +198,6 @@ export interface ChatSession {
   adTitle: string;
   category: Category;
   subCategory?: string;
+  authorName?: string;
+  authorAvatar?: string;
 }

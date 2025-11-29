@@ -1,79 +1,94 @@
 <!DOCTYPE html>
 <html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Твой Снежинск</title>
-    <!-- Tailwind via CDN is kept for simplicity to match your existing styles -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              background: '#f3f4f6', // Light gray background
-              surface: '#ffffff',    // Pure white cards
-              primary: '#2563eb',    // Modern Blue
-              'primary-dark': '#1d4ed8',
-              secondary: '#64748b',  // Slate gray for secondary text
-              dark: '#0f172a',       // Deep slate for headings
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
+  <title>Твой Снежинск</title>
+  <!-- Tailwind via CDN is kept for simplicity to match your existing styles -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            background: '#f3f4f6', // Light gray background
+            surface: '#ffffff',    // Pure white cards
+            primary: '#2563eb',    // Modern Blue
+            'primary-dark': '#1d4ed8',
+            secondary: '#64748b',  // Slate gray for secondary text
+            dark: '#0f172a',       // Deep slate for headings
+          },
+          fontFamily: {
+            sans: ['"Inter"', 'sans-serif'],
+          },
+          keyframes: {
+            'fade-in-up': {
+              '0%': { opacity: '0', transform: 'translateY(10px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
             },
-            fontFamily: {
-              sans: ['"Inter"', 'sans-serif'],
-            },
-            keyframes: {
-              'fade-in-up': {
-                '0%': { opacity: '0', transform: 'translateY(10px)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' },
-              },
-              'pulse-slow': {
-                '0%, 100%': { opacity: '1' },
-                '50%': { opacity: '0.8' },
-              }
-            },
-            animation: {
-              'fade-in-up': 'fade-in-up 0.3s ease-out forwards',
-              'pulse-slow': 'pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'pulse-slow': {
+              '0%, 100%': { opacity: '1' },
+              '50%': { opacity: '0.8' },
             }
+          },
+          animation: {
+            'fade-in-up': 'fade-in-up 0.3s ease-out forwards',
+            'pulse-slow': 'pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
           }
         }
       }
-    </script>
-    <style>
-      body {
-        background-color: #f3f4f6;
-        color: #0f172a;
-        font-family: "Inter", sans-serif;
-      }
-      /* Custom Scrollbar for desktop generally */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1; 
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8; 
-      }
-      
-      /* Hide scrollbar utility class */
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
-    </style>
-    <script type="importmap">
+    }
+  </script>
+  <style>
+    html,
+    body {
+      height: 100%;
+      overscroll-behavior-y: none;
+      /* Prevent pull-to-refresh on mobile if needed */
+    }
+
+    body {
+      background-color: #f3f4f6;
+      color: #0f172a;
+      font-family: "Inter", sans-serif;
+    }
+
+    /* Custom Scrollbar for desktop generally */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Hide scrollbar utility class */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+  <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@18.2.0",
@@ -92,8 +107,10 @@
 </script>
   <link rel="stylesheet" href="/index.css">
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
 </html>
