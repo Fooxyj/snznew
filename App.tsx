@@ -20,6 +20,7 @@ import { UserProfileModal } from './components/UserProfileModal';
 import { PublicProfileModal } from './components/PublicProfileModal';
 import { ToastNotification } from './components/ToastNotification';
 import { AdminPanel } from './components/AdminPanel';
+import { ChatList } from './components/ChatList';
 import { MobileMenu } from './components/MobileMenu';
 import { MobileSearchModal } from './components/MobileSearchModal';
 import { SplashScreen } from './components/SplashScreen';
@@ -741,7 +742,15 @@ const App: React.FC = () => {
     const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
     const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [isChatListOpen, setIsChatListOpen] = useState(false);
     const [activeChatSession, setActiveChatSession] = useState<ChatSession | null>(null);
+
+    // Listen for global events
+    useEffect(() => {
+        const handleOpenChatList = () => setIsChatListOpen(true);
+        window.addEventListener('open-chat-list', handleOpenChatList);
+        return () => window.removeEventListener('open-chat-list', handleOpenChatList);
+    }, []);
     const [activeMovie, setActiveMovie] = useState<Movie | null>(null);
 
     const [ads, setAds] = useState<Ad[]>(INITIAL_ADS);
@@ -2240,15 +2249,33 @@ const App: React.FC = () => {
                 }}
             />
 
+            <ChatList
+                isOpen={isChatListOpen}
+                onClose={() => setIsChatListOpen(false)}
+                currentUserId={user.id || ''}
+                onSelectChat={(session) => {
+                    setActiveChatSession(session);
+                    setIsChatListOpen(false);
+                }}
+            />
+
+            {/* Mobile Menu */}
             <MobileMenu
                 isOpen={isMobileMenuOpen}
                 onClose={() => setIsMobileMenuOpen(false)}
-                activeCategory={activeCategory}
-                onSelectCategory={handleNavigate}
-                navItems={NAV_ITEMS}
-                onOpenPartnerModal={() => {
+                onSelectCategory={(cat) => {
+                    setActiveCategory(cat);
                     setIsMobileMenuOpen(false);
-                    setIsPartnerModalOpen(true);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                activeCategory={activeCategory}
+                navItems={NAV_ITEMS}
+                onOpenPartnerModal={() => setIsPartnerModalOpen(true)}
+                onOpenProfile={() => setIsUserProfileOpen(true)}
+                onNavigate={(target) => {
+                    if (target === 'messages') {
+                        setIsChatListOpen(true);
+                    }
                 }}
             />
 

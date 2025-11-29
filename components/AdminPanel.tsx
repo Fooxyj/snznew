@@ -134,9 +134,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
             try {
                 const url = await api.uploadFile(file, 'story-images');
                 setStoryForm(prev => ({ ...prev, [field]: url }));
-            } catch (err) {
+            } catch (err: any) {
                 console.error(err);
-                alert('Ошибка загрузки изображения');
+                let msg = 'Ошибка загрузки изображения';
+                if (err.message && err.message.includes('BLOCKED_BY_CLIENT')) {
+                    msg = 'Загрузка заблокирована браузером. Отключите AdBlock.';
+                }
+                alert(msg);
             } finally {
                 setIsUploadingStoryImage(false);
             }
@@ -391,9 +395,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
             try {
                 const publicUrl = await api.uploadFile(file, 'images');
                 setNewsForm({ ...newsForm, image: publicUrl });
-            } catch (err) {
+            } catch (err: any) {
                 console.error(err);
-                alert('Ошибка загрузки изображения');
+                let msg = 'Ошибка загрузки изображения';
+                if (err.message && err.message.includes('BLOCKED_BY_CLIENT')) {
+                    msg = 'Загрузка заблокирована браузером. Отключите AdBlock.';
+                }
+                alert(msg);
             } finally {
                 setIsUploadingImage(false);
             }

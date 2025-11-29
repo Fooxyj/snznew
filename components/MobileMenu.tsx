@@ -8,9 +8,11 @@ interface MobileMenuProps {
   activeCategory: Category;
   navItems: { id: string; label: string; icon: React.ReactNode }[];
   onOpenPartnerModal: () => void;
+  onOpenProfile: () => void;
+  onNavigate: (category: any) => void; // relaxed type to allow 'messages' string
 }
 
-export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, onSelectCategory, activeCategory, navItems, onOpenPartnerModal }) => {
+export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, onSelectCategory, activeCategory, navItems, onOpenPartnerModal, onOpenProfile, onNavigate }) => {
   if (!isOpen) return null;
 
   return (
@@ -53,8 +55,28 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, onSelec
 
           <div className="mt-6 pt-6 border-t border-gray-100">
             <button
-              onClick={() => { onClose(); onOpenPartnerModal(); }}
-              className="w-full bg-dark text-white p-3 rounded-xl shadow-lg hover:bg-black transition-all group relative overflow-hidden mb-4"
+              onClick={() => {
+                onClose();
+                // We need a way to open chat list from here. 
+                // Since we don't have the prop yet, we will add it to props interface first.
+                // But for now, let's assume the parent will handle it or we pass a callback.
+                // Actually, better to emit an event or use a prop.
+                // Let's assume onNavigate('messages') works if we handle it in App.tsx
+                onNavigate('messages');
+              }}
+              className="w-full bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 active:scale-95 transition-transform"
+            >
+              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+              </div>
+              <span className="font-bold text-dark text-lg">Сообщения</span>
+            </button>
+
+            <button
+              onClick={() => {
+                onClose();
+                onOpenProfile();
+              }} className="w-full bg-dark text-white p-3 rounded-xl shadow-lg hover:bg-black transition-all group relative overflow-hidden mb-4"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="flex items-center gap-3 relative z-10">

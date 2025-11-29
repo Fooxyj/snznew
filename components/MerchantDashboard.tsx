@@ -59,16 +59,26 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ isOpen, on
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'logo' | 'coverImage') => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'avatar' | 'header') => {
         const file = e.target.files?.[0];
         if (file) {
             setIsUploading(true);
             try {
-                const url = await api.uploadFile(file, 'business-images');
+                // Determine bucket based on field or context, but api.uploadFile defaults to 'images'
+                // We should probably use 'business-images' for businesses
+                const bucket = 'business-images';
+                const url = await api.uploadFile(file, bucket);
+
                 setFormData(prev => ({ ...prev, [field]: url }));
-            } catch (err) {
+            } catch (err: any) {
                 console.error(err);
-                alert('Ошибка загрузки изображения');
+                let msg = 'Ошибка загрузки изображения';
+                if (err.message && err.message.includes('BLOCKED_BY_CLIENT')) {
+                    msg = 'Загрузка заблокирована браузером. Отключите AdBlock.';
+                } else if (err.message) {
+                    msg = err.message;
+                }
+                alert(msg);
             } finally {
                 setIsUploading(false);
             }
@@ -294,7 +304,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ isOpen, on
                                                 {formData.logo && <img src={formData.logo} alt="Logo" className="w-16 h-16 rounded-xl object-cover border border-gray-100" />}
                                                 <label className={`cursor-pointer bg-gray-50 hover:bg-gray-100 px-4 py-2 rounded-xl text-sm font-bold text-secondary transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                                     {isUploading ? '...' : 'Изменить'}
-                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'logo')} disabled={isUploading} />
+                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatar')} disabled={isUploading} />
                                                 </label>
                                             </div>
                                         </div>
@@ -304,7 +314,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ isOpen, on
                                                 {formData.coverImage && <img src={formData.coverImage} alt="Cover" className="w-32 h-16 rounded-xl object-cover border border-gray-100" />}
                                                 <label className={`cursor-pointer bg-gray-50 hover:bg-gray-100 px-4 py-2 rounded-xl text-sm font-bold text-secondary transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                                     {isUploading ? '...' : 'Изменить'}
-                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'coverImage')} disabled={isUploading} />
+                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'header')} disabled={isUploading} />
                                                 </label>
                                             </div>
                                         </div>
