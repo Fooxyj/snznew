@@ -1346,9 +1346,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
                                 )}
                             </div>
                         )}
-
                     </div>
                 </div>
             </div>
-            );
+        </div>
+    );
 };
