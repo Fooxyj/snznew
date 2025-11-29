@@ -49,35 +49,45 @@ export const api = {
 
   ads: {
     // Optimized fetch for the main feed with Pagination support
-    list: async (page = 0, limit = 50) => {
+    list: async (page = 0, limit = 50, status = 'approved') => {
       const from = page * limit;
       const to = from + limit - 1;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('ads')
         .select(AD_LIST_FIELDS)
-        // Removed .eq('status', 'approved') to allow Admin to see pending ads
         .order('is_premium', { ascending: false }) // Premium first
         .order('created_at', { ascending: false }) // Newest next
         .range(from, to); // Use range for DB-level pagination
+
+      if (status !== 'all') {
+        query = query.eq('status', status);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data;
     },
 
     // Optimized fetch by category (Server-side filtering)
-    getByCategory: async (category: Category, page = 0, limit = 50) => {
+    getByCategory: async (category: Category, page = 0, limit = 50, status = 'approved') => {
       const from = page * limit;
       const to = from + limit - 1;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('ads')
         .select(AD_LIST_FIELDS)
         .eq('category', category)
-        // Removed .eq('status', 'approved') to allow Admin to see pending ads
         .order('is_premium', { ascending: false })
         .order('created_at', { ascending: false })
         .range(from, to);
+
+      if (status !== 'all') {
+        query = query.eq('status', status);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data;

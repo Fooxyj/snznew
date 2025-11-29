@@ -844,16 +844,19 @@ const App: React.FC = () => {
     }, []);
 
     const { data: fetchedAds } = useQuery({
-        queryKey: ['ads', activeCategory],
+        queryKey: ['ads', activeCategory, user.isAdmin],
         queryFn: async () => {
             try {
+                // Fetch all ads for admin, otherwise only approved
+                const status = user.isAdmin ? 'all' : 'approved';
+
                 if (activeCategory === 'beauty') {
-                    return await api.ads.getByCategory('services');
+                    return await api.ads.getByCategory('services', 0, 50, status);
                 }
                 if (activeCategory === 'all' || activeCategory === 'news' || activeCategory === 'shops' || activeCategory === 'cinema' || activeCategory === 'cafes' || activeCategory === 'gyms' || activeCategory === 'emergency' || activeCategory === 'transport' || activeCategory === 'medicine' || activeCategory === 'culture' || activeCategory === 'tourism') {
-                    return await api.ads.list();
+                    return await api.ads.list(0, 50, status);
                 } else {
-                    return await api.ads.getByCategory(activeCategory);
+                    return await api.ads.getByCategory(activeCategory, 0, 50, status);
                 }
             } catch (error) {
                 console.warn('Supabase fetch error (using cache/mock):', getSafeErrorMessage(error));
@@ -1897,6 +1900,7 @@ const App: React.FC = () => {
         }
 
         filteredAds = filteredAds.filter(ad => {
+            if (user.isAdmin) return true; // Admins see everything
             if (ad.status === 'approved' || !ad.status) return true;
             return ad.userId === user.id || (user.id === 'guest' && ad.userId === undefined);
         });
