@@ -1140,12 +1140,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
                                                 </div>
                                             ))}
                                         </div>
+                                    </>
                                 )}
-                                    </div>
-                        )}
                             </div>
+                        )}
 
-                    {/* Stories Tab */}
+                        {/* Stories Tab */}
                         {activeTab === 'stories' && (
                             <div className="max-w-6xl mx-auto">
                                 <div className="flex items-center justify-between mb-6">
