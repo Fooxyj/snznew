@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Ad, NewsItem, BusinessApplication } from '../types';
 import { supabase } from '../services/supabaseClient';
 import { api } from '../services/api';
@@ -13,6 +14,7 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, onUpdateAdStatus, onUpdateAdContent, onAddNews }) => {
+    const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<'moderation' | 'active_ads' | 'news' | 'business_apps' | 'manage_businesses'>('moderation');
     const [editingAdId, setEditingAdId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<Ad>>({});
@@ -129,6 +131,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
 
             // Refresh list
             fetchBusinessApplications();
+            // Invalidate managed businesses query to update the main app UI immediately
+            queryClient.invalidateQueries({ queryKey: ['managed_businesses'] });
 
             // Clear images
             setBusinessImages({});

@@ -1070,6 +1070,67 @@ const App: React.FC = () => {
         window.scrollTo({ top: 0, behavior: 'auto' });
     }, [activeCategory, selectedSubCategory, selectedAd, selectedNews, selectedShop, activeChatSession]);
 
+    // Global Chat Notifications
+    useEffect(() => {
+        if (!user.isLoggedIn || !user.id) return;
+
+        const channel = supabase.channel('global_messages')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'messages' },
+                async (payload) => {
+                    const newMsg = payload.new;
+                    // Ignore my own messages
+                    if (newMsg.sender_id === user.id) return;
+
+                    // If I'm already looking at this chat, no notification needed
+                    if (activeChatSession && activeChatSession.chatId === newMsg.chat_id) {
+                        return;
+                    }
+
+                    try {
+                        // Fetch chat details to see if it concerns me
+                        const { data: chatData } = await supabase
+                            .from('chats')
+                            .select('buyer_id, ad_id')
+                            .eq('id', newMsg.chat_id)
+                            .single();
+
+                        if (!chatData) return;
+
+                        let notificationMessage = '';
+
+                        if (chatData.buyer_id === user.id) {
+                            // I am the buyer, receiving a message from seller
+                            const { data: ad } = await supabase.from('ads').select('title').eq('id', chatData.ad_id).single();
+                            notificationMessage = `Ответ по объявлению "${ad?.title || '...'}"`;
+                        } else {
+                            // Check if I am the seller
+                            const { data: ad } = await supabase.from('ads').select('user_id, title').eq('id', chatData.ad_id).single();
+                            if (ad && ad.user_id === user.id) {
+                                notificationMessage = `Вопрос по объявлению "${ad.title}"`;
+                            }
+                        }
+
+                        if (notificationMessage) {
+                            addNotification({
+                                id: Date.now(),
+                                message: notificationMessage,
+                                type: 'info'
+                            });
+                        }
+                    } catch (err) {
+                        console.error('Error processing notification:', err);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user.isLoggedIn, user.id, activeChatSession]);
+
     const addNotification = (note: Notification) => {
         setNotifications(prev => [...prev, note]);
     };
@@ -2178,6 +2239,10 @@ const App: React.FC = () => {
                 activeCategory={activeCategory}
                 onSelectCategory={handleNavigate}
                 navItems={NAV_ITEMS}
+                onOpenPartnerModal={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsPartnerModalOpen(true);
+                }}
             />
 
             <MobileSearchModal
