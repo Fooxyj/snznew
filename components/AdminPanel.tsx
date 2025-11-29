@@ -215,7 +215,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
                 content: data.content,
                 category: data.category,
                 image: data.image,
-                date: new Date(data.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+                date: (() => {
+                    const date = new Date(data.created_at);
+                    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+                })()
             };
             onAddNews(newItem);
 
@@ -637,7 +640,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
                                                     <div>
                                                         <span className="text-secondary">Дата подачи:</span>
                                                         <p className="font-medium text-dark">
-                                                            {new Date(app.created_at).toLocaleDateString('ru-RU')}
+                                                            {(() => {
+                                                                const date = new Date(app.created_at);
+                                                                return date.toLocaleDateString('ru-RU');
+                                                            })()}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -790,7 +796,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
                                                     <div>
                                                         <span className="text-secondary">Дата создания:</span>
                                                         <p className="font-medium text-dark">
-                                                            {new Date(business.created_at).toLocaleDateString('ru-RU')}
+                                                            {(() => {
+                                                                const date = new Date(business.created_at);
+                                                                return date.toLocaleDateString('ru-RU');
+                                                            })()}
                                                         </p>
                                                     </div>
                                                 </div>
