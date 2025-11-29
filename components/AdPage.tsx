@@ -12,7 +12,7 @@ interface AdPageProps {
   onOpenChat: (session: ChatSession) => void;
   isLoggedIn: boolean;
   onRequireLogin: () => void;
-  onOpenProfile?: (userId: string, userName: string) => void;
+  onOpenProfile?: (userId: string, userName: string, userAvatar?: string) => void;
 }
 
 export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenChat, isLoggedIn, onRequireLogin, onOpenProfile }) => {
@@ -82,7 +82,7 @@ export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenC
 
   const handleProfileClick = () => {
     if (onOpenProfile && ad.userId && ad.authorName) {
-      onOpenProfile(ad.userId, ad.authorName);
+      onOpenProfile(ad.userId, ad.authorName, ad.authorAvatar);
     }
   };
 

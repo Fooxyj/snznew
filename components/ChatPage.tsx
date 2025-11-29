@@ -80,18 +80,44 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
 
             if (adData) {
                 if (currentUserId !== adData.user_id) {
-                    // I am buyer, partner is Seller
+                    // I am buyer, partner is Seller. Fetch seller's profile.
+                    const { data: sellerProfile } = await supabase
+                        .from('profiles')
+                        .select('full_name, name, avatar_url')
+                        .eq('id', adData.user_id)
+                        .maybeSingle();
+
                     setPartnerProfile({
-                        name: session.authorName || 'Продавец',
-                        avatar: session.authorAvatar || ''
+                        name: sellerProfile?.full_name || sellerProfile?.name || session.authorName || 'Пользователь',
+                        avatar: sellerProfile?.avatar_url || session.authorAvatar || ''
                     });
                 } else {
-                    // I am seller, partner is Buyer
-                    // We can't get buyer info easily without a specific chat ID context or more DB queries.
-                    // But usually ChatPage is opened with a specific chat context if we are the seller.
-                    // If we are just opening "chat for ad", we might be listing chats.
-                    // But here we are in a single chat session.
-                    setPartnerProfile({ name: 'Покупатель', avatar: '' });
+                    // I am seller, partner is Buyer.
+                    // If we have a chatId, we can find the buyer.
+                    if (session.chatId) {
+                        const { data: chatData } = await supabase
+                            .from('chats')
+                            .select('buyer_id')
+                            .eq('id', session.chatId)
+                            .maybeSingle();
+
+                        if (chatData && chatData.buyer_id) {
+                            const { data: buyerProfile } = await supabase
+                                .from('profiles')
+                                .select('full_name, name, avatar_url')
+                                .eq('id', chatData.buyer_id)
+                                .maybeSingle();
+
+                            setPartnerProfile({
+                                name: buyerProfile?.full_name || buyerProfile?.name || 'Покупатель',
+                                avatar: buyerProfile?.avatar_url || ''
+                            });
+                        } else {
+                            setPartnerProfile({ name: 'Покупатель', avatar: '' });
+                        }
+                    } else {
+                        setPartnerProfile({ name: 'Покупатель', avatar: '' });
+                    }
                 }
             }
         };

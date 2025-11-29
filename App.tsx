@@ -1085,12 +1085,12 @@ const App: React.FC = () => {
         setSelectedShop(null);
     };
 
-    const handleOpenPublicProfile = (userId: string, userName: string) => {
+    const handleOpenPublicProfile = (userId: string, userName: string, userAvatar?: string) => {
         setPublicProfileUser({
             id: userId,
             name: userName,
             level: 1,
-            avatar: '',
+            avatar: userAvatar || '',
         });
     };
 
@@ -1747,7 +1747,7 @@ const App: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background font-sans text-dark pb-24 md:pb-0 relative">
+        <div className="min-h-[100dvh] bg-background font-sans text-dark pb-24 md:pb-0 relative">
             {showSplashScreen && <SplashScreen onFinish={() => setShowSplashScreen(false)} />}
             <ToastNotification notifications={notifications} onRemove={handleRemoveNotification} />
 

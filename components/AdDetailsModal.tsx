@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Ad } from '../types';
 
 interface AdDetailsModalProps {
@@ -9,8 +9,30 @@ interface AdDetailsModalProps {
 
 export const AdDetailsModal: React.FC<AdDetailsModalProps> = ({ ad, isOpen, onClose }) => {
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+    const [activeImage, setActiveImage] = useState<string | undefined>(undefined);
+
+    useEffect(() => {
+        if (ad) {
+            setActiveImage(ad.image);
+        }
+    }, [ad]);
 
     if (!isOpen || !ad) return null;
+
+    const images = ad.images && ad.images.length > 0 ? ad.images : [ad.image];
+    const activeIndex = activeImage ? images.indexOf(activeImage) : 0;
+
+    const handleNextImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const nextIndex = (activeIndex + 1) % images.length;
+        setActiveImage(images[nextIndex]);
+    };
+
+    const handlePrevImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const prevIndex = (activeIndex - 1 + images.length) % images.length;
+        setActiveImage(images[prevIndex]);
+    };
 
     const handleImageClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -25,19 +47,39 @@ export const AdDetailsModal: React.FC<AdDetailsModalProps> = ({ ad, isOpen, onCl
     // Gallery Overlay
     if (isGalleryOpen) {
         return (
-            <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center" onClick={closeGallery}>
-                <button onClick={closeGallery} className="absolute top-4 right-4 z-20 p-2 bg-black/50 rounded-full text-white">
+            <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center animate-fade-in-up" onClick={closeGallery}>
+                <button onClick={closeGallery} className="absolute top-4 right-4 z-20 p-2 bg-black/50 rounded-full text-white hover:bg-white/20 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
-                <div className="w-full h-full md:w-auto md:h-auto md:max-w-5xl md:max-h-[90vh] flex items-center justify-center p-0 md:p-4">
+
+                {/* Navigation Buttons (Desktop) */}
+                {images.length > 1 && (
+                    <>
+                        <button onClick={handlePrevImage} className="hidden md:flex absolute left-4 z-20 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors">
+                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        <button onClick={handleNextImage} className="hidden md:flex absolute right-4 z-20 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors">
+                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </>
+                )}
+
+                <div className="w-full h-full flex flex-col items-center justify-center p-0 md:p-4 relative">
                     <img
-                        src={ad.image}
+                        src={activeImage || ad.image}
                         alt={ad.title}
-                        className="w-full h-full md:w-auto md:h-auto object-contain md:rounded-lg"
-                        onClick={(e) => e.stopPropagation()}
+                        className="w-full h-full md:w-auto md:h-auto md:max-w-5xl md:max-h-[85vh] object-contain md:rounded-lg"
+                        onClick={(e) => { e.stopPropagation(); if (images.length > 1) handleNextImage(e); }}
                     />
+
+                    {/* Image Counter */}
+                    {images.length > 1 && (
+                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-black/50 text-white px-4 py-1 rounded-full text-sm font-medium backdrop-blur-sm">
+                            {activeIndex + 1} / {images.length}
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -100,8 +142,8 @@ export const AdDetailsModal: React.FC<AdDetailsModalProps> = ({ ad, isOpen, onCl
                             <h2 className="text-2xl md:text-3xl font-bold text-dark leading-tight mb-2">{ad.title}</h2>
 
                             {/* Mobile Description (Visible only on mobile, below title) */}
-                            <div className="md:hidden mb-4">
-                                <p className="text-dark text-sm leading-relaxed whitespace-pre-wrap">{ad.description}</p>
+                            <div className="md:hidden mb-3">
+                                <p className="text-dark text-sm leading-relaxed whitespace-pre-wrap opacity-90">{ad.description}</p>
                             </div>
 
                             <div className="text-3xl md:text-4xl font-extrabold text-primary mb-4 md:mb-0">

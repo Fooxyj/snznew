@@ -200,4 +200,5 @@ export interface ChatSession {
   subCategory?: string;
   authorName?: string;
   authorAvatar?: string;
+  chatId?: string;
 }
