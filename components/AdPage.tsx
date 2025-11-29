@@ -147,7 +147,11 @@ export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenC
         >
           <div className="relative">
             <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white font-bold text-xl shadow-md overflow-hidden">
-              {ad.authorName ? ad.authorName.charAt(0).toUpperCase() : 'Ч'}
+              {ad.authorAvatar ? (
+                <img src={ad.authorAvatar} alt={ad.authorName} className="w-full h-full object-cover" />
+              ) : (
+                ad.authorName ? ad.authorName.charAt(0).toUpperCase() : 'Ч'
+              )}
             </div>
             <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full ${getBadgeColor(sellerLevel)} border-2 border-white flex items-center justify-center text-[10px] font-bold text-white shadow-sm`}>
               {sellerLevel}
@@ -398,34 +402,64 @@ export const AdPage: React.FC<AdPageProps> = ({ ad, onBack, onAddReview, onOpenC
 
         {/* Lightbox / Full Image Viewer */}
         {isLightboxOpen && (
-          <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center animate-fade-in-up" onClick={() => setIsLightboxOpen(false)}>
+          <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center animate-fade-in-up" onClick={() => setIsLightboxOpen(false)}>
             <button
               onClick={() => setIsLightboxOpen(false)}
-              className="absolute top-4 right-4 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors z-10"
+              className="absolute top-4 right-4 z-20 p-2 bg-black/50 rounded-full text-white hover:bg-white/20 transition-colors"
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
 
-            <img
-              src={activeImage}
-              alt="Full View"
-              className="max-h-screen max-w-screen object-contain p-4"
-              onClick={(e) => e.stopPropagation()}
-            />
-
+            {/* Navigation Buttons (Desktop) */}
             {images.length > 1 && (
-              <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 p-4 overflow-x-auto no-scrollbar" onClick={(e) => e.stopPropagation()}>
-                {images.map((img, idx) => (
-                  <img
-                    key={idx}
-                    src={img}
-                    alt={`Thumbnail ${idx}`}
-                    onClick={() => setActiveImage(img)}
-                    className={`h-16 w-16 object-cover rounded-lg cursor-pointer border-2 transition-all ${activeImage === img ? 'border-primary' : 'border-transparent opacity-60 hover:opacity-100'}`}
-                  />
-                ))}
-              </div>
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const currentIndex = images.indexOf(activeImage);
+                    const prevIndex = (currentIndex - 1 + images.length) % images.length;
+                    setActiveImage(images[prevIndex]);
+                  }}
+                  className="hidden md:flex absolute left-4 z-20 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"
+                >
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const currentIndex = images.indexOf(activeImage);
+                    const nextIndex = (currentIndex + 1) % images.length;
+                    setActiveImage(images[nextIndex]);
+                  }}
+                  className="hidden md:flex absolute right-4 z-20 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"
+                >
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </>
             )}
+
+            <div className="w-full h-full flex flex-col items-center justify-center p-0 md:p-4 relative">
+              <img
+                src={activeImage}
+                alt="Full View"
+                className="w-full h-full md:w-auto md:h-auto md:max-w-5xl md:max-h-[85vh] object-contain md:rounded-lg"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (images.length > 1) {
+                    const currentIndex = images.indexOf(activeImage);
+                    const nextIndex = (currentIndex + 1) % images.length;
+                    setActiveImage(images[nextIndex]);
+                  }
+                }}
+              />
+
+              {/* Image Counter */}
+              {images.length > 1 && (
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-black/50 text-white px-4 py-1 rounded-full text-sm font-medium backdrop-blur-sm">
+                  {images.indexOf(activeImage) + 1} / {images.length}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

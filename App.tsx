@@ -823,6 +823,7 @@ const App: React.FC = () => {
                 userId: item.user_id,
                 // Author Name from DB if available, otherwise 'Продавец'
                 authorName: item.author_name || 'Продавец',
+                authorAvatar: item.author_avatar, // Map avatar from DB
                 authorLevel: item.author_level || 1,
                 title: item.title,
                 description: item.description,

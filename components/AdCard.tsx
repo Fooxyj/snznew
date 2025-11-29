@@ -14,36 +14,36 @@ export const AdCard: React.FC<AdCardProps> = ({ ad, variant = 'standard', onShow
   const isPremium = variant === 'premium' || ad.isPremium;
 
   // Calculate rating
-  const rating = ad.reviews && ad.reviews.length > 0 
-    ? (ad.reviews.reduce((acc, r) => acc + r.rating, 0) / ad.reviews.length).toFixed(1) 
+  const rating = ad.reviews && ad.reviews.length > 0
+    ? (ad.reviews.reduce((acc, r) => acc + r.rating, 0) / ad.reviews.length).toFixed(1)
     : null;
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (onToggleFavorite) {
-          onToggleFavorite(ad.id);
-      }
+    e.stopPropagation();
+    if (onToggleFavorite) {
+      onToggleFavorite(ad.id);
+    }
   };
 
   return (
-    <div 
-        onClick={() => onShow && onShow(ad)}
-        className={`group relative bg-surface rounded-xl md:rounded-2xl flex flex-col h-full overflow-hidden transition-all duration-300 cursor-pointer
-        ${isPremium 
-            ? 'border border-yellow-400 shadow-[0_2px_10px_-3px_rgba(250,204,21,0.3)] md:shadow-[0_4px_20px_-5px_rgba(250,204,21,0.4)] md:hover:shadow-[0_8px_30px_-5px_rgba(250,204,21,0.6)] md:hover:-translate-y-1 z-10 md:ring-1 ring-yellow-400/50' 
-            : 'border border-gray-200 shadow-sm hover:shadow-xl hover:border-primary/20'
+    <div
+      onClick={() => onShow && onShow(ad)}
+      className={`group relative bg-surface rounded-xl md:rounded-2xl flex flex-col h-full overflow-hidden transition-all duration-300 cursor-pointer
+        ${isPremium
+          ? 'border border-yellow-400 shadow-[0_2px_10px_-3px_rgba(250,204,21,0.3)] md:shadow-[0_4px_20px_-5px_rgba(250,204,21,0.4)] md:hover:shadow-[0_8px_30px_-5px_rgba(250,204,21,0.6)] md:hover:-translate-y-1 z-10 md:ring-1 ring-yellow-400/50'
+          : 'border border-gray-200 shadow-sm hover:shadow-xl hover:border-primary/20'
         }`}
     >
-      
+
       {/* Image Container */}
       <div className="relative aspect-square md:aspect-[4/3] overflow-hidden bg-gray-100 shrink-0">
-        <img 
-          src={ad.image} 
-          alt={ad.title} 
+        <img
+          src={ad.image}
+          alt={ad.title}
           loading="lazy"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        
+
         {/* Badges on Image - Hidden on Mobile to save space */}
         <div className="absolute top-2 left-2 flex flex-col gap-2 items-start hidden md:flex">
           {isPremium && (
@@ -56,38 +56,38 @@ export const AdCard: React.FC<AdCardProps> = ({ ad, variant = 'standard', onShow
 
         {/* Favorite Button */}
         <div className="absolute top-1 right-1 md:top-3 md:right-3 z-10">
-            <button 
-                onClick={handleFavoriteClick}
-                className={`p-1.5 md:p-2 bg-white/80 md:bg-white/90 backdrop-blur rounded-full shadow-sm hover:shadow-md transition-all duration-300
-                    ${isFavorite 
-                        ? 'text-red-500 opacity-100' 
-                        : 'text-gray-400 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-red-500'
-                    }
+          <button
+            onClick={handleFavoriteClick}
+            className={`p-1.5 md:p-2 bg-white/80 md:bg-white/90 backdrop-blur rounded-full shadow-sm hover:shadow-md transition-all duration-300
+                    ${isFavorite
+                ? 'text-red-500 opacity-100'
+                : 'text-gray-400 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-red-500'
+              }
                 `}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" fill={isFavorite ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-            </button>
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" fill={isFavorite ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </button>
         </div>
       </div>
 
       {/* Content: Adjusted for mobile readability */}
       <div className={`p-2.5 md:p-4 flex flex-col flex-grow relative ${isPremium ? 'bg-gradient-to-b from-yellow-50/30 via-white to-white' : ''}`}>
-        
+
         {/* Desktop Badges */}
         <div className="hidden md:flex flex-wrap gap-2 mb-2">
-            {ad.bookingAvailable && (
-              <span className="bg-violet-50 text-violet-700 border border-violet-100 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide flex items-center gap-1">
-                Бронь
-              </span>
-            )}
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide border
-              ${ad.category === 'sale' ? 'bg-green-50 text-green-700 border-green-100' : 
-                ad.category === 'rent' ? 'bg-blue-50 text-blue-700 border-blue-100' : 
-                ad.category === 'services' ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-              {ad.category === 'rent' ? 'Аренда' : ad.category === 'sale' ? 'Продажа' : ad.category === 'services' ? 'Услуги' : 'Работа'}
+          {ad.bookingAvailable && (
+            <span className="bg-violet-50 text-violet-700 border border-violet-100 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide flex items-center gap-1">
+              Бронь
             </span>
+          )}
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide border
+              ${ad.category === 'sale' ? 'bg-green-50 text-green-700 border-green-100' :
+              ad.category === 'rent' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                ad.category === 'services' ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+            {ad.category === 'rent' ? 'Аренда' : ad.category === 'sale' ? 'Продажа' : ad.category === 'services' ? 'Услуги' : 'Работа'}
+          </span>
         </div>
 
         {/* Title */}
@@ -97,19 +97,19 @@ export const AdCard: React.FC<AdCardProps> = ({ ad, variant = 'standard', onShow
           </h3>
         </div>
 
-        {/* Description - Desktop Only */}
-        <p className="hidden md:block text-secondary text-xs leading-snug line-clamp-2 mb-2 break-words">
+        {/* Description - Visible on all screens, clamped to 2 lines */}
+        <p className="text-secondary text-xs leading-snug line-clamp-2 mb-2 break-words">
           {ad.description}
         </p>
-        
+
         {/* Specs - Desktop Only */}
         {ad.specs && (
-           <div className="hidden md:flex flex-wrap gap-1 mb-2 text-[10px] text-gray-500 font-medium opacity-80">
-             {ad.specs.year && <span>{ad.specs.year}г,</span>}
-             {ad.specs.mileage && <span>{(ad.specs.mileage / 1000).toFixed(0)}т.км</span>}
-             {ad.specs.rooms && <span>{ad.specs.rooms}к,</span>}
-             {ad.specs.area && <span>{ad.specs.area}м²</span>}
-           </div>
+          <div className="hidden md:flex flex-wrap gap-1 mb-2 text-[10px] text-gray-500 font-medium opacity-80">
+            {ad.specs.year && <span>{ad.specs.year}г,</span>}
+            {ad.specs.mileage && <span>{(ad.specs.mileage / 1000).toFixed(0)}т.км</span>}
+            {ad.specs.rooms && <span>{ad.specs.rooms}к,</span>}
+            {ad.specs.area && <span>{ad.specs.area}м²</span>}
+          </div>
         )}
 
         {/* Price - Moved to bottom (before footer) with mt-auto to push it down */}
@@ -119,8 +119,8 @@ export const AdCard: React.FC<AdCardProps> = ({ ad, variant = 'standard', onShow
           </span>
           {rating && (
             <div className="hidden md:flex items-center gap-1 bg-yellow-50 px-1.5 py-0.5 rounded-md border border-yellow-100">
-               <span className="text-yellow-500 text-[10px]">★</span>
-               <span className="text-xs font-bold text-dark">{rating}</span>
+              <span className="text-yellow-500 text-[10px]">★</span>
+              <span className="text-xs font-bold text-dark">{rating}</span>
             </div>
           )}
         </div>
@@ -135,10 +135,10 @@ export const AdCard: React.FC<AdCardProps> = ({ ad, variant = 'standard', onShow
             <span className="truncate max-w-[100px] md:max-w-full">{ad.location}</span>
           </div>
         </div>
-        
+
         {/* Mobile: Minimal location */}
         <div className="md:hidden pt-1 border-t border-gray-100/50">
-             <p className="text-[10px] text-gray-400 truncate">{ad.location}</p>
+          <p className="text-[10px] text-gray-400 truncate">{ad.location}</p>
         </div>
       </div>
     </div>
