@@ -13,11 +13,13 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, onUpdateAdStatus, onUpdateAdContent, onAddNews }) => {
-    const [activeTab, setActiveTab] = useState<'moderation' | 'active_ads' | 'news' | 'business_apps'>('moderation');
+    const [activeTab, setActiveTab] = useState<'moderation' | 'active_ads' | 'news' | 'business_apps' | 'manage_businesses'>('moderation');
     const [editingAdId, setEditingAdId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<Ad>>({});
     const [businessApplications, setBusinessApplications] = useState<BusinessApplication[]>([]);
+    const [allBusinesses, setAllBusinesses] = useState<any[]>([]);
     const [isLoadingApps, setIsLoadingApps] = useState(false);
+    const [isLoadingBusinesses, setIsLoadingBusinesses] = useState(false);
 
     // News Form State
     const [newsForm, setNewsForm] = useState({
@@ -35,6 +37,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
     useEffect(() => {
         if (activeTab === 'business_apps' && isOpen) {
             fetchBusinessApplications();
+        }
+        if (activeTab === 'manage_businesses' && isOpen) {
+            fetchAllBusinesses();
         }
     }, [activeTab, isOpen]);
 
@@ -55,10 +60,54 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
         }
     };
 
-    const handleApplicationAction = async (appId: string, newStatus: 'approved' | 'rejected') => {
+    const fetchAllBusinesses = async () => {
+        setIsLoadingBusinesses(true);
+        try {
+            const { data, error } = await supabase
+                .from('managed_businesses')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setAllBusinesses(data || []);
+        } catch (err) {
+            console.error('Error fetching businesses:', err);
+        } finally {
+            setIsLoadingBusinesses(false);
+        }
+    };
+
+    const handleApplicationAction = async (appId: string, newStatus: 'approved' | 'rejected', app: BusinessApplication) => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
 
+            if (newStatus === 'approved') {
+                // Create business entry
+                const businessData = {
+                    description: app.comment || '',
+                    address: '',
+                    phone: app.phone,
+                    email: app.email,
+                    hours: '',
+                    contact_person: app.contact_person
+                };
+
+                const { data: businessEntry, error: businessError } = await supabase
+                    .from('managed_businesses')
+                    .insert({
+                        user_id: app.user_id,
+                        business_type: 'shop', // Default type, can be customized
+                        business_name: app.company_name,
+                        business_data: businessData,
+                        last_edited_by: user?.id
+                    })
+                    .select()
+                    .single();
+
+                if (businessError) throw businessError;
+            }
+
+            // Update application status
             const { error } = await supabase
                 .from('business_applications')
                 .update({
@@ -72,7 +121,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
 
             // Refresh list
             fetchBusinessApplications();
-            alert(`Заявка ${newStatus === 'approved' ? 'одобрена' : 'отклонена'}!`);
+
+            if (newStatus === 'approved') {
+                alert(`Заявка одобрена! Пользователь получил доступ к бизнес-кабинету.`);
+            } else {
+                alert('Заявка отклонена.');
+            }
         } catch (err: any) {
             console.error('Error updating application:', err);
             alert('Ошибка: ' + err.message);
@@ -222,6 +276,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
                             {pendingBusinessApps.length > 0 && (
                                 <span className="ml-auto bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">
                                     {pendingBusinessApps.length}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('manage_businesses')}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm
+                            ${activeTab === 'manage_businesses' ? 'bg-gray-100 text-dark font-bold' : 'text-secondary hover:bg-gray-50'}`}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                            Управление бизнесами
+                            {allBusinesses.length > 0 && (
+                                <span className="ml-auto bg-gray-200 text-xs px-2 py-0.5 rounded-full">
+                                    {allBusinesses.length}
                                 </span>
                             )}
                         </button>
@@ -522,7 +589,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
                                     <div className="space-y-4">
                                         {businessApplications.map(app => (
                                             <div key={app.id} className={`bg-white rounded-2xl p-6 border-2 transition-all ${app.status === 'pending' ? 'border-blue-200 shadow-md' :
-                                                    app.status === 'approved' ? 'border-green-200' : 'border-gray-200 opacity-60'
+                                                app.status === 'approved' ? 'border-green-200' : 'border-gray-200 opacity-60'
                                                 }`}>
                                                 <div className="flex justify-between items-start mb-4">
                                                     <div>
@@ -530,8 +597,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
                                                         <p className="text-sm text-secondary">{app.business_type}</p>
                                                     </div>
                                                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${app.status === 'pending' ? 'bg-blue-100 text-blue-700' :
-                                                            app.status === 'approved' ? 'bg-green-100 text-green-700' :
-                                                                'bg-red-100 text-red-700'
+                                                        app.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                                            'bg-red-100 text-red-700'
                                                         }`}>
                                                         {app.status === 'pending' ? 'Ожидает' : app.status === 'approved' ? 'Одобрено' : 'Отклонено'}
                                                     </span>
@@ -568,19 +635,105 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, ads, on
                                                 {app.status === 'pending' && (
                                                     <div className="flex gap-3 pt-4 border-t border-gray-100">
                                                         <button
-                                                            onClick={() => handleApplicationAction(app.id, 'approved')}
+                                                            onClick={() => handleApplicationAction(app.id, 'approved', app)}
                                                             className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg transition-colors"
                                                         >
                                                             Одобрить
                                                         </button>
                                                         <button
-                                                            onClick={() => handleApplicationAction(app.id, 'rejected')}
+                                                            onClick={() => handleApplicationAction(app.id, 'rejected', app)}
                                                             className="flex-1 bg-red-100 hover:bg-red-200 text-red-600 font-bold py-2 rounded-lg transition-colors"
                                                         >
                                                             Отклонить
                                                         </button>
                                                     </div>
                                                 )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'manage_businesses' && (
+                            <div className="max-w-4xl mx-auto">
+                                <h3 className="text-2xl font-bold text-dark mb-6">Управление бизнесами</h3>
+
+                                {isLoadingBusinesses ? (
+                                    <div className="text-center py-20">
+                                        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                                        <p className="text-secondary mt-4">Загрузка...</p>
+                                    </div>
+                                ) : allBusinesses.length === 0 ? (
+                                    <div className="text-center py-20 bg-white rounded-3xl border border-gray-100">
+                                        <p className="text-secondary">Нет зарегистрированных бизнесов</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {allBusinesses.map(business => (
+                                            <div key={business.id} className="bg-white rounded-2xl p-6 border border-gray-200 hover:shadow-md transition-shadow">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div>
+                                                        <h4 className="text-lg font-bold text-dark">{business.business_name}</h4>
+                                                        <p className="text-sm text-secondary capitalize">{business.business_type}</p>
+                                                    </div>
+                                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                                                        Активен
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                                                    {business.business_data?.phone && (
+                                                        <div>
+                                                            <span className="text-secondary">Телефон:</span>
+                                                            <p className="font-medium text-dark">{business.business_data.phone}</p>
+                                                        </div>
+                                                    )}
+                                                    {business.business_data?.email && (
+                                                        <div>
+                                                            <span className="text-secondary">Email:</span>
+                                                            <p className="font-medium text-dark">{business.business_data.email}</p>
+                                                        </div>
+                                                    )}
+                                                    {business.business_data?.address && (
+                                                        <div>
+                                                            <span className="text-secondary">Адрес:</span>
+                                                            <p className="font-medium text-dark">{business.business_data.address}</p>
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <span className="text-secondary">Дата создания:</span>
+                                                        <p className="font-medium text-dark">
+                                                            {new Date(business.created_at).toLocaleDateString('ru-RU')}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {business.business_data?.description && (
+                                                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                                                        <span className="text-xs text-secondary font-bold">Описание:</span>
+                                                        <p className="text-sm text-dark mt-1">{business.business_data.description}</p>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                                                    <button
+                                                        className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 rounded-lg transition-colors"
+                                                        onClick={() => alert('Функция редактирования в разработке')}
+                                                    >
+                                                        Редактировать
+                                                    </button>
+                                                    <button
+                                                        className="px-4 bg-gray-100 hover:bg-gray-200 text-dark font-bold py-2 rounded-lg transition-colors"
+                                                        onClick={() => {
+                                                            if (confirm('Деактивировать бизнес?')) {
+                                                                alert('Функция деактивации в разработке');
+                                                            }
+                                                        }}
+                                                    >
+                                                        Деактивировать
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

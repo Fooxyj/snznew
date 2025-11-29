@@ -94,6 +94,25 @@ export interface BusinessApplication {
   reviewed_by?: string;
 }
 
+export interface ManagedBusiness {
+  id: string;
+  user_id: string;
+  business_type: 'shop' | 'cafe' | 'cinema' | 'rental' | 'service';
+  business_name: string;
+  business_data: {
+    description?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    hours?: string;
+    image?: string;
+    [key: string]: any; // Flexible for type-specific data
+  };
+  created_at: string;
+  updated_at: string;
+  last_edited_by?: string;
+}
+
 export interface Order {
   id: string;
   date: string;

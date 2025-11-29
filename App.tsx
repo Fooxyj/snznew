@@ -767,6 +767,7 @@ const App: React.FC = () => {
 
     const [news, setNews] = useState<NewsItem[]>(INITIAL_NEWS);
     const [user, setUser] = useState<User>(DEFAULT_USER);
+    const [userBusinesses, setUserBusinesses] = useState<any[]>([]);
     const [weather, setWeather] = useState<{ temp: number, condition: string, pressure: number } | null>(null);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -885,6 +886,32 @@ const App: React.FC = () => {
             setNews(dbNews);
         }
     }, [fetchedNews]);
+
+    // Fetch user's businesses when logged in
+    useEffect(() => {
+        const fetchUserBusinesses = async () => {
+            if (user.isLoggedIn && user.id) {
+                try {
+                    const { data, error } = await supabase
+                        .from('managed_businesses')
+                        .select('*')
+                        .eq('user_id', user.id);
+
+                    if (!error && data) {
+                        setUserBusinesses(data);
+                        // Update user object with has_business flag
+                        if (data.length > 0 && !user.managedShopId) {
+                            setUser(prev => ({ ...prev, managedShopId: data[0].id }));
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error fetching user businesses:', err);
+                }
+            }
+        };
+
+        fetchUserBusinesses();
+    }, [user.isLoggedIn, user.id]);
 
     useEffect(() => {
         try {
