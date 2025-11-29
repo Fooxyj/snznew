@@ -60,7 +60,66 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
         enabled: !!currentUserId && !!session.adId
     });
 
-    // ... (Partner Profile logic remains same) ...
+    // 2. Fetch Partner Profile
+    useEffect(() => {
+        const fetchPartner = async () => {
+            if (!supabase || !currentUserId || !session.adId) return;
+
+            // Get the ad author.
+            const { data: adData } = await supabase.from('ads').select('user_id').eq('id', session.adId).maybeSingle();
+
+            if (adData) {
+                if (currentUserId !== adData.user_id) {
+                    // I am buyer, partner is Seller. Fetch seller's profile.
+                    const { data: sellerProfile } = await supabase
+                        .from('profiles')
+                        .select('full_name, name, avatar_url')
+                        .eq('id', adData.user_id)
+                        .maybeSingle();
+
+                    setPartnerProfile({
+                        name: sellerProfile?.full_name || sellerProfile?.name || session.authorName || 'Продавец',
+                        avatar: sellerProfile?.avatar_url || session.authorAvatar || ''
+                    });
+                } else {
+                    // I am seller, partner is Buyer.
+                    if (chatId) { // Use chatId from state, which might be set by the queryFn
+                        const { data: chatData } = await supabase
+                            .from('chats')
+                            .select('buyer_id')
+                            .eq('id', chatId)
+                            .maybeSingle();
+
+                        if (chatData && chatData.buyer_id) {
+                            const { data: buyerProfile } = await supabase
+                                .from('profiles')
+                                .select('full_name, name, avatar_url')
+                                .eq('id', chatData.buyer_id)
+                                .maybeSingle();
+
+                            setPartnerProfile({
+                                name: buyerProfile?.full_name || buyerProfile?.name || 'Покупатель',
+                                avatar: buyerProfile?.avatar_url || ''
+                            });
+                        } else {
+                            setPartnerProfile({ name: 'Покупатель', avatar: '' });
+                        }
+                    } else {
+                        setPartnerProfile({ name: 'Покупатель', avatar: '' });
+                    }
+                }
+            } else {
+                // Ad not found or error, fallback to session data
+                setPartnerProfile({
+                    name: session.authorName || 'Собеседник',
+                    avatar: session.authorAvatar || ''
+                });
+            }
+        };
+
+        fetchPartner();
+    }, [session.adId, currentUserId, chatId, session.authorName, session.authorAvatar]);
+
 
     // 3. Realtime Subscription
     useEffect(() => {
