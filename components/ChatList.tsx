@@ -22,6 +22,15 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
     const fetchChats = async () => {
         setIsLoading(true);
         try {
+            // Validate UUID
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!currentUserId || !uuidRegex.test(currentUserId)) {
+                console.log('Invalid user ID for chat fetch:', currentUserId);
+                setChats([]);
+                setIsLoading(false);
+                return;
+            }
+
             console.log('Fetching chats for user:', currentUserId);
 
             // Fetch as Buyer
@@ -132,6 +141,8 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
             setIsLoading(false);
         }
     };
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-dark/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onClose}>
