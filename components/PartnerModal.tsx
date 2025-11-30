@@ -23,21 +23,34 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, isL
 
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let raw = e.target.value.replace(/\D/g, '');
+        const value = e.target.value;
 
-        if (!raw) {
+        // Always keep +7 prefix
+        if (!value.startsWith('+7')) {
             setFormData({ ...formData, phone: '+7 ' });
             return;
         }
-        if (raw.startsWith('7') || raw.startsWith('8')) {
-            raw = raw.slice(1);
-        }
+
+        // Extract only digits after +7
+        let raw = value.slice(2).replace(/\D/g, '');
+
+        // Limit to 10 digits
         raw = raw.slice(0, 10);
+
+        // Format the number
         let formatted = '+7';
-        if (raw.length > 0) formatted += ` (${raw.slice(0, 3)}`;
-        if (raw.length >= 3) formatted += `) ${raw.slice(3, 6)}`;
-        if (raw.length >= 6) formatted += ` ${raw.slice(6, 8)}`;
-        if (raw.length >= 8) formatted += ` ${raw.slice(8, 10)}`;
+        if (raw.length > 0) {
+            formatted += ' (' + raw.slice(0, 3);
+            if (raw.length >= 3) {
+                formatted += ') ' + raw.slice(3, 6);
+                if (raw.length >= 6) {
+                    formatted += ' ' + raw.slice(6, 8);
+                    if (raw.length >= 8) {
+                        formatted += ' ' + raw.slice(8, 10);
+                    }
+                }
+            }
+        }
 
         setFormData({ ...formData, phone: formatted });
     };

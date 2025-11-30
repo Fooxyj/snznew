@@ -4,8 +4,8 @@ import { Ad, Category } from '../types';
 import { compressImage } from '../utils';
 
 // Define the fields we actually need for the list view to reduce payload.
-// Added author_name and images to support new requirements
-const AD_LIST_FIELDS = 'id, user_id, author_name, author_avatar, title, description, price, category, sub_category, contact, location, image, images, is_premium, created_at, status, specs, profiles(full_name, avatar_url, xp)';
+// Author data comes from profiles join
+const AD_LIST_FIELDS = 'id, user_id, title, description, price, category, sub_category, contact, location, image, images, is_premium, created_at, status, specs, profiles(full_name, avatar_url, xp)';
 
 export const api = {
   // Helper to upload files to Supabase Storage
