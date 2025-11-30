@@ -4,6 +4,8 @@ import { AdCard } from './AdCard';
 import { getLevelInfo } from '../utils';
 import { api } from '../services/api';
 import { supabase } from '../services/supabaseClient';
+import { useToast } from './Toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ProfilePageProps {
     user: User;
@@ -29,6 +31,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     const [avatar, setAvatar] = useState(user.avatar || '');
     const [isUploading, setIsUploading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const { showToast } = useToast();
+    const queryClient = useQueryClient();
 
     const levelInfo = getLevelInfo(user.xp || 0);
 
@@ -56,17 +60,33 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             if (error) throw error;
 
+            // Update profiles table
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            if (authUser) {
+                await supabase
+                    .from('profiles')
+                    .update({
+                        full_name: name,
+                        avatar_url: avatar,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', authUser.id);
+            }
+
             const isNewProfile = !user.name;
             onUpdateUser({ ...user, name, avatar });
 
+            // Invalidate all ads queries to refresh with new profile data
+            await queryClient.invalidateQueries({ queryKey: ['ads'] });
+
             if (isNewProfile) {
-                alert('Профиль заполнен! +30 XP');
+                showToast('Профиль заполнен! +30 XP', 'success');
             } else {
-                alert('Профиль обновлен!');
+                showToast('Профиль обновлен!', 'success');
             }
         } catch (err: any) {
             console.error(err);
-            alert('Ошибка сохранения профиля: ' + err.message);
+            showToast('Ошибка сохранения профиля: ' + err.message, 'error');
         } finally {
             setIsSaving(false);
         }
@@ -175,7 +195,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     {user.managedShopId && <span className="mt-2 bg-blue-100 text-blue-600 text-xs font-bold px-3 py-1 rounded-full">{user.managedShopId.startsWith('cinema') ? 'Кинотеатр' : 'Владелец бизнеса'}</span>}
                 </div>
 
-                <nav className="space-y-2 flex-grow overflow-y-auto custom-scrollbar">
+                <nav className="space-y-2 flex-grow">
                     {user.isAdmin && (
                         <button onClick={onOpenAdminPanel} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-red-600 to-red-500 text-white shadow-md hover:scale-[1.02] transition-transform mb-2 group">
                             Админ Панель
