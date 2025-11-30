@@ -227,6 +227,14 @@ export interface ChatMessage {
   isMe: boolean;
 }
 
+export interface BusinessStat {
+  date: string;
+  views: number;
+  clicks: number;
+  orders: number;
+  revenue: number;
+}
+
 export interface ChatSession {
   adId: string;
   adTitle: string;

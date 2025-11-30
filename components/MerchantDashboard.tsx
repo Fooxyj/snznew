@@ -16,7 +16,7 @@ interface MerchantDashboardProps {
 
 export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ isOpen, onClose, shop, onUpdateShop, movies, onUpdateMovies }) => {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'info' | 'products' | 'settings' | 'movies' | 'integration'>('info');
+    const [activeTab, setActiveTab] = useState<'info' | 'products' | 'settings' | 'movies' | 'integration' | 'analytics'>('info');
     const [formData, setFormData] = useState<Shop>(shop);
     const [isEditingProduct, setIsEditingProduct] = useState<boolean>(false);
     const [newProduct, setNewProduct] = useState<Partial<Product>>({ title: '', price: 0, image: '', description: '' });
@@ -48,12 +48,39 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ isOpen, on
 
     const [isUploading, setIsUploading] = useState(false);
 
+    // Analytics State
+    const [stats, setStats] = useState<any[]>([]);
+    const [isLoadingStats, setIsLoadingStats] = useState(false);
+
     useEffect(() => {
         setFormData(shop);
         setPaymentConfig(shop.paymentConfig || { enabled: false, type: 'manual', phone: shop.phone });
     }, [shop]);
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        if (activeTab === 'analytics') {
+            fetchStats();
+        }
+    }, [activeTab]);
+
+    const fetchStats = async () => {
+        setIsLoadingStats(true);
+        try {
+            const { data, error } = await supabase
+                .from('business_stats')
+                .select('*')
+                .eq('business_id', shop.id)
+                .order('date', { ascending: true })
+                .limit(7);
+
+            if (error) throw error;
+            setStats(data || []);
+        } catch (err) {
+            console.error('Error fetching stats:', err);
+        } finally {
+            setIsLoadingStats(false);
+        }
+    };
 
     const handleInfoChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -222,6 +249,8 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ isOpen, on
         }, 2000);
     };
 
+    const maxViews = Math.max(...stats.map(s => s.views), 10);
+
     return (
         <div className="fixed inset-0 bg-dark/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
             <div
@@ -257,6 +286,15 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ isOpen, on
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             Информация
+                        </button>
+
+                        <button
+                            onClick={() => setActiveTab('analytics')}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm
+                    ${activeTab === 'analytics' ? 'bg-gray-100 text-dark font-bold' : 'text-secondary hover:bg-gray-50'}`}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                            Аналитика
                         </button>
 
                         {isCinema ? (
@@ -315,6 +353,59 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ isOpen, on
 
                     {/* Content Area */}
                     <div className="flex-grow overflow-y-auto p-6 md:p-8 custom-scrollbar">
+
+                        {activeTab === 'analytics' && (
+                            <div className="max-w-4xl">
+                                <h3 className="text-2xl font-bold text-dark mb-6">Аналитика переходов</h3>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                        <p className="text-secondary text-sm font-medium mb-1">Просмотры (7 дней)</p>
+                                        <p className="text-3xl font-bold text-dark">
+                                            {stats.reduce((acc, curr) => acc + curr.views, 0)}
+                                        </p>
+                                    </div>
+                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                        <p className="text-secondary text-sm font-medium mb-1">Клики (7 дней)</p>
+                                        <p className="text-3xl font-bold text-primary">
+                                            {stats.reduce((acc, curr) => acc + curr.clicks, 0)}
+                                        </p>
+                                    </div>
+                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                        <p className="text-secondary text-sm font-medium mb-1">Заказы (7 дней)</p>
+                                        <p className="text-3xl font-bold text-green-500">
+                                            {stats.reduce((acc, curr) => acc + curr.orders, 0)}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                    <h4 className="font-bold text-dark mb-6">График просмотров</h4>
+                                    <div className="h-64 flex items-end justify-between gap-2">
+                                        {stats.map((stat, idx) => (
+                                            <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
+                                                <div
+                                                    className="w-full bg-primary/20 rounded-t-lg transition-all group-hover:bg-primary/40 relative"
+                                                    style={{ height: `${(stat.views / maxViews) * 100}%` }}
+                                                >
+                                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-dark text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        {stat.views}
+                                                    </div>
+                                                </div>
+                                                <p className="text-xs text-secondary">
+                                                    {new Date(stat.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                                                </p>
+                                            </div>
+                                        ))}
+                                        {stats.length === 0 && (
+                                            <div className="w-full h-full flex items-center justify-center text-secondary">
+                                                Нет данных за этот период
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {activeTab === 'info' && (
                             <div className="max-w-2xl">
