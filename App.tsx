@@ -1264,8 +1264,7 @@ const App: React.FC = () => {
                 images: form.images, // Save all images
                 is_premium: form.isPremium,
                 specs: specs,
-                author_name: user.name || 'Пользователь', // Save real name
-                author_avatar: user.avatar || '' // Save avatar
+                // Note: author data comes from profiles table via user_id foreign key
             };
 
             if (adToEdit) {
