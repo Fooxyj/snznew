@@ -100,6 +100,7 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
             // Format Buyer Chats
             const formattedBuyerChats = bChats.map((c: any) => ({
                 id: c.id,
+                chatId: c.id, // Explicitly map for ChatSession
                 adId: c.ad_id,
                 adTitle: c.ads?.title || 'Объявление удалено',
                 adImage: c.ads?.image || 'https://via.placeholder.com/150',
@@ -114,6 +115,7 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
             // Format Seller Chats
             const formattedSellerChats = sChats.map((c: any) => ({
                 id: c.id,
+                chatId: c.id, // Explicitly map for ChatSession
                 adId: c.ad_id,
                 adTitle: c.ads?.title || 'Объявление',
                 adImage: c.ads?.image || 'https://via.placeholder.com/150',

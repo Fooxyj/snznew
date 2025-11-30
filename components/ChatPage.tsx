@@ -13,32 +13,39 @@ interface ChatPageProps {
 
 export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUserId }) => {
     const [inputText, setInputText] = useState('');
-    const [chatId, setChatId] = useState<string | null>(null);
+    const [chatId, setChatId] = useState<string | null>(session.chatId || null);
     const [partnerProfile, setPartnerProfile] = useState<{ name: string, avatar: string } | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const queryClient = useQueryClient();
 
     // 1. Fetch Chat ID and Messages
     const { data: serverMessages, refetch } = useQuery({
-        queryKey: ['chat', session.adId, currentUserId],
+        queryKey: ['chat', session.adId, currentUserId, session.chatId],
         queryFn: async () => {
-            if (!supabase || !currentUserId || !session.adId) return [];
+            if (!supabase || !currentUserId) return [];
 
             try {
-                // Get Chat ID
-                const { data: chats } = await supabase
-                    .from('chats')
-                    .select('id, buyer_id')
-                    .eq('ad_id', session.adId)
-                    .eq('buyer_id', currentUserId)
-                    .maybeSingle();
+                let targetChatId = session.chatId || chatId;
 
-                // If chat exists, set ID
-                if (chats) {
-                    setChatId(chats.id);
+                // If we don't have a chatId yet, try to find it (Buyer flow)
+                if (!targetChatId && session.adId) {
+                    const { data: chats } = await supabase
+                        .from('chats')
+                        .select('id')
+                        .eq('ad_id', session.adId)
+                        .eq('buyer_id', currentUserId)
+                        .maybeSingle();
 
+                    if (chats) {
+                        targetChatId = chats.id;
+                        setChatId(chats.id);
+                    }
+                }
+
+                // If chat exists, fetch messages
+                if (targetChatId) {
                     // Optimized Fetch Messages
-                    const msgs = await api.chats.getMessages(chats.id);
+                    const msgs = await api.chats.getMessages(targetChatId);
 
                     if (msgs) {
                         return msgs.map((m: any) => ({
@@ -57,7 +64,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
             }
         },
         staleTime: Infinity, // Keep data fresh indefinitely, rely on Realtime
-        enabled: !!currentUserId && !!session.adId
+        enabled: !!currentUserId && (!!session.adId || !!session.chatId)
     });
 
     // 2. Fetch Partner Profile
@@ -296,7 +303,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
 
                     <div className="min-w-0 flex-1">
                         <h3 className="font-bold text-dark leading-none truncate">{partnerProfile?.name || 'Загрузка...'}</h3>
-                        <p className="text-xs text-secondary truncate mt-1">{session.adTitle}</p>
+                        <p className="text-xs text-secondary truncate mt-1">
+                            {session.adTitle} • {session.category === 'sale' ? 'Продажа' : session.category === 'rent' ? 'Аренда' : session.category === 'services' ? 'Услуги' : 'Работа'}
+                        </p>
                     </div>
                 </div>
 
