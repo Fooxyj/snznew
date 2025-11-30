@@ -883,10 +883,10 @@ const App: React.FC = () => {
             const dbAds: Ad[] = fetchedAds.map((item: any) => ({
                 id: item.id,
                 userId: item.user_id,
-                // Author Name from DB if available, otherwise 'Продавец'
-                authorName: item.profiles?.full_name || item.author_name || 'Продавец',
-                authorAvatar: item.profiles?.avatar_url || item.author_avatar, // Map avatar from DB
-                authorLevel: item.profiles?.xp ? Math.floor(item.profiles.xp / 1000) + 1 : (item.author_level || 1),
+                // Author data comes from profiles table join
+                authorName: item.profiles?.full_name || 'Пользователь',
+                authorAvatar: item.profiles?.avatar_url || undefined,
+                authorLevel: item.profiles?.xp ? Math.floor(item.profiles.xp / 1000) + 1 : 1,
                 title: item.title,
                 description: item.description,
                 price: item.price,

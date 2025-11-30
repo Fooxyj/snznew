@@ -21,6 +21,27 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, isL
         comment: ''
     });
 
+
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let raw = e.target.value.replace(/\D/g, '');
+
+        if (!raw) {
+            setFormData({ ...formData, phone: '+7 ' });
+            return;
+        }
+        if (raw.startsWith('7') || raw.startsWith('8')) {
+            raw = raw.slice(1);
+        }
+        raw = raw.slice(0, 10);
+        let formatted = '+7';
+        if (raw.length > 0) formatted += ` (${raw.slice(0, 3)}`;
+        if (raw.length >= 3) formatted += `) ${raw.slice(3, 6)}`;
+        if (raw.length >= 6) formatted += ` ${raw.slice(6, 8)}`;
+        if (raw.length >= 8) formatted += ` ${raw.slice(8, 10)}`;
+
+        setFormData({ ...formData, phone: formatted });
+    };
+
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -207,7 +228,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, isL
                                         required
                                         placeholder="+7 (999) 000-00-00"
                                         value={formData.phone}
-                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                        onChange={handlePhoneChange}
                                         className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                                     />
                                 </div>
