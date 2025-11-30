@@ -33,26 +33,22 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
 
             console.log('Fetching chats for user:', currentUserId);
 
-            // Fetch as Buyer
+            // Fetch all chats where user is buyer
             const { data: buyerChats, error: buyerError } = await supabase
                 .from('chats')
                 .select(`
                     id, 
                     ad_id, 
                     buyer_id,
-                    seller_id,
                     created_at,
                     ads (
                         id,
                         title,
                         image,
                         category,
+                        user_id,
                         author_name,
                         author_avatar
-                    ),
-                    seller:seller_id (
-                        full_name,
-                        avatar_url
                     )
                 `)
                 .eq('buyer_id', currentUserId)
@@ -62,20 +58,20 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
                 console.error('Error fetching buyer chats:', buyerError);
             }
 
-            // Fetch as Seller
-            const { data: sellerChats, error: sellerError } = await supabase
+            // Fetch all chats and filter where user is seller (ads.user_id === currentUserId)
+            const { data: allChats, error: allChatsError } = await supabase
                 .from('chats')
                 .select(`
                     id, 
                     ad_id, 
                     buyer_id,
-                    seller_id,
                     created_at,
                     ads (
                         id,
                         title,
                         image,
                         category,
+                        user_id,
                         author_name,
                         author_avatar
                     ),
@@ -84,12 +80,16 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
                         avatar_url
                     )
                 `)
-                .eq('seller_id', currentUserId)
                 .order('created_at', { ascending: false });
 
-            if (sellerError) {
-                console.error('Error fetching seller chats:', sellerError);
+            if (allChatsError) {
+                console.error('Error fetching all chats:', allChatsError);
             }
+
+            // Filter seller chats client-side
+            const sellerChats = (allChats || []).filter((chat: any) =>
+                chat.ads && chat.ads.user_id === currentUserId
+            );
 
             const bChats = buyerChats || [];
             const sChats = sellerChats || [];
@@ -100,12 +100,12 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
             // Format Buyer Chats
             const formattedBuyerChats = bChats.map((c: any) => ({
                 id: c.id,
-                chatId: c.id, // Explicitly map for ChatSession
+                chatId: c.id,
                 adId: c.ad_id,
                 adTitle: c.ads?.title || 'Объявление удалено',
                 adImage: c.ads?.image || 'https://via.placeholder.com/150',
-                partnerName: c.seller?.full_name || c.ads?.author_name || 'Продавец',
-                partnerAvatar: c.seller?.avatar_url || c.ads?.author_avatar,
+                partnerName: c.ads?.author_name || 'Продавец',
+                partnerAvatar: c.ads?.author_avatar,
                 lastMessage: 'Вы: Интересует товар',
                 date: new Date(c.created_at).toLocaleDateString(),
                 isBuying: true,
@@ -115,7 +115,7 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
             // Format Seller Chats
             const formattedSellerChats = sChats.map((c: any) => ({
                 id: c.id,
-                chatId: c.id, // Explicitly map for ChatSession
+                chatId: c.id,
                 adId: c.ad_id,
                 adTitle: c.ads?.title || 'Объявление',
                 adImage: c.ads?.image || 'https://via.placeholder.com/150',
@@ -128,15 +128,15 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
             }));
 
             // Merge and sort
-            const allChats = [...formattedBuyerChats, ...formattedSellerChats].sort((a, b) =>
+            const allFormattedChats = [...formattedBuyerChats, ...formattedSellerChats].sort((a, b) =>
                 new Date(b.date).getTime() - new Date(a.date).getTime()
             );
 
-            // Deduplicate
-            const uniqueChats = Array.from(new Map(allChats.map(item => [item.id, item])).values());
+            // Deduplicate by chat ID
+            const uniqueChats = Array.from(new Map(allFormattedChats.map(c => [c.id, c])).values());
 
+            console.log('Final chats:', uniqueChats);
             setChats(uniqueChats);
-
         } catch (err) {
             console.error('Error in fetchChats:', err);
         } finally {
