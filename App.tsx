@@ -16,8 +16,9 @@ import { MerchantDashboard } from './components/MerchantDashboard';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
 import { CartDrawer } from './components/CartDrawer';
 import { StoriesBar } from './components/StoriesBar';
-import { UserProfileModal } from './components/UserProfileModal';
+import { ProfilePage } from './components/ProfilePage';
 import { PublicProfileModal } from './components/PublicProfileModal';
+import { ScrollToTop } from './components/ScrollToTop';
 import { ToastNotification } from './components/ToastNotification';
 import { AdminPanel } from './components/AdminPanel';
 import { ChatList } from './components/ChatList';
@@ -883,9 +884,9 @@ const App: React.FC = () => {
                 id: item.id,
                 userId: item.user_id,
                 // Author Name from DB if available, otherwise 'Продавец'
-                authorName: item.author_name || 'Продавец',
-                authorAvatar: item.author_avatar, // Map avatar from DB
-                authorLevel: item.author_level || 1,
+                authorName: item.profiles?.full_name || item.author_name || 'Продавец',
+                authorAvatar: item.profiles?.avatar_url || item.author_avatar, // Map avatar from DB
+                authorLevel: item.profiles?.xp ? Math.floor(item.profiles.xp / 1000) + 1 : (item.author_level || 1),
                 title: item.title,
                 description: item.description,
                 price: item.price,
@@ -1077,7 +1078,36 @@ const App: React.FC = () => {
             }
         });
 
-        setWeather({ temp: 12, condition: 'Облачно', pressure: 745 });
+        // Fetch Weather from Open-Meteo
+        const fetchWeather = async () => {
+            try {
+                const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=56.08&longitude=60.73&current=temperature_2m,surface_pressure,weather_code&wind_speed_unit=ms&timezone=auto');
+                const data = await response.json();
+
+                if (data.current) {
+                    const code = data.current.weather_code;
+                    let condition = 'Ясно';
+                    if (code >= 1 && code <= 3) condition = 'Облачно';
+                    else if (code >= 45 && code <= 48) condition = 'Туман';
+                    else if (code >= 51 && code <= 55) condition = 'Морось';
+                    else if (code >= 61 && code <= 67) condition = 'Дождь';
+                    else if (code >= 71 && code <= 77) condition = 'Снег';
+                    else if (code >= 80 && code <= 82) condition = 'Ливень';
+                    else if (code >= 85 && code <= 86) condition = 'Снегопад';
+                    else if (code >= 95) condition = 'Гроза';
+
+                    setWeather({
+                        temp: Math.round(data.current.temperature_2m),
+                        condition,
+                        pressure: Math.round(data.current.surface_pressure * 0.750062) // hPa to mmHg
+                    });
+                }
+            } catch (e) {
+                console.error('Weather fetch error:', e);
+                setWeather({ temp: 12, condition: 'Облачно', pressure: 745 }); // Fallback
+            }
+        };
+        fetchWeather();
 
         return () => subscription.unsubscribe();
     }, []);
@@ -1575,7 +1605,7 @@ const App: React.FC = () => {
                 s.name.toLowerCase().includes(q) ||
                 s.description.toLowerCase().includes(q) ||
                 (isMedicine && s.id.includes('med')) ||
-                (isFood && (s.id.includes('c') || s.description.toLowerCase().includes('ресторан')))
+                (isFood && (s.id.startsWith('c') || s.description.toLowerCase().includes('ресторан') || s.description.toLowerCase().includes('кафе')))
             );
 
             const foundProducts: { product: Product, shop: Shop }[] = [];
@@ -1977,469 +2007,476 @@ const App: React.FC = () => {
 
     return (
         <div className="min-h-[100dvh] bg-background font-sans text-dark pb-24 md:pb-0 relative">
-            {showSplashScreen && <SplashScreen onFinish={() => setShowSplashScreen(false)} />}
-            <ToastNotification notifications={notifications} onRemove={handleRemoveNotification} />
-
-            <aside className="hidden md:flex flex-col w-64 fixed left-0 top-0 bottom-0 bg-white border-r border-gray-100 z-50 p-6 overflow-y-auto">
-                <div className="flex items-center gap-2 mb-8 cursor-pointer" onClick={() => handleNavigate('all')}>
-                    <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-primary/30">
-                        С
-                    </div>
-                    <div className="leading-none">
-                        <h1 className="font-bold text-xl text-dark tracking-tight">Снежинск</h1>
-                        <p className="text-[10px] text-secondary font-medium tracking-widest uppercase">Твой Город</p>
-                    </div>
-                </div>
-
-                <nav className="flex flex-col gap-1">
-                    {NAV_ITEMS.map(cat => (
-                        <button
-                            key={cat.id}
-                            onClick={() => handleNavigate(cat.id as Category)}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all
-                        ${activeCategory === cat.id
-                                    ? 'bg-primary text-white shadow-md shadow-primary/20'
-                                    : 'text-secondary hover:bg-gray-50 hover:text-dark'}`}
-                        >
-                            <span className="w-6 flex justify-center">{cat.icon}</span>
-                            {cat.label}
-                        </button>
-                    ))}
-                </nav>
-
-                <div className="mt-auto pt-6">
-                    <button
-                        onClick={() => setIsPartnerModalOpen(true)}
-                        className="w-full bg-dark text-white p-4 rounded-2xl shadow-lg hover:bg-black transition-all group relative overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <div className="flex items-center gap-3 relative z-10">
-                            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center font-serif font-bold">B</div>
-                            <div className="text-left">
-                                <p className="text-xs text-gray-300 font-medium">Для бизнеса</p>
-                                <p className="text-sm font-bold">Подключить</p>
-                            </div>
-                        </div>
-                    </button>
-                </div>
-            </aside>
-
-            <div className="md:ml-64 transition-all">
-                <header className="bg-surface/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-100 shadow-sm">
-                    <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between gap-4">
-
-                        <div className="md:hidden flex items-center gap-2 cursor-pointer" onClick={() => handleNavigate('all')}>
-                            <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg">С</div>
-                            <span className="font-bold text-lg text-dark ml-1">Твой Снежинск</span>
-                        </div>
-
-                        <div className="hidden md:flex items-center gap-4 flex-grow max-w-2xl">
-                            <button
-                                onClick={() => setIsCatalogOpen(true)}
-                                className="flex items-center gap-2 bg-dark text-white px-4 py-2.5 rounded-xl font-bold hover:bg-black transition-colors"
-                            >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-                                Каталог
-                            </button>
-                            <div className="relative flex-grow group">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                </div>
-                                <input
-                                    type="text"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all sm:text-sm"
-                                    placeholder="Поиск объявлений..."
-                                />
-                                {searchQuery && (
-                                    <button
-                                        onClick={() => setSearchQuery('')}
-                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-dark transition-colors"
-                                    >
-                                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 md:gap-6">
-                            <button onClick={() => setIsSearchModalOpen(true)} className="md:hidden p-2 rounded-full hover:bg-gray-100 text-dark">
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                            </button>
-
-                            {weather && (
-                                <div className="flex items-center gap-2 md:gap-3 bg-white px-2 md:px-4 py-1 md:py-2 rounded-xl md:border border-gray-100 md:shadow-sm">
-                                    <div className="text-right leading-tight hidden md:block">
-                                        <span className="block font-bold text-dark text-lg">{currentTime.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
-                                        <span className="text-[10px] text-secondary font-medium uppercase tracking-wide">Снежинск</span>
-                                    </div>
-                                    <div className="w-px h-8 bg-gray-200 hidden md:block"></div>
-                                    <div className="flex items-center gap-1 md:gap-2">
-                                        <span className="text-xl md:text-2xl">☁️</span>
-                                        <div className="leading-tight text-xs md:text-base">
-                                            <span className="block font-bold text-dark">{weather.temp}°C</span>
-                                            <span className="text-[10px] text-secondary hidden md:inline">{weather.pressure} мм</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <button
-                                onClick={() => setIsCartOpen(true)}
-                                className="relative p-2 text-dark hover:text-primary transition-colors hidden md:block"
-                            >
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-                                {totalCartCount > 0 && (
-                                    <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full shadow-sm">
-                                        {totalCartCount}
-                                    </span>
-                                )}
-                            </button>
-
-                            {user.isLoggedIn && (
-                                <button
-                                    onClick={() => {
-                                        setAdToEdit(null);
-                                        setIsCreateModalOpen(true);
-                                    }}
-                                    className="hidden md:flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold hover:bg-primary-dark transition-all shadow-lg shadow-primary/20 active:scale-95"
-                                >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                                    <span>Разместить</span>
-                                </button>
-                            )}
-
-                            {user.isLoggedIn && (
-                                <div onClick={() => setIsUserProfileOpen(true)} className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity relative">
-                                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-tr from-primary to-blue-400 text-white flex items-center justify-center font-bold text-sm overflow-hidden border-2 border-white shadow-md">
-                                        {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : user.name?.charAt(0) || user.email.charAt(0)}
-                                    </div>
-                                    {unreadCount > 0 && (
-                                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full shadow-sm border-2 border-white">
-                                            {unreadCount > 99 ? '99+' : unreadCount}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-
-                            {!user.isLoggedIn && (
-                                <button onClick={() => setIsLoginModalOpen(true)} className="hidden md:block text-sm font-bold text-dark hover:text-primary transition-colors bg-gray-100 px-4 py-2 rounded-lg">
-                                    Войти
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </header>
-
-                <div className="md:hidden max-w-7xl mx-auto px-4 py-4">
-                    {activeCategory === 'all' && !searchQuery && <StoriesBar stories={INITIAL_STORIES} onOpenShop={handleOpenShop} />}
-                </div>
-
-                {selectedSubCategory && (
-                    <div className="max-w-7xl mx-auto px-4 md:px-6 mt-4 mb-4 flex items-center gap-2 animate-fade-in-up">
-                        <span className="text-sm text-secondary">Фильтр:</span>
-                        <div className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-                            {selectedSubCategory}
-                            <button onClick={() => setSelectedSubCategory(null)} className="hover:text-red-200">
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                <main className="max-w-7xl mx-auto px-4 md:px-6 py-4">
-                    {selectedShop ? (
-                        <ShopPage
-                            shop={selectedShop}
-                            onBack={handleBackFromShop}
-                            variant={getShopVariant(selectedShop)}
-                            onProductClick={(p) => setSelectedProduct(p)}
-                        />
-                    ) : selectedNews ? (
-                        <NewsPage news={selectedNews} onBack={() => setSelectedNews(null)} />
-                    ) : selectedAd ? (
-                        <AdPage
-                            ad={selectedAd}
-                            onBack={() => setSelectedAd(null)}
-                            onAddReview={(id, r, t) => {
-                                setAds(prev => prev.map(a => a.id === id ? {
-                                    ...a,
-                                    reviews: [...(a.reviews || []), { id: Date.now().toString(), author: user.name || 'Гость', rating: r, text: t, date: 'Сегодня' }]
-                                } : a));
-                                addNotification({ id: Date.now(), message: 'Отзыв добавлен!', type: 'success' });
-                            }}
-                            onOpenChat={(session) => setActiveChatSession(session)}
-                            isLoggedIn={user.isLoggedIn}
-                            onRequireLogin={() => setIsLoginModalOpen(true)}
-                            onOpenProfile={handleOpenPublicProfile}
-                        />
-                    ) : (
-                        renderContent()
-                    )}
-                </main>
-            </div>
-
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 flex justify-between items-center z-40 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-
-                <button onClick={() => handleNavigate('all')} className={`flex flex-col items-center gap-1 p-2 w-16 ${activeCategory === 'all' ? 'text-primary' : 'text-gray-400'}`}>
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-                    <span className="text-[10px] font-medium">Главная</span>
-                </button>
-
-                <button onClick={() => setIsCatalogOpen(true)} className="flex flex-col items-center gap-1 p-2 w-16 text-gray-400">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-                    <span className="text-[10px] font-medium">Каталог</span>
-                </button>
-
-                <div className="relative -top-6">
-                    <button
-                        onClick={() => setIsMobileMenuOpen(true)}
-                        className={`w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/40 active:scale-95 transition-transform border-4 border-background ${isMobileMenuOpen ? 'ring-2 ring-primary' : ''}`}
-                    >
-                        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                    </button>
-                </div>
-
-                <button
-                    onClick={() => {
-                        if (user.isLoggedIn) {
-                            setAdToEdit(null);
-                            setIsCreateModalOpen(true);
-                        } else {
-                            setIsLoginModalOpen(true);
+            {showSplashScreen ? (
+                <SplashScreen onFinish={() => setShowSplashScreen(false)} />
+            ) : isUserProfileOpen ? (
+                <ProfilePage
+                    user={user}
+                    onBack={() => setIsUserProfileOpen(false)}
+                    onLogout={async () => {
+                        await supabase.auth.signOut();
+                        setUser(DEFAULT_USER);
+                    }}
+                    favorites={user.favorites || []}
+                    allAds={ads}
+                    onToggleFavorite={handleToggleFavorite}
+                    onShowAd={(ad) => {
+                        setSelectedAd(ad);
+                    }}
+                    onEditAd={handleEditAd}
+                    onDeleteAd={handleDeleteAd}
+                    onUpdateUser={(u) => {
+                        setUser(u);
+                        try {
+                            localStorage.setItem('user_data', JSON.stringify(u));
+                        } catch (e) {
+                            console.warn("Quota exceeded saving user data", e);
                         }
                     }}
-                    className="flex flex-col items-center gap-1 p-2 w-16 text-gray-400"
-                >
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span className="text-[10px] font-medium">Разместить</span>
-                </button>
+                    onOpenAdminPanel={() => {
+                        setIsUserProfileOpen(false);
+                        setIsAdminPanelOpen(true);
+                    }}
+                    onOpenMerchantDashboard={() => {
+                        setIsUserProfileOpen(false);
+                        setIsMerchantDashboardOpen(true);
+                    }}
+                    onOpenPartnerModal={() => {
+                        setIsUserProfileOpen(false);
+                        setIsPartnerModalOpen(true);
+                    }}
+                />
+            ) : (
+                <>
+                    <ToastNotification notifications={notifications} onRemove={handleRemoveNotification} />
 
-                <button onClick={() => { if (user.isLoggedIn) setIsUserProfileOpen(true); else setIsLoginModalOpen(true); }} className={`flex flex-col items-center gap-1 p-2 w-16 relative ${isUserProfileOpen ? 'text-primary' : 'text-gray-400'}`}>
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                    <span className="text-[10px] font-medium">Профиль</span>
-                    {user.isLoggedIn && unreadCount > 0 && (
-                        <span className="absolute top-1 right-3 w-4 h-4 bg-red-500 text-white text-[8px] font-bold flex items-center justify-center rounded-full shadow-sm">
-                            {unreadCount > 9 ? '9+' : unreadCount}
-                        </span>
+                    <aside className="hidden md:flex flex-col w-64 fixed left-0 top-0 bottom-0 bg-white border-r border-gray-100 z-50 p-6 overflow-y-auto">
+                        <div className="flex items-center gap-2 mb-8 cursor-pointer" onClick={() => handleNavigate('all')}>
+                            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-primary/30">
+                                С
+                            </div>
+                            <div className="leading-none">
+                                <h1 className="font-bold text-xl text-dark tracking-tight">Снежинск</h1>
+                                <p className="text-[10px] text-secondary font-medium tracking-widest uppercase">Твой Город</p>
+                            </div>
+                        </div>
+
+                        <nav className="flex flex-col gap-1">
+                            {NAV_ITEMS.map(cat => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => handleNavigate(cat.id as Category)}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all
+                        ${activeCategory === cat.id
+                                            ? 'bg-primary text-white shadow-md shadow-primary/20'
+                                            : 'text-secondary hover:bg-gray-50 hover:text-dark'}`}
+                                >
+                                    <span className="w-6 flex justify-center">{cat.icon}</span>
+                                    {cat.label}
+                                </button>
+                            ))}
+                        </nav>
+
+                        <div className="mt-auto pt-6">
+                            <button
+                                onClick={() => setIsPartnerModalOpen(true)}
+                                className="w-full bg-dark text-white p-4 rounded-2xl shadow-lg hover:bg-black transition-all group relative overflow-hidden"
+                            >
+                                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="flex items-center gap-3 relative z-10">
+                                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center font-serif font-bold">B</div>
+                                    <div className="text-left">
+                                        <p className="text-xs text-gray-300 font-medium">Для бизнеса</p>
+                                        <p className="text-sm font-bold">Подключить</p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </aside>
+
+                    <div className="md:ml-64 transition-all">
+                        <header className="bg-surface/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-100 shadow-sm">
+                            <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between gap-4">
+
+                                <div className="md:hidden flex items-center gap-2 cursor-pointer" onClick={() => handleNavigate('all')}>
+                                    <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg">С</div>
+                                    <span className="font-bold text-lg text-dark ml-1">Твой Снежинск</span>
+                                </div>
+
+                                <div className="hidden md:flex items-center gap-4 flex-grow max-w-2xl">
+                                    <button
+                                        onClick={() => setIsCatalogOpen(true)}
+                                        className="flex items-center gap-2 bg-dark text-white px-4 py-2.5 rounded-xl font-bold hover:bg-black transition-colors"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                                        Каталог
+                                    </button>
+                                    <div className="relative flex-grow group">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg className="h-5 w-5 text-gray-400 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all sm:text-sm"
+                                            placeholder="Поиск объявлений..."
+                                        />
+                                        {searchQuery && (
+                                            <button
+                                                onClick={() => setSearchQuery('')}
+                                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-dark transition-colors"
+                                            >
+                                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 md:gap-6">
+                                    <button onClick={() => setIsSearchModalOpen(true)} className="md:hidden p-2 rounded-full hover:bg-gray-100 text-dark">
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                    </button>
+
+                                    {weather && (
+                                        <div className="flex items-center gap-2 md:gap-3 bg-white px-2 md:px-4 py-1 md:py-2 rounded-xl md:border border-gray-100 md:shadow-sm">
+                                            <div className="text-right leading-tight hidden md:block">
+                                                <span className="block font-bold text-dark text-lg">{currentTime.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                <span className="text-[10px] text-secondary font-medium uppercase tracking-wide">Снежинск</span>
+                                            </div>
+                                            <div className="w-px h-8 bg-gray-200 hidden md:block"></div>
+                                            <div className="flex items-center gap-1 md:gap-2">
+                                                <span className="text-xl md:text-2xl">☁️</span>
+                                                <div className="leading-tight text-xs md:text-base">
+                                                    <span className="block font-bold text-dark">{weather.temp}°C</span>
+                                                    <span className="text-[10px] text-secondary hidden md:inline">{weather.pressure} мм</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={() => setIsCartOpen(true)}
+                                        className="relative p-2 text-dark hover:text-primary transition-colors hidden md:block"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                                        {totalCartCount > 0 && (
+                                            <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full shadow-sm">
+                                                {totalCartCount}
+                                            </span>
+                                        )}
+                                    </button>
+
+                                    {user.isLoggedIn && (
+                                        <button
+                                            onClick={() => {
+                                                setAdToEdit(null);
+                                                setIsCreateModalOpen(true);
+                                            }}
+                                            className="hidden md:flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold hover:bg-primary-dark transition-all shadow-lg shadow-primary/20 active:scale-95"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                            <span>Разместить</span>
+                                        </button>
+                                    )}
+
+                                    {user.isLoggedIn && (
+                                        <div onClick={() => setIsUserProfileOpen(true)} className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity relative">
+                                            <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-tr from-primary to-blue-400 text-white flex items-center justify-center font-bold text-sm overflow-hidden border-2 border-white shadow-md">
+                                                {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : user.name?.charAt(0) || user.email.charAt(0)}
+                                            </div>
+                                            {unreadCount > 0 && (
+                                                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full shadow-sm border-2 border-white">
+                                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {!user.isLoggedIn && (
+                                        <button onClick={() => setIsLoginModalOpen(true)} className="hidden md:block text-sm font-bold text-dark hover:text-primary transition-colors bg-gray-100 px-4 py-2 rounded-lg">
+                                            Войти
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </header>
+
+                        <div className="md:hidden max-w-7xl mx-auto px-4 py-4">
+                            {activeCategory === 'all' && !searchQuery && <StoriesBar stories={INITIAL_STORIES} onOpenShop={handleOpenShop} />}
+                        </div>
+
+                        {selectedSubCategory && (
+                            <div className="max-w-7xl mx-auto px-4 md:px-6 mt-4 mb-4 flex items-center gap-2 animate-fade-in-up">
+                                <span className="text-sm text-secondary">Фильтр:</span>
+                                <div className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                                    {selectedSubCategory}
+                                    <button onClick={() => setSelectedSubCategory(null)} className="hover:text-red-200">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <main className="max-w-7xl mx-auto px-4 md:px-6 py-4">
+                            {selectedShop ? (
+                                <ShopPage
+                                    shop={selectedShop}
+                                    onBack={handleBackFromShop}
+                                    variant={getShopVariant(selectedShop)}
+                                    onProductClick={(p) => setSelectedProduct(p)}
+                                />
+                            ) : selectedNews ? (
+                                <NewsPage news={selectedNews} onBack={() => setSelectedNews(null)} />
+                            ) : selectedAd ? (
+                                <AdPage
+                                    ad={selectedAd}
+                                    onBack={() => setSelectedAd(null)}
+                                    onAddReview={(id, r, t) => {
+                                        setAds(prev => prev.map(a => a.id === id ? {
+                                            ...a,
+                                            reviews: [...(a.reviews || []), { id: Date.now().toString(), author: user.name || 'Гость', rating: r, text: t, date: 'Сегодня' }]
+                                        } : a));
+                                        addNotification({ id: Date.now(), message: 'Отзыв добавлен!', type: 'success' });
+                                    }}
+                                    onOpenChat={(session) => setActiveChatSession(session)}
+                                    isLoggedIn={user.isLoggedIn}
+                                    onRequireLogin={() => setIsLoginModalOpen(true)}
+                                    onOpenProfile={handleOpenPublicProfile}
+                                />
+                            ) : (
+                                renderContent()
+                            )}
+                        </main>
+                    </div>
+
+                    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 flex justify-between items-center z-40 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+
+                        <button onClick={() => handleNavigate('all')} className={`flex flex-col items-center gap-1 p-2 w-16 ${activeCategory === 'all' ? 'text-primary' : 'text-gray-400'}`}>
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+                            <span className="text-[10px] font-medium">Главная</span>
+                        </button>
+
+                        <button onClick={() => setIsCatalogOpen(true)} className="flex flex-col items-center gap-1 p-2 w-16 text-gray-400">
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                            <span className="text-[10px] font-medium">Каталог</span>
+                        </button>
+
+                        <div className="relative -top-6">
+                            <button
+                                onClick={() => setIsMobileMenuOpen(true)}
+                                className={`w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/40 active:scale-95 transition-transform border-4 border-background ${isMobileMenuOpen ? 'ring-2 ring-primary' : ''}`}
+                            >
+                                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                if (user.isLoggedIn) {
+                                    setAdToEdit(null);
+                                    setIsCreateModalOpen(true);
+                                } else {
+                                    setIsLoginModalOpen(true);
+                                }
+                            }}
+                            className="flex flex-col items-center gap-1 p-2 w-16 text-gray-400"
+                        >
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span className="text-[10px] font-medium">Разместить</span>
+                        </button>
+
+                        <button onClick={() => { if (user.isLoggedIn) setIsUserProfileOpen(true); else setIsLoginModalOpen(true); }} className={`flex flex-col items-center gap-1 p-2 w-16 relative ${isUserProfileOpen ? 'text-primary' : 'text-gray-400'}`}>
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                            <span className="text-[10px] font-medium">Профиль</span>
+                            {user.isLoggedIn && unreadCount > 0 && (
+                                <span className="absolute top-1 right-3 w-4 h-4 bg-red-500 text-white text-[8px] font-bold flex items-center justify-center rounded-full shadow-sm">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
+                        </button>
+                    </nav>
+
+                    {totalCartCount > 0 && (
+                        <button
+                            onClick={() => setIsCartOpen(true)}
+                            className="md:hidden fixed bottom-24 right-4 z-50 w-14 h-14 bg-white border-2 border-primary rounded-full text-primary shadow-xl flex items-center justify-center animate-bounce shadow-primary/30"
+                        >
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white">
+                                {totalCartCount}
+                            </span>
+                        </button>
                     )}
-                </button>
-            </nav>
 
-            {totalCartCount > 0 && (
-                <button
-                    onClick={() => setIsCartOpen(true)}
-                    className="md:hidden fixed bottom-24 right-4 z-50 w-14 h-14 bg-white border-2 border-primary rounded-full text-primary shadow-xl flex items-center justify-center animate-bounce shadow-primary/30"
-                >
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white">
-                        {totalCartCount}
-                    </span>
-                </button>
+                    <CreateAdModal
+                        isOpen={isCreateModalOpen}
+                        onClose={() => setIsCreateModalOpen(false)}
+                        onSubmit={handleCreateAd}
+                        catalog={CATALOG}
+                        initialData={adToEdit}
+                    />
+
+                    <LoginModal
+                        isOpen={isLoginModalOpen}
+                        onClose={() => setIsLoginModalOpen(false)}
+                    />
+
+                    <ServiceCatalogModal
+                        isOpen={isCatalogOpen}
+                        onClose={() => setIsCatalogOpen(false)}
+                        catalog={CATALOG}
+                        initialCategory={activeCategory === 'all' || activeCategory === 'news' ? 'sale' : activeCategory}
+                        onSelect={(cat, sub) => {
+                            setActiveCategory(cat);
+                            setSelectedSubCategory(sub);
+                        }}
+                    />
+
+                    <ChatList
+                        isOpen={isChatListOpen}
+                        onClose={() => setIsChatListOpen(false)}
+                        currentUserId={user.id || ''}
+                        onSelectChat={(session) => {
+                            setActiveChatSession(session);
+                            setIsChatListOpen(false);
+                        }}
+                    />
+
+                    {/* Mobile Menu */}
+                    <MobileMenu
+                        isOpen={isMobileMenuOpen}
+                        onClose={() => setIsMobileMenuOpen(false)}
+                        onSelectCategory={(cat) => {
+                            setActiveCategory(cat);
+                            setIsMobileMenuOpen(false);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        activeCategory={activeCategory}
+                        navItems={NAV_ITEMS}
+                        onOpenPartnerModal={() => setIsPartnerModalOpen(true)}
+                        onOpenProfile={() => setIsUserProfileOpen(true)}
+                        onNavigate={(target) => {
+                            if (target === 'messages') {
+                                setIsChatListOpen(true);
+                            }
+                        }}
+                    />
+
+                    <MobileSearchModal
+                        isOpen={isSearchModalOpen}
+                        onClose={() => setIsSearchModalOpen(false)}
+                        value={searchQuery}
+                        onChange={(val) => {
+                            setSearchQuery(val);
+                        }}
+                        ads={ads}
+                        shops={[...shops, ...cafes, ...gyms, ...beautyShops, ...TOURISM_CLUBS, ...FREIGHT_PROVIDERS]}
+                        news={news}
+                        movies={movies}
+                        onSelectAd={handleShowAd}
+                        onSelectNews={setSelectedNews}
+                        onSelectShop={setSelectedShop}
+                        onSelectMovie={setActiveMovie}
+                        onSelectProduct={setSelectedProduct}
+                    />
+
+
+
+                    <PublicProfileModal
+                        isOpen={!!publicProfileUser}
+                        onClose={() => setPublicProfileUser(null)}
+                        profile={publicProfileUser}
+                        ads={ads.filter(a => publicProfileUser && a.userId === publicProfileUser.id)}
+                        onShowAd={handleShowAd}
+                        onToggleFavorite={handleToggleFavorite}
+                        favorites={user.favorites || []}
+                    />
+
+                    <MovieBookingModal
+                        isOpen={!!activeMovie}
+                        onClose={() => setActiveMovie(null)}
+                        movie={activeMovie}
+                    />
+
+                    {activeChatSession && (
+                        <ChatPage
+                            session={activeChatSession}
+                            onBack={() => setActiveChatSession(null)}
+                            currentUserId={user.id}
+                        />
+                    )}
+
+                    {selectedProduct && (
+                        <ProductDetailsModal
+                            product={selectedProduct}
+                            isOpen={!!selectedProduct}
+                            onClose={() => setSelectedProduct(null)}
+                            onAddToCart={handleAddToCart}
+                        />
+                    )}
+
+                    <CartDrawer
+                        isOpen={isCartOpen}
+                        onClose={() => setIsCartOpen(false)}
+                        items={cart}
+                        shops={[...shops, ...cafes, ...gyms, ...beautyShops, ...TOURISM_CLUBS, ...FREIGHT_PROVIDERS]}
+                        onUpdateQuantity={handleUpdateCartQuantity}
+                        onRemove={handleRemoveFromCart}
+                    />
+
+                    <PartnerModal
+                        isOpen={isPartnerModalOpen}
+                        onClose={() => setIsPartnerModalOpen(false)}
+                        isLoggedIn={user.isLoggedIn}
+                        onRequireLogin={() => {
+                            setIsPartnerModalOpen(false);
+                            setIsLoginModalOpen(true);
+                        }}
+                    />
+
+                    {user.isAdmin && (
+                        <AdminPanel
+                            isOpen={isAdminPanelOpen}
+                            onClose={() => setIsAdminPanelOpen(false)}
+                            ads={ads}
+                            onUpdateAdStatus={async (id, status) => {
+                                setAds(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+                                await supabase.from('ads').update({ status }).eq('id', id);
+                                queryClient.invalidateQueries({ queryKey: ['ads'] });
+                            }}
+                            onUpdateAdContent={async (id, fields) => {
+                                setAds(prev => prev.map(a => a.id === id ? { ...a, ...fields } : a));
+                                await supabase.from('ads').update(fields).eq('id', id);
+                                queryClient.invalidateQueries({ queryKey: ['ads'] });
+                            }}
+                            onAddNews={(n) => setNews(prev => [n, ...prev])}
+                        />
+                    )}
+
+                    {user.managedShopId && (
+                        <MerchantDashboard
+                            isOpen={isMerchantDashboardOpen}
+                            onClose={() => setIsMerchantDashboardOpen(false)}
+                            shop={[...shops, ...cafes, ...gyms, ...beautyShops].find(s => s.id === user.managedShopId) || shops[0]}
+                            onUpdateShop={(updated) => {
+                                setShops(prev => prev.map(s => s.id === updated.id ? updated : s));
+                                setCafes(prev => prev.map(c => c.id === updated.id ? updated : c));
+                                setGyms(prev => prev.map(g => g.id === updated.id ? updated : g));
+                                setBeautyShops(prev => prev.map(b => b.id === updated.id ? updated : b));
+                            }}
+                            movies={user.managedShopId === 'cinema1' ? movies : undefined}
+                            onUpdateMovies={user.managedShopId === 'cinema1' ? setMovies : undefined}
+                        />
+                    )}
+
+                </>
             )}
-
-            <CreateAdModal
-                isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
-                onSubmit={handleCreateAd}
-                catalog={CATALOG}
-                initialData={adToEdit}
-            />
-
-            <LoginModal
-                isOpen={isLoginModalOpen}
-                onClose={() => setIsLoginModalOpen(false)}
-            />
-
-            <ServiceCatalogModal
-                isOpen={isCatalogOpen}
-                onClose={() => setIsCatalogOpen(false)}
-                catalog={CATALOG}
-                initialCategory={activeCategory === 'all' || activeCategory === 'news' ? 'sale' : activeCategory}
-                onSelect={(cat, sub) => {
-                    setActiveCategory(cat);
-                    setSelectedSubCategory(sub);
-                }}
-            />
-
-            <ChatList
-                isOpen={isChatListOpen}
-                onClose={() => setIsChatListOpen(false)}
-                currentUserId={user.id || ''}
-                onSelectChat={(session) => {
-                    setActiveChatSession(session);
-                    setIsChatListOpen(false);
-                }}
-            />
-
-            {/* Mobile Menu */}
-            <MobileMenu
-                isOpen={isMobileMenuOpen}
-                onClose={() => setIsMobileMenuOpen(false)}
-                onSelectCategory={(cat) => {
-                    setActiveCategory(cat);
-                    setIsMobileMenuOpen(false);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                activeCategory={activeCategory}
-                navItems={NAV_ITEMS}
-                onOpenPartnerModal={() => setIsPartnerModalOpen(true)}
-                onOpenProfile={() => setIsUserProfileOpen(true)}
-                onNavigate={(target) => {
-                    if (target === 'messages') {
-                        setIsChatListOpen(true);
-                    }
-                }}
-            />
-
-            <MobileSearchModal
-                isOpen={isSearchModalOpen}
-                onClose={() => setIsSearchModalOpen(false)}
-                value={searchQuery}
-                onChange={(val) => {
-                    setSearchQuery(val);
-                }}
-                ads={ads}
-                shops={[...shops, ...cafes, ...gyms, ...beautyShops, ...TOURISM_CLUBS, ...FREIGHT_PROVIDERS]}
-                news={news}
-                movies={movies}
-                onSelectAd={handleShowAd}
-                onSelectNews={setSelectedNews}
-                onSelectShop={setSelectedShop}
-                onSelectMovie={setActiveMovie}
-                onSelectProduct={setSelectedProduct}
-            />
-
-            <UserProfileModal
-                isOpen={isUserProfileOpen}
-                onClose={() => setIsUserProfileOpen(false)}
-                user={user}
-                onLogout={async () => {
-                    await supabase.auth.signOut();
-                    setUser(DEFAULT_USER);
-                }}
-                favorites={user.favorites || []}
-                allAds={ads}
-                onToggleFavorite={handleToggleFavorite}
-                onShowAd={(ad) => {
-                    setSelectedAd(ad);
-                }}
-                onEditAd={handleEditAd}
-                onDeleteAd={handleDeleteAd}
-                onUpdateUser={(u) => {
-                    setUser(u);
-                    try {
-                        localStorage.setItem('user_data', JSON.stringify(u));
-                    } catch (e) {
-                        console.warn("Quota exceeded saving user data", e);
-                    }
-                }}
-                onOpenAdminPanel={() => {
-                    setIsUserProfileOpen(false);
-                    setIsAdminPanelOpen(true);
-                }}
-                onOpenMerchantDashboard={() => {
-                    setIsUserProfileOpen(false);
-                    setIsMerchantDashboardOpen(true);
-                }}
-                onOpenPartnerModal={() => {
-                    setIsUserProfileOpen(false);
-                    setIsPartnerModalOpen(true);
-                }}
-            />
-
-            <PublicProfileModal
-                isOpen={!!publicProfileUser}
-                onClose={() => setPublicProfileUser(null)}
-                profile={publicProfileUser}
-                ads={ads.filter(a => publicProfileUser && a.userId === publicProfileUser.id)}
-                onShowAd={handleShowAd}
-                onToggleFavorite={handleToggleFavorite}
-                favorites={user.favorites || []}
-            />
-
-            <MovieBookingModal
-                isOpen={!!activeMovie}
-                onClose={() => setActiveMovie(null)}
-                movie={activeMovie}
-            />
-
-            {activeChatSession && (
-                <ChatPage
-                    session={activeChatSession}
-                    onBack={() => setActiveChatSession(null)}
-                    currentUserId={user.id}
-                />
-            )}
-
-            {selectedProduct && (
-                <ProductDetailsModal
-                    product={selectedProduct}
-                    isOpen={!!selectedProduct}
-                    onClose={() => setSelectedProduct(null)}
-                    onAddToCart={handleAddToCart}
-                />
-            )}
-
-            <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-                items={cart}
-                shops={[...shops, ...cafes, ...gyms, ...beautyShops, ...TOURISM_CLUBS, ...FREIGHT_PROVIDERS]}
-                onUpdateQuantity={handleUpdateCartQuantity}
-                onRemove={handleRemoveFromCart}
-            />
-
-            <PartnerModal
-                isOpen={isPartnerModalOpen}
-                onClose={() => setIsPartnerModalOpen(false)}
-                isLoggedIn={user.isLoggedIn}
-                onRequireLogin={() => {
-                    setIsPartnerModalOpen(false);
-                    setIsLoginModalOpen(true);
-                }}
-            />
-
-            {user.isAdmin && (
-                <AdminPanel
-                    isOpen={isAdminPanelOpen}
-                    onClose={() => setIsAdminPanelOpen(false)}
-                    ads={ads}
-                    onUpdateAdStatus={async (id, status) => {
-                        setAds(prev => prev.map(a => a.id === id ? { ...a, status } : a));
-                        await supabase.from('ads').update({ status }).eq('id', id);
-                        queryClient.invalidateQueries({ queryKey: ['ads'] });
-                    }}
-                    onUpdateAdContent={async (id, fields) => {
-                        setAds(prev => prev.map(a => a.id === id ? { ...a, ...fields } : a));
-                        await supabase.from('ads').update(fields).eq('id', id);
-                        queryClient.invalidateQueries({ queryKey: ['ads'] });
-                    }}
-                    onAddNews={(n) => setNews(prev => [n, ...prev])}
-                />
-            )}
-
-            {user.managedShopId && (
-                <MerchantDashboard
-                    isOpen={isMerchantDashboardOpen}
-                    onClose={() => setIsMerchantDashboardOpen(false)}
-                    shop={[...shops, ...cafes, ...gyms, ...beautyShops].find(s => s.id === user.managedShopId) || shops[0]}
-                    onUpdateShop={(updated) => {
-                        setShops(prev => prev.map(s => s.id === updated.id ? updated : s));
-                        setCafes(prev => prev.map(c => c.id === updated.id ? updated : c));
-                        setGyms(prev => prev.map(g => g.id === updated.id ? updated : g));
-                        setBeautyShops(prev => prev.map(b => b.id === updated.id ? updated : b));
-                    }}
-                    movies={user.managedShopId === 'cinema1' ? movies : undefined}
-                    onUpdateMovies={user.managedShopId === 'cinema1' ? setMovies : undefined}
-                />
-            )}
-
+            <ScrollToTop />
         </div>
     );
 };

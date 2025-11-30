@@ -63,6 +63,8 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ isOpen, on
         }
     }, [activeTab]);
 
+    if (!isOpen) return null;
+
     const fetchStats = async () => {
         setIsLoadingStats(true);
         try {
