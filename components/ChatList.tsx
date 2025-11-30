@@ -55,7 +55,9 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
                 .order('created_at', { ascending: false });
 
             if (buyerError) {
-                console.error('Error fetching buyer chats:', buyerError);
+                console.error('❌ Error fetching buyer chats:', buyerError);
+            } else {
+                console.log('✅ Buyer chats raw data:', buyerChats);
             }
 
             // Fetch all chats and filter where user is seller (ads.user_id === currentUserId)
@@ -83,19 +85,27 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
                 .order('created_at', { ascending: false });
 
             if (allChatsError) {
-                console.error('Error fetching all chats:', allChatsError);
+                console.error('❌ Error fetching all chats:', allChatsError);
+            } else {
+                console.log('✅ All chats raw data (count):', allChats?.length);
             }
 
             // Filter seller chats client-side
-            const sellerChats = (allChats || []).filter((chat: any) =>
-                chat.ads && chat.ads.user_id === currentUserId
-            );
+            const sellerChats = (allChats || []).filter((chat: any) => {
+                const isSeller = chat.ads && chat.ads.user_id === currentUserId;
+                if (isSeller) {
+                    console.log('🔍 Found seller chat:', chat.id, 'for ad:', chat.ads?.title);
+                }
+                return isSeller;
+            });
 
             const bChats = buyerChats || [];
             const sChats = sellerChats || [];
 
-            console.log('Buyer chats:', bChats);
-            console.log('Seller chats:', sChats);
+            console.log('📊 Summary:');
+            console.log('  - Buyer chats:', bChats.length);
+            console.log('  - Seller chats:', sChats.length);
+            console.log('  - Current user ID:', currentUserId);
 
             // Format Buyer Chats
             const formattedBuyerChats = bChats.map((c: any) => ({
