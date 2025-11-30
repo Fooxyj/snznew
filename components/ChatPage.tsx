@@ -38,12 +38,32 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
                         const sellerId = adData.user_id;
                         const buyerId = currentUserId;
 
-                        // Find existing user_chat
-                        const { data: existingChat } = await supabase
+                        // Find existing user_chat - try both combinations
+                        let existingChat = null;
+
+                        // Try first combination
+                        const { data: chat1 } = await supabase
                             .from('user_chats')
                             .select('id')
-                            .or(`and(user1_id.eq.${buyerId},user2_id.eq.${sellerId}),and(user1_id.eq.${sellerId},user2_id.eq.${buyerId})`)
+                            .eq('user1_id', buyerId)
+                            .eq('user2_id', sellerId)
                             .maybeSingle();
+
+                        if (chat1) {
+                            existingChat = chat1;
+                        } else {
+                            // Try second combination
+                            const { data: chat2 } = await supabase
+                                .from('user_chats')
+                                .select('id')
+                                .eq('user1_id', sellerId)
+                                .eq('user2_id', buyerId)
+                                .maybeSingle();
+
+                            if (chat2) {
+                                existingChat = chat2;
+                            }
+                        }
 
                         if (existingChat) {
                             targetChatId = existingChat.id;
@@ -178,16 +198,41 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
 
                     if (error) {
                         // Chat might already exist, try to find it
-                        const { data: existingChat } = await supabase
+                        let existingChat = null;
+
+                        // Try first combination
+                        const { data: chat1, error: error1 } = await supabase
                             .from('user_chats')
                             .select('id')
-                            .or(`and(user1_id.eq.${buyerId},user2_id.eq.${sellerId}),and(user1_id.eq.${sellerId},user2_id.eq.${buyerId})`)
-                            .single();
+                            .eq('user1_id', user1)
+                            .eq('user2_id', user2)
+                            .maybeSingle();
+
+                        if (error1) {
+                            console.error('Error searching for chat (combo 1):', error1);
+                        } else if (chat1) {
+                            existingChat = chat1;
+                        } else {
+                            // Try second combination (shouldn't be needed if user1 < user2, but just in case)
+                            const { data: chat2, error: error2 } = await supabase
+                                .from('user_chats')
+                                .select('id')
+                                .eq('user1_id', user2)
+                                .eq('user2_id', user1)
+                                .maybeSingle();
+
+                            if (error2) {
+                                console.error('Error searching for chat (combo 2):', error2);
+                            } else if (chat2) {
+                                existingChat = chat2;
+                            }
+                        }
 
                         if (existingChat) {
                             activeChatId = existingChat.id;
                             setUserChatId(existingChat.id);
                         } else {
+                            console.error('Could not create or find user_chat:', error);
                             throw error;
                         }
                     } else if (newChat) {
