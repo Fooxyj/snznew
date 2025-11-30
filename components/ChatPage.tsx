@@ -160,11 +160,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
                 { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
                 (payload) => {
                     const newMsg = payload.new;
-                    // Only add if not already in list (deduplication) and not from me (optimistic update handles my own)
-                    // Actually, we should add it if it's from partner. If it's from me, we might have already added it optimistically.
-                    // But since we don't have complex optimistic logic yet, let's just append if not exists.
 
-                    queryClient.setQueryData(['chat', session.adId, currentUserId], (oldData: any[]) => {
+                    // Use the SAME query key as in useQuery
+                    queryClient.setQueryData(['chat', session.adId, currentUserId, session.chatId], (oldData: any[]) => {
                         if (!oldData) return [];
                         // Check if message already exists (e.g. from optimistic update)
                         if (oldData.some((m: any) => m.id === newMsg.id)) return oldData;
@@ -184,7 +182,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [chatId, queryClient, session.adId, currentUserId]);
+    }, [chatId, queryClient, session.adId, session.chatId, currentUserId]);
 
 
     const messages = serverMessages || [];
@@ -216,7 +214,8 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
 
         setInputText(''); // Clear input immediately
 
-        queryClient.setQueryData(['chat', session.adId, currentUserId], (oldData: any[]) => {
+        // Use the SAME query key as in useQuery
+        queryClient.setQueryData(['chat', session.adId, currentUserId, session.chatId], (oldData: any[]) => {
             return [...(oldData || []), optimisticMsg];
         });
 
@@ -251,7 +250,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
                 if (error) throw error;
 
                 // Update the optimistic message with the real one
-                queryClient.setQueryData(['chat', session.adId, currentUserId], (oldData: any[]) => {
+                queryClient.setQueryData(['chat', session.adId, currentUserId, session.chatId], (oldData: any[]) => {
                     if (!oldData) return [];
                     return oldData.map((m: any) => m.id === tempId ? {
                         ...m,
@@ -264,7 +263,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
             console.error("Failed to send message", err);
             alert("Ошибка отправки сообщения");
             // Revert optimistic update
-            queryClient.setQueryData(['chat', session.adId, currentUserId], (oldData: any[]) => {
+            queryClient.setQueryData(['chat', session.adId, currentUserId, session.chatId], (oldData: any[]) => {
                 if (!oldData) return [];
                 return oldData.filter((m: any) => m.id !== tempId);
             });

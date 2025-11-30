@@ -10,6 +10,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    // Prevent scrolling while splash screen is visible
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+
     // Animate progress bar
     const timer = setInterval(() => {
       setProgress((oldProgress) => {
@@ -26,23 +31,33 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
     // Finish after 2.5 seconds
     const finishTimer = setTimeout(() => {
       setIsVisible(false);
-      setTimeout(onFinish, 500); // Wait for fade out animation
+      setTimeout(() => {
+        // Restore scrolling
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+        onFinish();
+      }, 500); // Wait for fade out animation
     }, 2500);
 
     return () => {
       clearInterval(timer);
       clearTimeout(finishTimer);
+      // Cleanup in case component unmounts early
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     };
   }, [onFinish]);
 
   return (
-    <div 
-      className={`fixed inset-0 z-[9999] bg-surface flex flex-col items-center justify-center transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+    <div
+      className={`fixed inset-0 z-[9999] bg-surface flex flex-col items-center justify-center transition-opacity duration-500 overflow-hidden ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
     >
       <div className="relative flex flex-col items-center">
         {/* Animated Logo */}
         <div className="w-24 h-24 bg-primary rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-primary/40 animate-bounce mb-6">
-           <span className="font-black text-5xl">С</span>
+          <span className="font-black text-5xl">С</span>
         </div>
 
         {/* App Name with fade-in */}
@@ -55,13 +70,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
 
         {/* Custom Progress Bar */}
         <div className="w-48 h-1.5 bg-gray-100 rounded-full mt-8 overflow-hidden relative">
-           <div 
-             className="absolute top-0 left-0 h-full bg-primary transition-all duration-300 ease-out rounded-full"
-             style={{ width: `${progress}%` }}
-           ></div>
+          <div
+            className="absolute top-0 left-0 h-full bg-primary transition-all duration-300 ease-out rounded-full"
+            style={{ width: `${progress}%` }}
+          ></div>
         </div>
       </div>
-      
+
       {/* Footer Info */}
       <div className="absolute bottom-8 text-xs text-gray-300">
         Загрузка данных...

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Category } from '../types';
 
 interface MobileMenuProps {
@@ -13,6 +13,25 @@ interface MobileMenuProps {
 }
 
 export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, onSelectCategory, activeCategory, navItems, onOpenPartnerModal, onOpenProfile, onNavigate }) => {
+  // Prevent background scrolling when menu is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
