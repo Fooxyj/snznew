@@ -24,12 +24,37 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
         try {
             console.log('Fetching chats for user:', currentUserId);
 
-            // Fetch ALL chats where I am buyer OR seller
-            // We use the .or() filter to get both sides in one query if possible, 
-            // but to be safe and get relations correctly, we might need to be careful.
-            // Let's try a direct query on 'chats' table.
+            // Fetch as Buyer
+            const { data: buyerChats, error: buyerError } = await supabase
+                .from('chats')
+                .select(`
+                    id, 
+                    ad_id, 
+                    buyer_id,
+                    seller_id,
+                    created_at,
+                    ads (
+                        id,
+                        title,
+                        image,
+                        category,
+                        author_name,
+                        author_avatar
+                    ),
+                    seller:seller_id (
+                        full_name,
+                        avatar_url
+                    )
+                `)
+                .eq('buyer_id', currentUserId)
+                .order('created_at', { ascending: false });
 
-            const { data: allChats, error } = await supabase
+            if (buyerError) {
+                console.error('Error fetching buyer chats:', buyerError);
+            }
+
+            // Fetch as Seller
+            const { data: sellerChats, error: sellerError } = await supabase
                 .from('chats')
                 .select(`
                     id, 
@@ -48,58 +73,65 @@ export const ChatList: React.FC<ChatListProps> = ({ isOpen, onClose, currentUser
                     buyer:buyer_id (
                         full_name,
                         avatar_url
-                    ),
-                    seller:seller_id (
-                        full_name,
-                        avatar_url
                     )
                 `)
-                .or(`buyer_id.eq.${currentUserId},seller_id.eq.${currentUserId}`)
+                .eq('seller_id', currentUserId)
                 .order('created_at', { ascending: false });
 
-            if (error) {
-                console.error('Supabase error fetching chats:', error);
-                throw error;
+            if (sellerError) {
+                console.error('Error fetching seller chats:', sellerError);
             }
 
-            console.log('Raw chats data:', allChats);
+            const bChats = buyerChats || [];
+            const sChats = sellerChats || [];
 
-            if (!allChats) {
-                setChats([]);
-                return;
-            }
+            console.log('Buyer chats:', bChats);
+            console.log('Seller chats:', sChats);
 
-            const formattedChats = allChats.map((c: any) => {
-                const isBuying = c.buyer_id === currentUserId;
-                const partner = isBuying ? c.seller : c.buyer;
-                // Fallback if profile relation is missing (e.g. deleted user)
-                const partnerName = partner?.full_name || (isBuying ? c.ads?.author_name : 'Пользователь') || 'Собеседник';
-                const partnerAvatar = partner?.avatar_url || (isBuying ? c.ads?.author_avatar : null);
+            // Format Buyer Chats
+            const formattedBuyerChats = bChats.map((c: any) => ({
+                id: c.id,
+                adId: c.ad_id,
+                adTitle: c.ads?.title || 'Объявление удалено',
+                adImage: c.ads?.image || 'https://via.placeholder.com/150',
+                partnerName: c.seller?.full_name || c.ads?.author_name || 'Продавец',
+                partnerAvatar: c.seller?.avatar_url || c.ads?.author_avatar,
+                lastMessage: 'Вы: Интересует товар',
+                date: new Date(c.created_at).toLocaleDateString(),
+                isBuying: true,
+                category: c.ads?.category
+            }));
 
-                return {
-                    id: c.id,
-                    adId: c.ad_id,
-                    adTitle: c.ads?.title || 'Объявление удалено',
-                    adImage: c.ads?.image || 'https://via.placeholder.com/150',
-                    partnerName: partnerName,
-                    partnerAvatar: partnerAvatar,
-                    lastMessage: isBuying ? 'Вы: Интересует товар' : 'Покупатель: Интересует товар', // Placeholder
-                    date: new Date(c.created_at).toLocaleDateString(),
-                    isBuying: isBuying,
-                    category: c.ads?.category
-                };
-            });
+            // Format Seller Chats
+            const formattedSellerChats = sChats.map((c: any) => ({
+                id: c.id,
+                adId: c.ad_id,
+                adTitle: c.ads?.title || 'Объявление',
+                adImage: c.ads?.image || 'https://via.placeholder.com/150',
+                partnerName: c.buyer?.full_name || 'Покупатель',
+                partnerAvatar: c.buyer?.avatar_url,
+                lastMessage: 'Покупатель интересуется',
+                date: new Date(c.created_at).toLocaleDateString(),
+                isBuying: false,
+                category: c.ads?.category
+            }));
 
-            setChats(formattedChats);
+            // Merge and sort
+            const allChats = [...formattedBuyerChats, ...formattedSellerChats].sort((a, b) =>
+                new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+
+            // Deduplicate
+            const uniqueChats = Array.from(new Map(allChats.map(item => [item.id, item])).values());
+
+            setChats(uniqueChats);
 
         } catch (err) {
-            console.error('Error fetching chats:', err);
+            console.error('Error in fetchChats:', err);
         } finally {
             setIsLoading(false);
         }
     };
-
-    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-dark/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onClose}>
