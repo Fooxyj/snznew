@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatSession, ChatMessage } from '../types';
 import { supabase } from '../services/supabaseClient';
-import { api } from '../services/api'; // Use optimized API
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface ChatPageProps {
@@ -13,49 +12,67 @@ interface ChatPageProps {
 
 export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUserId }) => {
     const [inputText, setInputText] = useState('');
-    const [chatId, setChatId] = useState<string | null>(session.chatId || null);
-    const [partnerProfile, setPartnerProfile] = useState<{ name: string, avatar: string } | null>(null);
+    const [userChatId, setUserChatId] = useState<string | null>(session.chatId || null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const queryClient = useQueryClient();
 
-    // 1. Fetch Chat ID and Messages
-    const { data: serverMessages, refetch } = useQuery({
-        queryKey: ['chat', session.adId, currentUserId, session.chatId],
+    // 1. Fetch or create user_chat and load messages
+    const { data: serverMessages } = useQuery({
+        queryKey: ['user-chat-messages', userChatId, currentUserId],
         queryFn: async () => {
             if (!supabase || !currentUserId || currentUserId === 'guest') return [];
 
             try {
-                let targetChatId = session.chatId || chatId;
+                let targetChatId = userChatId;
 
-                // If we don't have a chatId yet, try to find it (Buyer flow)
+                // If we don't have a userChatId yet, try to find or create it
                 if (!targetChatId && session.adId) {
-                    const { data: chats } = await supabase
-                        .from('chats')
-                        .select('id')
-                        .eq('ad_id', session.adId)
-                        .eq('buyer_id', currentUserId)
-                        .maybeSingle();
+                    // Get the ad to find the seller
+                    const { data: adData } = await supabase
+                        .from('ads')
+                        .select('user_id')
+                        .eq('id', session.adId)
+                        .single();
 
-                    if (chats) {
-                        targetChatId = chats.id;
-                        setChatId(chats.id);
+                    if (adData) {
+                        const sellerId = adData.user_id;
+                        const buyerId = currentUserId;
+
+                        // Find existing user_chat
+                        const { data: existingChat } = await supabase
+                            .from('user_chats')
+                            .select('id')
+                            .or(`and(user1_id.eq.${buyerId},user2_id.eq.${sellerId}),and(user1_id.eq.${sellerId},user2_id.eq.${buyerId})`)
+                            .maybeSingle();
+
+                        if (existingChat) {
+                            targetChatId = existingChat.id;
+                            setUserChatId(existingChat.id);
+                        }
                     }
                 }
 
                 // If chat exists, fetch messages
                 if (targetChatId) {
-                    // Optimized Fetch Messages
-                    const msgs = await api.chats.getMessages(targetChatId);
+                    const { data: msgs, error } = await supabase
+                        .from('messages')
+                        .select('id, sender_id, text, created_at, context, ad_id')
+                        .eq('user_chat_id', targetChatId)
+                        .order('created_at', { ascending: true });
 
-                    if (msgs) {
-                        return msgs.map((m: any) => ({
-                            id: m.id,
-                            senderId: m.sender_id,
-                            text: m.text,
-                            created_at: new Date(m.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-                            isMe: m.sender_id === currentUserId
-                        }));
+                    if (error) {
+                        console.error('Error fetching messages:', error);
+                        return [];
                     }
+
+                    return (msgs || []).map((m: any) => ({
+                        id: m.id,
+                        senderId: m.sender_id,
+                        text: m.text,
+                        context: m.context,
+                        created_at: new Date(m.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+                        isMe: m.sender_id === currentUserId
+                    }));
                 }
                 return [];
             } catch (err) {
@@ -63,114 +80,37 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
                 return [];
             }
         },
-        staleTime: Infinity, // Keep data fresh indefinitely, rely on Realtime
-        enabled: !!currentUserId && (!!session.adId || !!session.chatId)
+        staleTime: Infinity,
+        enabled: !!currentUserId && (!!session.chatId || !!session.adId)
     });
 
-    // 2. Fetch Partner Profile
+    // 2. Realtime Subscription
     useEffect(() => {
-        const fetchPartner = async () => {
-            if (!supabase || !currentUserId || !session.adId) return;
+        if (!userChatId) return;
 
-            // Get the ad author.
-            const { data: adData } = await supabase.from('ads').select('user_id').eq('id', session.adId).maybeSingle();
-
-            if (adData) {
-                if (currentUserId !== adData.user_id) {
-                    // I am buyer, partner is Seller. Fetch seller's profile.
-                    const { data: sellerProfile } = await supabase
-                        .from('profiles')
-                        .select('full_name, name, avatar_url')
-                        .eq('id', adData.user_id)
-                        .maybeSingle();
-
-                    setPartnerProfile({
-                        name: sellerProfile?.full_name || sellerProfile?.name || session.authorName || 'Продавец',
-                        avatar: sellerProfile?.avatar_url || session.authorAvatar || ''
-                    });
-                } else {
-                    // I am seller, partner is Buyer.
-                    if (chatId) { // Use chatId from state, which might be set by the queryFn
-                        const { data: chatData } = await supabase
-                            .from('chats')
-                            .select('buyer_id')
-                            .eq('id', chatId)
-                            .maybeSingle();
-
-                        if (chatData && chatData.buyer_id) {
-                            const { data: buyerProfile } = await supabase
-                                .from('profiles')
-                                .select('full_name, name, avatar_url')
-                                .eq('id', chatData.buyer_id)
-                                .maybeSingle();
-
-                            setPartnerProfile({
-                                name: buyerProfile?.full_name || buyerProfile?.name || 'Покупатель',
-                                avatar: buyerProfile?.avatar_url || ''
-                            });
-                        } else {
-                            setPartnerProfile({ name: 'Покупатель', avatar: '' });
-                        }
-                    } else {
-                        setPartnerProfile({ name: 'Покупатель', avatar: '' });
-                    }
-                }
-            } else {
-                // Ad not found or error, fallback to session data
-                setPartnerProfile({
-                    name: session.authorName || 'Собеседник',
-                    avatar: session.authorAvatar || ''
-                });
-            }
-        };
-
-        fetchPartner();
-    }, [session.adId, currentUserId, chatId, session.authorName, session.authorAvatar]);
-
-    // 4. Mark messages as read when chat is opened
-    useEffect(() => {
-        const markAsRead = async () => {
-            if (!chatId || !currentUserId) return;
-
-            try {
-                // Помечаем все непрочитанные сообщения в этом чате как прочитанные
-                // (только те, которые НЕ от текущего пользователя)
-                await supabase
-                    .from('messages')
-                    .update({ read: true, read_at: new Date().toISOString() })
-                    .eq('chat_id', chatId)
-                    .eq('read', false)
-                    .neq('sender_id', currentUserId);
-            } catch (err) {
-                console.error('Error marking messages as read:', err);
-            }
-        };
-
-        markAsRead();
-    }, [chatId, currentUserId]);
-
-
-    // 3. Realtime Subscription
-    useEffect(() => {
-        if (!chatId) return;
-
-        const channel = supabase.channel(`chat:${chatId}`)
+        const channel = supabase.channel(`user-chat:${userChatId}`)
             .on(
                 'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
+                { event: 'INSERT', schema: 'public', table: 'messages', filter: `user_chat_id=eq.${userChatId}` },
                 (payload) => {
                     const newMsg = payload.new;
 
                     // Use the SAME query key as in useQuery
-                    queryClient.setQueryData(['chat', session.adId, currentUserId, session.chatId], (oldData: any[]) => {
+                    queryClient.setQueryData(['user-chat-messages', userChatId, currentUserId], (oldData: any[]) => {
                         if (!oldData) return [];
                         // Check if message already exists (e.g. from optimistic update)
                         if (oldData.some((m: any) => m.id === newMsg.id)) return oldData;
+
+                        // Play notification sound if message is from partner
+                        if (newMsg.sender_id !== currentUserId) {
+                            playNotificationSound();
+                        }
 
                         return [...oldData, {
                             id: newMsg.id,
                             senderId: newMsg.sender_id,
                             text: newMsg.text,
+                            context: newMsg.context,
                             created_at: new Date(newMsg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
                             isMe: newMsg.sender_id === currentUserId
                         }];
@@ -182,75 +122,94 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [chatId, queryClient, session.adId, session.chatId, currentUserId]);
-
+    }, [userChatId, queryClient, currentUserId]);
 
     const messages = serverMessages || [];
 
-    // Scroll to bottom on new messages
+    // Auto-scroll to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages.length]);
+    }, [messages]);
 
-    useEffect(() => {
-        document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = 'unset'; };
-    }, []);
+    const handleSendMessage = async () => {
+        const msgText = inputText.trim();
+        if (!msgText || !currentUserId) return;
 
-    const sendMessage = async (text: string) => {
-        if (!inputText.trim() && !text) return;
-        const msgText = text || inputText;
-        const tempId = crypto.randomUUID();
-        const now = new Date();
-
-        // Optimistic Update
+        const tempId = `temp-${Date.now()}`;
         const optimisticMsg = {
             id: tempId,
-            senderId: currentUserId || 'me',
+            senderId: currentUserId,
             text: msgText,
-            created_at: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+            context: session.adId ? `По объявлению: ${session.adTitle}` : null,
+            created_at: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
             isMe: true
         };
 
         setInputText(''); // Clear input immediately
 
         // Use the SAME query key as in useQuery
-        queryClient.setQueryData(['chat', session.adId, currentUserId, session.chatId], (oldData: any[]) => {
+        queryClient.setQueryData(['user-chat-messages', userChatId, currentUserId], (oldData: any[]) => {
             return [...(oldData || []), optimisticMsg];
         });
 
         try {
-            let activeChatId = chatId;
+            let activeChatId = userChatId;
 
             // If chat doesn't exist, create it first
-            if (!activeChatId) {
-                const { data: newChat, error } = await supabase
-                    .from('chats')
-                    .insert({ ad_id: session.adId, buyer_id: currentUserId })
-                    .select()
+            if (!activeChatId && session.adId) {
+                // Get the ad to find the seller
+                const { data: adData } = await supabase
+                    .from('ads')
+                    .select('user_id')
+                    .eq('id', session.adId)
                     .single();
 
-                if (error) throw error;
-                if (newChat) {
-                    activeChatId = newChat.id;
-                    setChatId(newChat.id);
+                if (adData) {
+                    const sellerId = adData.user_id;
+                    const buyerId = currentUserId;
+                    const user1 = buyerId < sellerId ? buyerId : sellerId;
+                    const user2 = buyerId < sellerId ? sellerId : buyerId;
+
+                    const { data: newChat, error } = await supabase
+                        .from('user_chats')
+                        .insert({ user1_id: user1, user2_id: user2 })
+                        .select()
+                        .single();
+
+                    if (error) {
+                        // Chat might already exist, try to find it
+                        const { data: existingChat } = await supabase
+                            .from('user_chats')
+                            .select('id')
+                            .or(`and(user1_id.eq.${buyerId},user2_id.eq.${sellerId}),and(user1_id.eq.${sellerId},user2_id.eq.${buyerId})`)
+                            .single();
+
+                        if (existingChat) {
+                            activeChatId = existingChat.id;
+                            setUserChatId(existingChat.id);
+                        } else {
+                            throw error;
+                        }
+                    } else if (newChat) {
+                        activeChatId = newChat.id;
+                        setUserChatId(newChat.id);
+                    }
                 }
             }
 
             if (activeChatId) {
-                // We let the server generate the ID to ensure uniqueness and consistency
-                // But we could also pass the tempId if the DB supports it. 
-                // Safest is to let server generate, then update our local cache.
                 const { data: sentMsg, error } = await supabase.from('messages').insert({
-                    chat_id: activeChatId,
+                    user_chat_id: activeChatId,
                     sender_id: currentUserId,
-                    text: msgText
+                    text: msgText,
+                    ad_id: session.adId || null,
+                    context: session.adId ? `По объявлению: ${session.adTitle}` : null
                 }).select().single();
 
                 if (error) throw error;
 
                 // Update the optimistic message with the real one
-                queryClient.setQueryData(['chat', session.adId, currentUserId, session.chatId], (oldData: any[]) => {
+                queryClient.setQueryData(['user-chat-messages', activeChatId, currentUserId], (oldData: any[]) => {
                     if (!oldData) return [];
                     return oldData.map((m: any) => m.id === tempId ? {
                         ...m,
@@ -258,12 +217,18 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
                         created_at: new Date(sentMsg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
                     } : m);
                 });
+
+                // Update user_chat timestamp
+                await supabase
+                    .from('user_chats')
+                    .update({ updated_at: new Date().toISOString() })
+                    .eq('id', activeChatId);
             }
         } catch (err) {
             console.error("Failed to send message", err);
             alert("Ошибка отправки сообщения");
             // Revert optimistic update
-            queryClient.setQueryData(['chat', session.adId, currentUserId, session.chatId], (oldData: any[]) => {
+            queryClient.setQueryData(['user-chat-messages', userChatId, currentUserId], (oldData: any[]) => {
                 if (!oldData) return [];
                 return oldData.filter((m: any) => m.id !== tempId);
             });
@@ -279,94 +244,112 @@ export const ChatPage: React.FC<ChatPageProps> = ({ session, onBack, currentUser
 
     const handleFormSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        sendMessage(inputText);
+        handleSendMessage();
+    };
+
+    const playNotificationSound = () => {
+        try {
+            // Simple beep sound using Web Audio API
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        } catch (e) {
+            console.log('Could not play notification sound:', e);
+        }
     };
 
     return (
-        <div className="fixed inset-0 z-[9999] bg-background flex justify-center items-center h-[100dvh] w-full">
-            <div className="w-full h-full md:max-w-2xl md:h-[90vh] bg-surface flex flex-col md:rounded-3xl md:shadow-2xl overflow-hidden relative">
-
-                {/* Header */}
-                <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center gap-3 shrink-0 safe-top">
-                    <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-
-                    <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold shadow-sm shrink-0 overflow-hidden">
-                        {partnerProfile?.avatar ? (
-                            <img src={partnerProfile.avatar} className="w-full h-full object-cover" />
-                        ) : (
-                            (partnerProfile?.name || session.adTitle).charAt(0).toUpperCase()
-                        )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                        <h3 className="font-bold text-dark leading-none truncate">{partnerProfile?.name || 'Загрузка...'}</h3>
-                        <p className="text-xs text-secondary truncate mt-1">
-                            {session.adTitle} • {session.category === 'sale' ? 'Продажа' : session.category === 'rent' ? 'Аренда' : session.category === 'services' ? 'Услуги' : 'Работа'}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-3">
-                    <div className="text-center text-xs text-gray-400 my-2">Чат защищен</div>
-
-                    {messages.length === 0 && (
-                        <div className="mt-auto mb-4">
-                            <p className="text-center text-secondary text-sm mb-3">Быстрые вопросы:</p>
-                            <div className="flex flex-wrap gap-2 justify-center">
-                                {getQuickReplies().map((reply, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => sendMessage(reply)}
-                                        className="bg-white border border-gray-200 text-dark text-xs px-3 py-2 rounded-full hover:border-primary hover:text-primary transition-colors"
-                                    >
-                                        {reply}
-                                    </button>
-                                ))}
-                            </div>
+        <div className="fixed inset-0 bg-surface z-[70] flex flex-col">
+            {/* Header */}
+            <div className="bg-white border-b border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+                <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full text-secondary">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0">
+                    {session.authorAvatar ? (
+                        <img src={session.authorAvatar} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold">
+                            {session.authorName?.[0] || 'U'}
                         </div>
                     )}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-dark truncate">{session.authorName}</h3>
+                    {session.adTitle && session.adTitle !== 'Общий чат' && (
+                        <p className="text-xs text-secondary truncate">По объявлению: {session.adTitle}</p>
+                    )}
+                </div>
+            </div>
 
-                    {messages.map((msg) => (
-                        <div key={msg.id} className={`flex w-full ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed relative shadow-sm
-                            ${msg.isMe ? 'bg-primary text-white rounded-br-none' : 'bg-white text-dark border border-gray-100 rounded-bl-none'}`}>
-                                <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                                <span className={`text-[10px] block text-right mt-1 opacity-70 ${msg.isMe ? 'text-blue-100' : 'text-gray-400'}`}>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+                {messages.length === 0 ? (
+                    <div className="text-center py-10 text-secondary">
+                        <p>Начните переписку</p>
+                    </div>
+                ) : (
+                    messages.map((msg: any) => (
+                        <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[70%] ${msg.isMe ? 'bg-primary text-white' : 'bg-white text-dark'} rounded-2xl px-4 py-2 shadow-sm`}>
+                                {msg.context && !msg.isMe && (
+                                    <p className="text-xs opacity-70 mb-1">{msg.context}</p>
+                                )}
+                                <p className="text-sm">{msg.text}</p>
+                                <span className={`text-[10px] ${msg.isMe ? 'text-white/70' : 'text-gray-400'} mt-1 block`}>
                                     {msg.created_at}
                                 </span>
                             </div>
                         </div>
-                    ))}
-                    <div ref={messagesEndRef} />
-                </div>
-
-                {/* Input Area */}
-                <form onSubmit={handleFormSubmit} className="p-3 bg-white border-t border-gray-200 shrink-0 safe-bottom">
-                    <div className="flex items-end gap-2">
-                        <textarea
-                            className="flex-grow bg-gray-100 border-transparent focus:bg-white focus:border-primary border rounded-2xl py-3 px-4 text-dark outline-none transition-all placeholder:text-gray-400 resize-none max-h-32 min-h-[48px] text-sm"
-                            placeholder="Написать сообщение..."
-                            value={inputText}
-                            onChange={e => setInputText(e.target.value)}
-                            rows={1}
-                            onInput={(e) => {
-                                e.currentTarget.style.height = 'auto';
-                                e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 120) + 'px';
-                            }}
-                        />
-                        <button
-                            type="submit"
-                            disabled={!inputText.trim()}
-                            className="w-12 h-12 flex items-center justify-center bg-primary text-white rounded-full shadow-lg hover:bg-primary-dark transition-all disabled:opacity-50 disabled:shadow-none shrink-0 mb-px active:scale-95"
-                        >
-                            <svg className="w-5 h-5 translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                        </button>
-                    </div>
-                </form>
+                    ))
+                )}
+                <div ref={messagesEndRef} />
             </div>
+
+            {/* Quick Replies */}
+            {messages.length === 0 && (
+                <div className="px-4 py-2 flex gap-2 overflow-x-auto">
+                    {getQuickReplies().map((reply, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => setInputText(reply)}
+                            className="px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs text-secondary hover:bg-gray-50 whitespace-nowrap"
+                        >
+                            {reply}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* Input */}
+            <form onSubmit={handleFormSubmit} className="bg-white border-t border-gray-100 p-4 flex gap-2">
+                <input
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    placeholder="Написать сообщение..."
+                    className="flex-1 px-4 py-2 bg-gray-50 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                    type="submit"
+                    disabled={!inputText.trim()}
+                    className="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
+                >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                </button>
+            </form>
         </div>
     );
 };
