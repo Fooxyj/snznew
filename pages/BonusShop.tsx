@@ -73,7 +73,9 @@ export const BonusShop: React.FC = () => {
                     </div>
                 ) : (
                     <Link to="/auth">
-                        <Button className="bg-white text-blue-600 hover:bg-gray-100 border-none">Войти в профиль</Button>
+                        <Button variant="secondary" className="text-purple-600 border-none hover:bg-purple-50 shadow-lg">
+                            Войти в профиль
+                        </Button>
                     </Link>
                 )}
             </div>

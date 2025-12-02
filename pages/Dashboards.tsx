@@ -147,11 +147,17 @@ const EditBusinessModal: React.FC<{ business: Business; isOpen: boolean; onClose
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
                         <select className="w-full border rounded-lg px-3 py-2 bg-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                            <option>Магазины</option>
-                            <option>Кафе и рестораны</option>
-                            <option>Спортзалы и секции</option>
-                            <option>Услуги</option>
-                            <option>Аренда и Отдых</option>
+                            <option value="Магазины">Магазины</option>
+                            <option value="Кафе и рестораны">Кафе и рестораны</option>
+                            <option value="Спортзалы и секции">Спортзалы и секции</option>
+                            <option value="Услуги">Услуги (Ремонт, Обучение)</option>
+                            <option value="Аренда и Отдых">Аренда и Отдых (Бани, Домики)</option>
+                            <option value="Медицина">Медицина (Аптеки, Клиники)</option>
+                            <option value="Красота">Красота (Салоны, Мастера)</option>
+                            <option value="Культура">Культура (Музеи, Театры)</option>
+                            <option value="Туризм">Туризм (Экскурсии)</option>
+                            <option value="Кино">Кино</option>
+                            <option value="Транспорт">Транспорт</option>
                         </select>
                     </div>
                     <div>
@@ -831,8 +837,14 @@ export const ConnectBusiness: React.FC = () => {
                             <option value="Магазины">Магазины</option>
                             <option value="Кафе и рестораны">Кафе и рестораны</option>
                             <option value="Спортзалы и секции">Спортзалы и секции</option>
-                            <option value="Услуги">Услуги</option>
-                            <option value="Аренда и Отдых">Аренда и Отдых</option>
+                            <option value="Услуги">Услуги (Ремонт, Обучение)</option>
+                            <option value="Аренда и Отдых">Аренда и Отдых (Бани, Домики)</option>
+                            <option value="Медицина">Медицина (Аптеки, Больницы)</option>
+                            <option value="Красота">Красота (Салоны, Мастера)</option>
+                            <option value="Культура">Культура (Музеи, Театры)</option>
+                            <option value="Туризм">Туризм (Экскурсии)</option>
+                            <option value="Кино">Кино</option>
+                            <option value="Транспорт">Транспорт</option>
                         </select>
                     </div>
                     <div>

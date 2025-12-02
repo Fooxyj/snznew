@@ -1,9 +1,11 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { Ad, User } from '../types';
 import { Button, Badge } from '../components/ui/Common';
 import { ChevronLeft, MapPin, Calendar, User as UserIcon, MessageCircle, Heart, Share2, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { YandexMap } from '../components/YandexMap';
 
 export const AdDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -153,10 +155,9 @@ export const AdDetail: React.FC = () => {
                             <MapPin className="w-5 h-5 mr-2 text-red-500" />
                             {ad.location}
                         </div>
-                        {/* Placeholder Map */}
-                        <div className="h-48 bg-gray-100 dark:bg-gray-700 rounded-xl w-full flex items-center justify-center text-gray-400 text-sm border dark:border-gray-600 relative overflow-hidden group">
-                            <div className="absolute inset-0 bg-[url('https://maps.wikimedia.org/img/osm-intl,13,56.08,60.73,300x200.png')] bg-cover bg-center opacity-50 grayscale group-hover:grayscale-0 transition-all"></div>
-                            <span className="relative z-10 bg-white/80 dark:bg-black/50 px-3 py-1 rounded backdrop-blur">Карта загружается...</span>
+                        {/* Interactive Yandex Map */}
+                        <div className="h-48 bg-gray-100 dark:bg-gray-700 rounded-xl w-full flex items-center justify-center text-gray-400 text-sm border dark:border-gray-600 relative overflow-hidden">
+                            <YandexMap center={[56.08, 60.73]} zoom={14} />
                         </div>
                     </div>
                 </div>

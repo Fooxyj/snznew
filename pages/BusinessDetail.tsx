@@ -6,10 +6,7 @@ import { Business, Review, Product, User, Service } from '../types';
 import { Button } from '../components/ui/Common';
 import { MapPin, Phone, Clock, Loader2, Star, ChevronLeft, ShoppingBag, Plus, X, Upload, Calendar, Clock4, ShoppingCart, Trash2 } from 'lucide-react';
 import { useCart } from '../components/CartProvider';
-
-declare global {
-  interface Window { L: any; }
-}
+import { YandexMap } from '../components/YandexMap';
 
 const CreateProductModal: React.FC<{ businessId: string; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ businessId, isOpen, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({ name: '', description: '', price: '', image: '', category: 'Товары' });
@@ -70,6 +67,13 @@ const CreateProductModal: React.FC<{ businessId: string; isOpen: boolean; onClos
                              <option>Напитки</option>
                              <option>Товары</option>
                              <option>Услуги</option>
+                             <option>Медикаменты</option>
+                             <option>Билеты</option>
+                             <option>Сувениры</option>
+                             <option>Абонементы</option>
+                             <option>Банные принадлежности</option>
+                             <option>Аренда</option>
+                             <option>Прочее</option>
                          </select>
                     </div>
                     <div>
@@ -125,7 +129,7 @@ const CreateServiceModal: React.FC<{ businessId: string; isOpen: boolean; onClos
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="text-xs font-bold text-gray-500">Название услуги</label>
-                        <input className="w-full border rounded-lg p-2" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required placeholder="Мужская стрижка" />
+                        <input className="w-full border rounded-lg p-2" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required placeholder="Например: Стрижка / Аренда" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -249,10 +253,6 @@ export const BusinessDetail: React.FC = () => {
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
     const [bookingService, setBookingService] = useState<Service | null>(null);
-    
-    // Map
-    const mapRef = useRef<HTMLDivElement>(null);
-    const mapInstance = useRef<any>(null);
 
     // Reviews
     const [newReviewText, setNewReviewText] = useState('');
@@ -285,14 +285,6 @@ export const BusinessDetail: React.FC = () => {
     useEffect(() => {
         loadData();
     }, [id]);
-
-    useEffect(() => {
-        if (business && mapRef.current && window.L && !mapInstance.current) {
-            mapInstance.current = window.L.map(mapRef.current).setView([business.lat, business.lng], 15);
-            window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance.current);
-            window.L.marker([business.lat, business.lng]).addTo(mapInstance.current).bindPopup(business.name).openPopup();
-        }
-    }, [business]);
 
     const handleReviewSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -360,7 +352,9 @@ export const BusinessDetail: React.FC = () => {
                         </div>
                     </div>
                     <div>
-                        <div className="bg-gray-100 dark:bg-gray-700 rounded-xl h-40 w-full z-0 overflow-hidden" ref={mapRef}></div>
+                        <div className="bg-gray-100 dark:bg-gray-700 rounded-xl h-40 w-full z-0 overflow-hidden">
+                            <YandexMap center={[business.lat, business.lng]} zoom={15} markers={[{lat: business.lat, lng: business.lng}]} />
+                        </div>
                     </div>
                 </div>
             </div>

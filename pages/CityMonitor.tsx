@@ -201,7 +201,11 @@ export const CityMonitor: React.FC = () => {
                 <div className="relative z-10">
                     <h1 className="text-3xl font-bold mb-2">Городской Контроль</h1>
                     <p className="opacity-90 max-w-xl mb-6">Вместе мы делаем Снежинск лучше. Сообщайте о проблемах городской инфраструктуры, и администрация решит их.</p>
-                    <Button onClick={() => setIsModalOpen(true)} className="bg-white text-blue-600 hover:bg-blue-50 border-none">
+                    <Button 
+                        onClick={() => setIsModalOpen(true)} 
+                        variant="secondary"
+                        className="text-blue-600 hover:bg-blue-50 border-none shadow-lg shadow-blue-900/20"
+                    >
                         <Plus className="w-4 h-4 mr-2" /> Сообщить о проблеме
                     </Button>
                 </div>

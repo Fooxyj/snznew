@@ -1,23 +1,15 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { Quest } from '../types';
 import { Button } from '../components/ui/Common';
 import { Map, Loader2, Navigation, CheckCircle2, Trophy } from 'lucide-react';
-
-declare global {
-  interface Window { L: any; }
-}
+import { YandexMap } from '../components/YandexMap';
 
 export const Quests: React.FC = () => {
     const [quests, setQuests] = useState<Quest[]>([]);
     const [loading, setLoading] = useState(true);
-    const [userLoc, setUserLoc] = useState<{lat: number, lng: number} | null>(null);
     const [checking, setChecking] = useState(false);
-    
-    // Map
-    const mapRef = useRef<HTMLDivElement>(null);
-    const mapInstance = useRef<any>(null);
 
     const loadData = async () => {
         try {
@@ -34,24 +26,6 @@ export const Quests: React.FC = () => {
         loadData();
     }, []);
 
-    // Init Map
-    useEffect(() => {
-        if (!loading && mapRef.current && window.L && !mapInstance.current) {
-            mapInstance.current = window.L.map(mapRef.current).setView([56.08, 60.73], 13);
-            window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance.current);
-            
-            // Add Quest Markers
-            quests.forEach(q => {
-                const icon = window.L.divIcon({
-                    className: 'custom-icon',
-                    html: `<div style="background-color: ${q.isCompleted ? '#22c55e' : '#ef4444'}; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-                    iconSize: [24, 24]
-                });
-                window.L.marker([q.lat, q.lng], { icon }).addTo(mapInstance.current).bindPopup(q.title);
-            });
-        }
-    }, [loading, quests]);
-
     const handleCheckIn = (quest: Quest) => {
         setChecking(true);
         if (!navigator.geolocation) {
@@ -63,12 +37,7 @@ export const Quests: React.FC = () => {
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 const { latitude, longitude } = position.coords;
-                setUserLoc({ lat: latitude, lng: longitude });
-
                 try {
-                    // In a real app, send actual coords. 
-                    // FOR DEMO: If user is far, we might want to "cheat" for testing? 
-                    // Let's rely on the API logic.
                     const reward = await api.completeQuest(quest.id, latitude, longitude);
                     alert(`🎉 Квест пройден! Вы получили ${reward} XP!`);
                     loadData(); // Refresh state
@@ -103,6 +72,12 @@ export const Quests: React.FC = () => {
     const completedCount = quests.filter(q => q.isCompleted).length;
     const progress = Math.round((completedCount / quests.length) * 100) || 0;
 
+    const markers = quests.map(q => ({
+        lat: q.lat,
+        lng: q.lng,
+        title: q.title
+    }));
+
     return (
         <div className="flex flex-col h-[calc(100vh-64px)] lg:h-screen">
             <div className="bg-white p-4 border-b flex justify-between items-center z-10 shadow-sm shrink-0">
@@ -122,7 +97,7 @@ export const Quests: React.FC = () => {
 
             <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
                 {/* List */}
-                <div className="w-full lg:w-96 bg-gray-50 overflow-y-auto p-4 space-y-4 border-r">
+                <div className="w-full lg:w-96 bg-gray-50 overflow-y-auto p-4 space-y-4 border-r order-2 lg:order-1">
                     {quests.map(q => (
                         <div key={q.id} className={`bg-white rounded-xl shadow-sm border p-4 transition-all ${q.isCompleted ? 'opacity-70 grayscale' : 'hover:shadow-md'}`}>
                             <div className="relative h-32 rounded-lg overflow-hidden mb-3">
@@ -161,8 +136,8 @@ export const Quests: React.FC = () => {
                 </div>
 
                 {/* Map */}
-                <div className="flex-1 bg-gray-100 relative">
-                     <div ref={mapRef} className="w-full h-full z-0"></div>
+                <div className="flex-1 bg-gray-100 relative order-1 lg:order-2 h-64 lg:h-auto">
+                     <YandexMap center={[56.08, 60.73]} zoom={13} markers={markers} />
                 </div>
             </div>
         </div>

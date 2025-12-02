@@ -797,6 +797,28 @@ export const api = {
     throw new Error("База данных не подключена");
   },
 
+  async updateEvent(id: string, updates: Partial<Event>) {
+      if (isSupabaseConfigured() && supabase) {
+          const dbPayload: any = {};
+          if (updates.title) dbPayload.title = updates.title;
+          if (updates.date) dbPayload.date = updates.date;
+          if (updates.location) dbPayload.location = updates.location;
+          if (updates.category) dbPayload.category = updates.category;
+          if (updates.image) dbPayload.image = updates.image;
+          if (updates.price) dbPayload.price = updates.price;
+
+          const { error } = await supabase.from('events').update(dbPayload).eq('id', id);
+          if (error) throw error;
+      }
+  },
+
+  async deleteEvent(id: string) {
+      if (isSupabaseConfigured() && supabase) {
+          const { error } = await supabase.from('events').delete().eq('id', id);
+          if (error) throw error;
+      }
+  },
+
   async getBookedSeats(eventId: string): Promise<{row: number, col: number}[]> {
       if (isSupabaseConfigured() && supabase) {
           const { data } = await supabase.from('tickets').select('row_idx, col_idx').eq('event_id', eventId);
@@ -1612,6 +1634,16 @@ export const api = {
           if (data) return mapBusinessFromDB(data);
       }
       return null;
+  },
+
+  async getMyBusinesses(): Promise<Business[]> {
+      if (isSupabaseConfigured() && supabase) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return [];
+          const { data } = await supabase.from('businesses').select('*').eq('author_id', user.id).order('id', {ascending: false});
+          if (data) return data.map(mapBusinessFromDB);
+      }
+      return [];
   },
 
   async getBusinessOrders(businessId: string): Promise<Order[]> {

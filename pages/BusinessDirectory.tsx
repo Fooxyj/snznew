@@ -1,17 +1,12 @@
 
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CATEGORIES } from '../constants';
 import { Button, Rating } from '../components/ui/Common';
 import { MapPin, Phone, Clock, Map as MapIcon, List, Loader2, MessageSquare } from 'lucide-react';
 import { Business } from '../types';
 import { api } from '../services/api';
-
-// Use global Leaflet object from script tag to avoid ESM/default export issues
-declare global {
-  interface Window { L: any; }
-}
+import { YandexMap } from '../components/YandexMap';
 
 export const BusinessDirectory: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,9 +15,6 @@ export const BusinessDirectory: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstance = useRef<any>(null);
-
   const categoryLabel = CATEGORIES.find(c => c.id === id)?.label || 'Каталог организаций';
 
   useEffect(() => {
@@ -40,36 +32,6 @@ export const BusinessDirectory: React.FC = () => {
     fetchBiz();
   }, [id]);
 
-  // Leaflet Map Logic
-  useEffect(() => {
-    if (showMap && mapRef.current && businesses.length > 0) {
-        // Ensure L is available
-        const L = window.L;
-        if (!L) return;
-
-        if (!mapInstance.current) {
-            // Init map centered on Snezhinsk
-            mapInstance.current = L.map(mapRef.current).setView([56.08, 60.73], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(mapInstance.current);
-        }
-        
-        // Clear old markers if needed, for now just add
-        businesses.forEach(biz => {
-            const marker = L.marker([biz.lat, biz.lng]).addTo(mapInstance.current);
-            marker.bindPopup(`<b>${biz.name}</b><br>${biz.address}<br><a href="#/business/${biz.id}">Перейти</a>`);
-            marker.on('click', () => {
-                navigate(`/business/${biz.id}`);
-            });
-        });
-        
-        setTimeout(() => {
-             mapInstance.current.invalidateSize();
-        }, 100);
-    }
-  }, [showMap, businesses]);
-
   if (isLoading) {
       return (
           <div className="flex h-[calc(100vh-64px)] items-center justify-center">
@@ -77,6 +39,13 @@ export const BusinessDirectory: React.FC = () => {
           </div>
       );
   }
+
+  const mapMarkers = businesses.map(b => ({
+      lat: b.lat,
+      lng: b.lng,
+      title: b.name,
+      onClick: () => navigate(`/business/${b.id}`)
+  }));
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] lg:h-screen">
@@ -128,9 +97,9 @@ export const BusinessDirectory: React.FC = () => {
           )}
         </div>
 
-        {/* Real Map View */}
+        {/* Yandex Map View */}
         <div className={`flex-1 bg-gray-100 relative ${!showMap ? 'hidden' : 'block'}`}>
-           <div ref={mapRef} className="w-full h-full z-0"></div>
+           <YandexMap center={[56.08, 60.73]} zoom={13} markers={mapMarkers} />
         </div>
       </div>
     </div>
