@@ -1,6 +1,6 @@
 
 
-export type Category = 'all' | 'sale' | 'rent' | 'services' | 'jobs' | 'cinema' | 'shops' | 'cafes' | 'gyms' | 'news' | 'transport' | 'medicine' | 'emergency' | 'culture' | 'beauty' | 'tourism';
+export type Category = 'all' | 'sale' | 'rent' | 'services' | 'jobs' | 'cinema' | 'shops' | 'cafes' | 'gyms' | 'news' | 'transport' | 'medicine' | 'emergency' | 'culture' | 'beauty' | 'tourism' | 'profile' | 'public_profile' | 'business_application' | 'merchant_dashboard';
 
 export interface Review {
   id: string;
@@ -133,7 +133,7 @@ export interface User {
   favorites?: string[]; // Array of Ad IDs
   orders?: Order[];
   isAdmin?: boolean;
-  xp?: number; // Experience points
+
 }
 
 export interface CatalogCategory {

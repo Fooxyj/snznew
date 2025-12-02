@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Ad, Order } from '../types';
 import { AdCard } from './AdCard';
-import { getLevelInfo } from '../utils';
+
 import { api } from '../services/api';
 import { supabase } from '../services/supabaseClient';
 import { useToast } from './Toast';
@@ -34,7 +34,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     const { showToast } = useToast();
     const queryClient = useQueryClient();
 
-    const levelInfo = getLevelInfo(user.xp || 0);
+
 
     useEffect(() => {
         setName(user.name || '');
@@ -134,19 +134,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     <div className="leading-tight">
                         <div className="flex items-center gap-2">
                             <p className="font-bold text-dark text-lg">{name || 'Пользователь'}</p>
-                            <span className={`text-xs font-bold text-white px-2 py-0.5 rounded-full ${levelInfo.color}`}>Lvl {levelInfo.level}</span>
                         </div>
-                        <p className="text-xs text-secondary font-medium">{levelInfo.title}</p>
-                    </div>
-                </div>
-
-                <div className="w-full">
-                    <div className="flex justify-between text-xs text-secondary mb-1">
-                        <span>XP: {user.xp || 0}</span>
-                        <span>До уровня {levelInfo.level + 1}: {levelInfo.nextLevelXp - (user.xp || 0)}</span>
-                    </div>
-                    <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                        <div className={`h-full ${levelInfo.color} transition-all duration-500`} style={{ width: `${levelInfo.progressPercent}%` }}></div>
                     </div>
                 </div>
             </div>
@@ -154,7 +142,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             {/* --- MOBILE TAB BAR --- */}
             <div className="md:hidden bg-white border-b border-gray-100 px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar sticky top-[73px] z-10">
                 <button onClick={() => setActiveTab('profile')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'profile' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary'}`}>Профиль</button>
-                <button onClick={() => { window.dispatchEvent(new CustomEvent('open-chat-list')); onBack(); }} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors bg-gray-100 text-secondary`}>Сообщения</button>
+
                 <button onClick={() => setActiveTab('favorites')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'favorites' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary'}`}>Избранное ({favorites.length})</button>
                 <button onClick={() => setActiveTab('my_ads')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'my_ads' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary'}`}>Мои объявления</button>
                 <button onClick={() => setActiveTab('orders')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'orders' ? 'bg-dark text-white' : 'bg-gray-100 text-secondary'}`}>Заказы</button>
@@ -172,24 +160,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white text-4xl font-bold mb-4 shadow-xl overflow-hidden border-4 border-white">
                             {avatar ? <img src={avatar} className="w-full h-full object-cover" alt="User" /> : user.name?.charAt(0) || user.email.charAt(0)}
                         </div>
-                        <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold text-white px-3 py-1 rounded-full ${levelInfo.color} border-2 border-white shadow-sm whitespace-nowrap`}>
-                            Lvl {levelInfo.level} {levelInfo.title}
-                        </div>
                     </div>
 
                     <h2 className="text-2xl font-bold text-dark text-center mt-4">{name || `Пользователь`}</h2>
                     <p className="text-sm text-secondary">{user.email}</p>
-
-                    <div className="w-full mt-6 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                        <div className="flex justify-between text-xs font-bold text-secondary mb-2">
-                            <span>{user.xp || 0} XP</span>
-                            <span>{levelInfo.nextLevelXp} XP</span>
-                        </div>
-                        <div className="h-2.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                            <div className={`h-full ${levelInfo.color} transition-all duration-500`} style={{ width: `${levelInfo.progressPercent}%` }}></div>
-                        </div>
-                        <p className="text-xs text-center text-gray-400 mt-2">До след. уровня: {levelInfo.nextLevelXp - (user.xp || 0)} XP</p>
-                    </div>
 
                     {user.isAdmin && <span className="mt-4 bg-red-100 text-red-600 text-xs font-bold px-3 py-1 rounded-full">Администратор</span>}
                     {user.managedShopId && <span className="mt-2 bg-blue-100 text-blue-600 text-xs font-bold px-3 py-1 rounded-full">{user.managedShopId.startsWith('cinema') ? 'Кинотеатр' : 'Владелец бизнеса'}</span>}
@@ -216,9 +190,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     <button onClick={() => setActiveTab('profile')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${activeTab === 'profile' ? 'bg-gray-100 text-dark' : 'text-secondary hover:bg-gray-50'}`}>
                         Профиль
                     </button>
-                    <button onClick={() => { window.dispatchEvent(new CustomEvent('open-chat-list')); onBack(); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors text-secondary hover:bg-gray-50`}>
-                        Сообщения
-                    </button>
+
                     <button onClick={() => setActiveTab('favorites')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${activeTab === 'favorites' ? 'bg-gray-100 text-dark' : 'text-secondary hover:bg-gray-50'}`}>
                         Избранное <span className="ml-auto bg-gray-200 text-xs px-2 py-0.5 rounded-full">{favorites.length}</span>
                     </button>

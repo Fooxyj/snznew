@@ -9,15 +9,16 @@ import { NewsPage } from './components/NewsPage';
 import { LoginModal } from './components/LoginModal';
 import { ServiceCatalogModal } from './components/ServiceCatalogModal';
 import { MovieBookingModal } from './components/MovieBookingModal';
-import { PartnerModal } from './components/PartnerModal';
+import { PartnerModal } from './components/PartnerModal'; // Keep for now if needed, but we use page
 import { ShopCard } from './components/ShopCard';
 import { ShopPage } from './components/ShopPage';
-import { MerchantDashboard } from './components/MerchantDashboard';
+import { MerchantDashboardPage } from './components/MerchantDashboardPage';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
 import { CartDrawer } from './components/CartDrawer';
 import { StoriesBar } from './components/StoriesBar';
 import { ProfilePage } from './components/ProfilePage';
-import { PublicProfileModal } from './components/PublicProfileModal';
+import { PublicProfilePage } from './components/PublicProfilePage';
+import { BusinessApplicationPage } from './components/BusinessApplicationPage';
 import { ScrollToTop } from './components/ScrollToTop';
 import { ToastNotification } from './components/ToastNotification';
 import { ToastProvider } from './components/Toast';
@@ -38,7 +39,7 @@ const INITIAL_ADS: Ad[] = [
         userId: '100',
         authorName: 'Александр',
         authorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-        authorLevel: 3,
+
         title: 'Русская баня на дровах',
         description: 'Отличная парная, березовые веники, комната отдыха с камином. Находимся в черте города, удобный подъезд. Есть мангальная зона. Работаем круглосуточно.',
         price: 1200,
@@ -62,7 +63,7 @@ const INITIAL_ADS: Ad[] = [
         userId: '101',
         authorName: 'База "У Озера"',
         authorAvatar: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-        authorLevel: 4,
+
         title: 'Домики',
         description: 'Уютный дом на берегу озера. 12 спальных мест, большая гостиная, караоке, сауна внутри дома. Идеально для дня рождения или корпоратива. Залог 5000р.',
         price: 15000,
@@ -84,7 +85,7 @@ const INITIAL_ADS: Ad[] = [
         userId: '102',
         authorName: 'Дмитрий',
         authorAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-        authorLevel: 1,
+
         title: 'Продам ВАЗ 2114',
         description: '2011 год. Состояние хорошее, есть рыжики на арках. Двигатель работает ровно. Зимняя резина на штампах в комплекте.',
         price: 185000,
@@ -165,7 +166,7 @@ const INITIAL_ADS: Ad[] = [
         id: '6',
         userId: '106',
         authorName: 'ЭлектроМонтаж',
-        authorLevel: 3,
+
         title: 'Электрик. Монтаж проводки',
         description: 'Электромонтажные работы под ключ. Замена проводки, установка розеток, люстр, счетчиков. Допуск.',
         price: 0,
@@ -183,7 +184,7 @@ const INITIAL_ADS: Ad[] = [
         id: '7',
         userId: '107',
         authorName: 'РемонтПрофи',
-        authorLevel: 4,
+
         title: 'Ремонт квартир под ключ',
         description: 'Бригада мастеров выполнит качественный ремонт. Штукатурка, обои, ламинат, плитка. Смета бесплатно.',
         price: 0,
@@ -203,7 +204,7 @@ const INITIAL_ADS: Ad[] = [
         id: '8',
         userId: '108',
         authorName: 'Евгений',
-        authorLevel: 1,
+
         title: 'iPhone 13 128GB',
         description: 'В идеальном состоянии, полный комплект, чек, гарантия. Использовался в чехле и с защитным стеклом.',
         price: 55000,
@@ -738,9 +739,8 @@ const App: React.FC = () => {
     const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
     const [isCatalogOpen, setIsCatalogOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
+
     const [isCartOpen, setIsCartOpen] = useState(false);
-    const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
     const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
     const [showSplashScreen, setShowSplashScreen] = useState(true);
 
@@ -1216,20 +1216,7 @@ const App: React.FC = () => {
         setNotifications(prev => prev.filter(n => n.id !== id));
     };
 
-    const addXp = (amount: number, reason: string) => {
-        setUser(prev => {
-            const newXp = (prev.xp || 0) + amount;
-            try {
-                localStorage.setItem('user_data', JSON.stringify({ ...prev, xp: newXp }));
-            } catch (e) { }
-            return { ...prev, xp: newXp };
-        });
-        addNotification({
-            id: Date.now(),
-            message: `+${amount} XP: ${reason}`,
-            type: 'level_up'
-        });
-    };
+
 
     const handleCreateAd = async (form: CreateAdFormState) => {
         if (!user.isLoggedIn || user.id === 'guest') {
@@ -1278,7 +1265,7 @@ const App: React.FC = () => {
                 });
 
                 addNotification({ id: Date.now(), message: 'Объявление отправлено на модерацию!', type: 'success' });
-                addXp(20, 'Публикация объявления');
+
             }
 
             queryClient.invalidateQueries({ queryKey: ['ads'] });
@@ -2034,43 +2021,6 @@ const App: React.FC = () => {
             <div className="min-h-[100dvh] bg-background flex flex-col relative overflow-x-hidden">
                 {showSplashScreen ? (
                     <SplashScreen onFinish={() => setShowSplashScreen(false)} />
-                ) : isUserProfileOpen ? (
-                    <ProfilePage
-                        user={user}
-                        onBack={() => setIsUserProfileOpen(false)}
-                        onLogout={async () => {
-                            await supabase.auth.signOut();
-                            setUser(DEFAULT_USER);
-                        }}
-                        favorites={user.favorites || []}
-                        allAds={ads}
-                        onToggleFavorite={handleToggleFavorite}
-                        onShowAd={(ad) => {
-                            setSelectedAd(ad);
-                        }}
-                        onEditAd={handleEditAd}
-                        onDeleteAd={handleDeleteAd}
-                        onUpdateUser={(u) => {
-                            setUser(u);
-                            try {
-                                localStorage.setItem('user_data', JSON.stringify(u));
-                            } catch (e) {
-                                console.warn("Quota exceeded saving user data", e);
-                            }
-                        }}
-                        onOpenAdminPanel={() => {
-                            setIsUserProfileOpen(false);
-                            setIsAdminPanelOpen(true);
-                        }}
-                        onOpenMerchantDashboard={() => {
-                            setIsUserProfileOpen(false);
-                            setIsMerchantDashboardOpen(true);
-                        }}
-                        onOpenPartnerModal={() => {
-                            setIsUserProfileOpen(false);
-                            setIsPartnerModalOpen(true);
-                        }}
-                    />
                 ) : (
                     <>
                         <ToastNotification notifications={notifications} onRemove={handleRemoveNotification} />
@@ -2206,7 +2156,7 @@ const App: React.FC = () => {
                                         )}
 
                                         {user.isLoggedIn && (
-                                            <div onClick={() => setIsUserProfileOpen(true)} className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity relative">
+                                            <div onClick={() => handleNavigate('profile')} className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity relative">
                                                 <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-tr from-primary to-blue-400 text-white flex items-center justify-center font-bold text-sm overflow-hidden border-2 border-white shadow-md">
                                                     {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : user.name?.charAt(0) || user.email.charAt(0)}
                                                 </div>
@@ -2244,7 +2194,70 @@ const App: React.FC = () => {
                             )}
 
                             <main className="max-w-7xl mx-auto px-4 md:px-6 py-4">
-                                {selectedShop ? (
+                                {activeCategory === 'profile' ? (
+                                    <ProfilePage
+                                        user={user}
+                                        onBack={() => handleNavigate('all')}
+                                        onLogout={async () => {
+                                            await supabase.auth.signOut();
+                                            setUser(DEFAULT_USER);
+                                            handleNavigate('all');
+                                        }}
+                                        favorites={user.favorites || []}
+                                        allAds={ads}
+                                        onToggleFavorite={handleToggleFavorite}
+                                        onShowAd={(ad) => {
+                                            setSelectedAd(ad);
+                                        }}
+                                        onEditAd={handleEditAd}
+                                        onDeleteAd={handleDeleteAd}
+                                        onUpdateUser={(u) => {
+                                            setUser(u);
+                                            try {
+                                                localStorage.setItem('user_data', JSON.stringify(u));
+                                            } catch (e) {
+                                                console.warn("Quota exceeded saving user data", e);
+                                            }
+                                        }}
+                                        onOpenAdminPanel={() => {
+                                            setIsAdminPanelOpen(true);
+                                        }}
+                                        onOpenMerchantDashboard={() => {
+                                            handleNavigate('merchant_dashboard');
+                                        }}
+                                        onOpenPartnerModal={() => {
+                                            handleNavigate('business_application');
+                                        }}
+                                    />
+                                ) : activeCategory === 'public_profile' && publicProfileUser ? (
+                                    <PublicProfilePage
+                                        profile={publicProfileUser}
+                                        ads={ads.filter(a => publicProfileUser && a.userId === publicProfileUser.id)}
+                                        onBack={() => handleNavigate('all')}
+                                        onShowAd={handleShowAd}
+                                        onToggleFavorite={handleToggleFavorite}
+                                        favorites={user.favorites || []}
+                                    />
+                                ) : activeCategory === 'business_application' ? (
+                                    <BusinessApplicationPage
+                                        isLoggedIn={user.isLoggedIn}
+                                        onRequireLogin={() => setIsLoginModalOpen(true)}
+                                        onBack={() => handleNavigate('all')}
+                                    />
+                                ) : activeCategory === 'merchant_dashboard' && user.managedShopId ? (
+                                    <MerchantDashboardPage
+                                        shop={[...shops, ...cafes, ...gyms, ...beautyShops].find(s => s.id === user.managedShopId) || shops[0]}
+                                        onUpdateShop={(updated) => {
+                                            setShops(prev => prev.map(s => s.id === updated.id ? updated : s));
+                                            setCafes(prev => prev.map(c => c.id === updated.id ? updated : c));
+                                            setGyms(prev => prev.map(g => g.id === updated.id ? updated : g));
+                                            setBeautyShops(prev => prev.map(b => b.id === updated.id ? updated : b));
+                                        }}
+                                        movies={user.managedShopId === 'cinema1' ? movies : undefined}
+                                        onUpdateMovies={user.managedShopId === 'cinema1' ? setMovies : undefined}
+                                        onBack={() => handleNavigate('all')}
+                                    />
+                                ) : selectedShop ? (
                                     <ShopPage
                                         shop={selectedShop}
                                         onBack={handleBackFromShop}
@@ -2315,7 +2328,7 @@ const App: React.FC = () => {
                                 <span className="text-[10px] font-medium">Разместить</span>
                             </button>
 
-                            <button onClick={() => { if (user.isLoggedIn) setIsUserProfileOpen(true); else setIsLoginModalOpen(true); }} className={`flex flex-col items-center gap-1 p-2 w-16 relative ${isUserProfileOpen ? 'text-primary' : 'text-gray-400'}`}>
+                            <button onClick={() => { if (user.isLoggedIn) handleNavigate('profile'); else setIsLoginModalOpen(true); }} className={`flex flex-col items-center gap-1 p-2 w-16 relative ${activeCategory === 'profile' ? 'text-primary' : 'text-gray-400'}`}>
                                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                 <span className="text-[10px] font-medium">Профиль</span>
                                 {user.isLoggedIn && unreadCount > 0 && (
@@ -2383,8 +2396,8 @@ const App: React.FC = () => {
                             }}
                             activeCategory={activeCategory}
                             navItems={NAV_ITEMS}
-                            onOpenPartnerModal={() => setIsPartnerModalOpen(true)}
-                            onOpenProfile={() => setIsUserProfileOpen(true)}
+                            onOpenPartnerModal={() => handleNavigate('business_application')}
+                            onOpenProfile={() => handleNavigate('profile')}
                             onNavigate={(target) => {
                                 if (target === 'messages') {
                                     setIsChatListOpen(true);
@@ -2412,15 +2425,7 @@ const App: React.FC = () => {
 
 
 
-                        <PublicProfileModal
-                            isOpen={!!publicProfileUser}
-                            onClose={() => setPublicProfileUser(null)}
-                            profile={publicProfileUser}
-                            ads={ads.filter(a => publicProfileUser && a.userId === publicProfileUser.id)}
-                            onShowAd={handleShowAd}
-                            onToggleFavorite={handleToggleFavorite}
-                            favorites={user.favorites || []}
-                        />
+
 
                         <MovieBookingModal
                             isOpen={!!activeMovie}
@@ -2454,15 +2459,7 @@ const App: React.FC = () => {
                             onRemove={handleRemoveFromCart}
                         />
 
-                        <PartnerModal
-                            isOpen={isPartnerModalOpen}
-                            onClose={() => setIsPartnerModalOpen(false)}
-                            isLoggedIn={user.isLoggedIn}
-                            onRequireLogin={() => {
-                                setIsPartnerModalOpen(false);
-                                setIsLoginModalOpen(true);
-                            }}
-                        />
+
 
                         {user.isAdmin && (
                             <AdminPanel
@@ -2483,21 +2480,7 @@ const App: React.FC = () => {
                             />
                         )}
 
-                        {user.managedShopId && (
-                            <MerchantDashboard
-                                isOpen={isMerchantDashboardOpen}
-                                onClose={() => setIsMerchantDashboardOpen(false)}
-                                shop={[...shops, ...cafes, ...gyms, ...beautyShops].find(s => s.id === user.managedShopId) || shops[0]}
-                                onUpdateShop={(updated) => {
-                                    setShops(prev => prev.map(s => s.id === updated.id ? updated : s));
-                                    setCafes(prev => prev.map(c => c.id === updated.id ? updated : c));
-                                    setGyms(prev => prev.map(g => g.id === updated.id ? updated : g));
-                                    setBeautyShops(prev => prev.map(b => b.id === updated.id ? updated : b));
-                                }}
-                                movies={user.managedShopId === 'cinema1' ? movies : undefined}
-                                onUpdateMovies={user.managedShopId === 'cinema1' ? setMovies : undefined}
-                            />
-                        )}
+
 
                     </>
                 )}

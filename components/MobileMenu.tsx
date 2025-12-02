@@ -73,23 +73,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, onSelec
           </div>
 
           <div className="mt-6 pt-6 border-t border-gray-100">
-            <button
-              onClick={() => {
-                onClose();
-                // We need a way to open chat list from here. 
-                // Since we don't have the prop yet, we will add it to props interface first.
-                // But for now, let's assume the parent will handle it or we pass a callback.
-                // Actually, better to emit an event or use a prop.
-                // Let's assume onNavigate('messages') works if we handle it in App.tsx
-                onNavigate('messages');
-              }}
-              className="w-full bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 active:scale-95 transition-transform"
-            >
-              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-              </div>
-              <span className="font-bold text-dark text-lg">Сообщения</span>
-            </button>
+
 
             <button
               onClick={() => {
