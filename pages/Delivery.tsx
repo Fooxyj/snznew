@@ -170,7 +170,7 @@ export const DeliveryPage: React.FC = () => {
                     historyOrders.map(order => (
                         <div key={order.id} className="bg-white p-4 rounded-xl border flex items-center justify-between opacity-70">
                             <div>
-                                <p className="font-bold text-gray-900">{order.businessName} -> {order.address}</p>
+                                <p className="font-bold text-gray-900">{order.businessName} &rarr; {order.address}</p>
                                 <p className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</p>
                             </div>
                             <div className="font-bold text-green-600">
