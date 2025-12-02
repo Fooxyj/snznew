@@ -1,0 +1,256 @@
+
+import React, { useEffect, useState, useRef } from 'react';
+import { api } from '../services/api';
+import { Story, User } from '../types';
+import { Plus, X, Upload, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const StoryViewer: React.FC<{ 
+    stories: Story[]; 
+    initialIndex: number; 
+    onClose: () => void 
+}> = ({ stories, initialIndex, onClose }) => {
+    const [currentIndex, setCurrentIndex] = useState(initialIndex);
+    const [progress, setProgress] = useState(0);
+    const timerRef = useRef<any>(null);
+
+    const activeStory = stories[currentIndex];
+
+    // Auto-advance
+    useEffect(() => {
+        if (!activeStory) return;
+        setProgress(0);
+        const duration = 5000; // 5 seconds per story
+        const interval = 50;
+        const step = 100 / (duration / interval);
+
+        timerRef.current = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 100) {
+                    handleNext();
+                    return 0;
+                }
+                return prev + step;
+            });
+        }, interval);
+
+        return () => clearInterval(timerRef.current);
+    }, [currentIndex]);
+
+    const handleNext = () => {
+        if (currentIndex < stories.length - 1) {
+            setCurrentIndex(prev => prev + 1);
+        } else {
+            onClose();
+        }
+    };
+
+    const handlePrev = () => {
+        if (currentIndex > 0) {
+            setCurrentIndex(prev => prev - 1);
+        }
+    };
+
+    if (!activeStory) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center">
+            {/* Navigation Zones */}
+            <div className="absolute inset-y-0 left-0 w-1/3 z-20 cursor-pointer" onClick={handlePrev}></div>
+            <div className="absolute inset-y-0 right-0 w-1/3 z-20 cursor-pointer" onClick={handleNext}></div>
+
+            <div className="relative w-full max-w-md h-full md:h-[90vh] bg-gray-900 md:rounded-xl overflow-hidden shadow-2xl">
+                {/* Progress Bar */}
+                <div className="absolute top-4 left-0 right-0 px-2 flex gap-1 z-30">
+                    {stories.map((s, idx) => (
+                        <div key={s.id} className="h-1 bg-white/30 flex-1 rounded-full overflow-hidden">
+                            <div 
+                                className="h-full bg-white transition-all duration-[50ms] ease-linear"
+                                style={{ 
+                                    width: idx < currentIndex ? '100%' : idx === currentIndex ? `${progress}%` : '0%' 
+                                }}
+                            ></div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Header */}
+                <div className="absolute top-8 left-4 flex items-center gap-3 z-30">
+                    <img src={activeStory.authorAvatar} className="w-8 h-8 rounded-full border border-white/50 bg-gray-600" alt="" />
+                    <span className="text-white font-bold text-sm shadow-black drop-shadow-md">{activeStory.authorName}</span>
+                    <span className="text-white/70 text-xs">{new Date(activeStory.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                </div>
+                
+                <button onClick={onClose} className="absolute top-8 right-4 z-40 text-white hover:opacity-70">
+                    <X className="w-6 h-6" />
+                </button>
+
+                {/* Content */}
+                <img src={activeStory.media} className="w-full h-full object-cover" alt="" />
+                
+                {activeStory.caption && (
+                    <div className="absolute bottom-10 left-0 right-0 p-4 text-center z-30">
+                        <div className="inline-block bg-black/50 backdrop-blur-md px-4 py-2 rounded-xl text-white text-sm">
+                            {activeStory.caption}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export const StoriesRail: React.FC = () => {
+    const [groupedStories, setGroupedStories] = useState<Record<string, Story[]>>({});
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+    
+    // Viewing State
+    const [activeAuthorId, setActiveAuthorId] = useState<string | null>(null);
+    
+    // Creating State
+    const [isCreating, setIsCreating] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [newMedia, setNewMedia] = useState('');
+    const [caption, setCaption] = useState('');
+
+    const loadData = async () => {
+        try {
+            const [s, u] = await Promise.all([api.getStories(), api.getCurrentUser()]);
+            setCurrentUser(u);
+            
+            // Group stories by author
+            const grouped = s.reduce((acc, story) => {
+                if (!acc[story.authorId]) {
+                    acc[story.authorId] = [];
+                }
+                acc[story.authorId].push(story);
+                return acc;
+            }, {} as Record<string, Story[]>);
+            setGroupedStories(grouped);
+
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        try {
+            const url = await api.uploadImage(file);
+            setNewMedia(url);
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const submitStory = async () => {
+        if (!newMedia) return;
+        try {
+            await api.createStory(newMedia, caption);
+            setNewMedia('');
+            setCaption('');
+            setIsCreating(false);
+            loadData();
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    if (loading) return null;
+
+    const authorIds = Object.keys(groupedStories);
+
+    return (
+        <div className="mb-6">
+            {/* Viewer Modal */}
+            {activeAuthorId && groupedStories[activeAuthorId] && (
+                <StoryViewer 
+                    stories={groupedStories[activeAuthorId]} 
+                    initialIndex={0} 
+                    onClose={() => setActiveAuthorId(null)} 
+                />
+            )}
+
+            {/* Creation Modal */}
+            {isCreating && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl w-full max-w-sm p-4 shadow-2xl relative">
+                        <button onClick={() => setIsCreating(false)} className="absolute top-2 right-2 p-2"><X className="w-5 h-5" /></button>
+                        <h3 className="font-bold text-lg mb-4 text-center">Создать историю</h3>
+                        
+                        <div className="aspect-[9/16] bg-gray-100 rounded-lg mb-4 relative overflow-hidden flex items-center justify-center">
+                            {newMedia ? (
+                                <img src={newMedia} className="w-full h-full object-cover" alt="" />
+                            ) : (
+                                <div className="text-center">
+                                    <div className="relative cursor-pointer bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2">
+                                        {uploading ? <Loader2 className="animate-spin text-blue-500" /> : <Upload className="text-blue-500" />}
+                                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleUpload} />
+                                    </div>
+                                    <p className="text-xs text-gray-500">Загрузить фото</p>
+                                </div>
+                            )}
+                        </div>
+                        
+                        <input 
+                            className="w-full border-b p-2 mb-4 text-sm outline-none" 
+                            placeholder="Добавьте подпись..." 
+                            value={caption}
+                            onChange={e => setCaption(e.target.value)}
+                        />
+                        
+                        <button 
+                            onClick={submitStory}
+                            disabled={!newMedia}
+                            className={`w-full py-3 rounded-lg font-bold text-white transition-colors ${!newMedia ? 'bg-gray-300' : 'bg-blue-600 hover:bg-blue-700'}`}
+                        >
+                            Опубликовать
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Rail */}
+            <div className="flex gap-4 overflow-x-auto pb-4 items-center">
+                {/* Create Button */}
+                {currentUser && (
+                    <div className="flex flex-col items-center gap-1 cursor-pointer shrink-0" onClick={() => setIsCreating(true)}>
+                        <div className="w-16 h-16 rounded-full border-2 border-gray-200 p-0.5 relative">
+                            <img src={currentUser.avatar} className="w-full h-full rounded-full object-cover opacity-50" alt="" />
+                            <div className="absolute bottom-0 right-0 bg-blue-600 rounded-full p-1 border-2 border-white">
+                                <Plus className="w-3 h-3 text-white" />
+                            </div>
+                        </div>
+                        <span className="text-xs font-medium text-gray-600">Вы</span>
+                    </div>
+                )}
+
+                {/* Stories Grouped by Author */}
+                {authorIds.map((aid) => {
+                    const stories = groupedStories[aid];
+                    const firstStory = stories[0];
+                    return (
+                        <div key={aid} className="flex flex-col items-center gap-1 cursor-pointer shrink-0" onClick={() => setActiveAuthorId(aid)}>
+                            <div className="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-yellow-400 to-purple-600">
+                                <div className="w-full h-full rounded-full border-2 border-white overflow-hidden bg-gray-200">
+                                    <img src={firstStory.authorAvatar} className="w-full h-full object-cover" alt="" />
+                                </div>
+                            </div>
+                            <span className="text-xs font-medium text-gray-800 w-16 truncate text-center">{firstStory.authorName}</span>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};

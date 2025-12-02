@@ -1,0 +1,20 @@
+{
+  "name": "Снежинск Онлайн",
+  "short_name": "Снежинск",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "https://ui-avatars.com/api/?name=SO&background=0D8ABC&color=fff&size=192&rounded=true&bold=true",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://ui-avatars.com/api/?name=SO&background=0D8ABC&color=fff&size=512&rounded=true&bold=true",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
