@@ -2,9 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { Ad, User } from '../types';
+import { Ad, User, UserRole } from '../types';
 import { Button, Badge } from '../components/ui/Common';
-import { ChevronLeft, MapPin, Calendar, User as UserIcon, MessageCircle, Heart, Share2, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { ChevronLeft, MapPin, Calendar, User as UserIcon, MessageCircle, Heart, Share2, Loader2, Sparkles, AlertCircle, Trash2 } from 'lucide-react';
 import { YandexMap } from '../components/YandexMap';
 
 export const AdDetail: React.FC = () => {
@@ -14,6 +14,7 @@ export const AdDetail: React.FC = () => {
     const [seller, setSeller] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
     const [isFav, setIsFav] = useState(false);
 
     useEffect(() => {
@@ -26,6 +27,7 @@ export const AdDetail: React.FC = () => {
                 const user = await api.getCurrentUser();
                 if (user) {
                     setCurrentUserId(user.id);
+                    setCurrentUserRole(user.role);
                     const content = await api.getUserContent(user.id);
                     if (content.favorites && content.favorites.find(f => f.id === id)) {
                         setIsFav(true);
@@ -65,10 +67,24 @@ export const AdDetail: React.FC = () => {
         }
     };
 
+    const handleAdminDelete = async () => {
+        if (!ad) return;
+        if (confirm('АДМИН: Удалить это объявление навсегда?')) {
+            try {
+                await api.deleteAd(ad.id);
+                alert("Объявление удалено");
+                navigate('/classifieds');
+            } catch (e: any) {
+                alert(e.message);
+            }
+        }
+    };
+
     if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
     if (!ad) return <div className="p-10 text-center">Объявление не найдено</div>;
 
     const isMine = currentUserId === ad.authorId;
+    const isAdmin = currentUserRole === UserRole.ADMIN;
 
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8 pb-24">
@@ -85,6 +101,15 @@ export const AdDetail: React.FC = () => {
                             <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md flex items-center gap-1.5 backdrop-blur-sm bg-opacity-90">
                                 <Sparkles className="w-3.5 h-3.5" /> VIP Объявление
                             </div>
+                        )}
+                        {isAdmin && (
+                            <button 
+                                onClick={handleAdminDelete} 
+                                className="absolute top-4 right-4 bg-red-600 text-white p-2 rounded-full shadow-lg hover:bg-red-700 transition-colors z-20"
+                                title="Админ: Удалить объявление"
+                            >
+                                <Trash2 className="w-5 h-5" />
+                            </button>
                         )}
                     </div>
                 </div>

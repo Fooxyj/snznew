@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { Home } from './pages/Home';
+import { Home, EventsPage } from './pages/Home';
 import { Classifieds } from './pages/Classifieds';
 import { BusinessDirectory } from './pages/BusinessDirectory';
 import { Profile, AdminDashboard, ConnectBusiness } from './pages/Dashboards';
@@ -35,8 +35,34 @@ import { RentalsPage } from './pages/Rentals';
 import { SmartCity } from './pages/SmartCity';
 import { ThemeProvider } from './components/ThemeProvider';
 import { CartProvider } from './components/CartProvider';
+import { SplashScreen } from './components/SplashScreen';
+import { api } from './services/api';
 
 const App: React.FC = () => {
+  const [appReady, setAppReady] = useState(false);
+
+  useEffect(() => {
+    const initApp = async () => {
+      try {
+        // Pre-fetch critical data (e.g. User) while showing Splash
+        // Ensure splash shows for at least 1.5s for aesthetics
+        const [_, user] = await Promise.all([
+            new Promise(resolve => setTimeout(resolve, 1500)), 
+            api.getCurrentUser()
+        ]);
+      } catch (e) {
+        console.error("Init failed", e);
+      } finally {
+        setAppReady(true);
+      }
+    };
+    initApp();
+  }, []);
+
+  if (!appReady) {
+      return <SplashScreen />;
+  }
+
   return (
     <ThemeProvider>
       <CartProvider>
@@ -51,6 +77,7 @@ const App: React.FC = () => {
               {/* City Services */}
               <Route path="/news" element={<NewsFeed />} />
               <Route path="/news/:id" element={<NewsDetail />} />
+              <Route path="/events" element={<EventsPage />} />
               <Route path="/charity" element={<CharityPage />} />
               <Route path="/rentals" element={<RentalsPage />} />
               <Route path="/housing" element={<HousingPage />} />

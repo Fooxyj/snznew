@@ -4,9 +4,9 @@ import { NavLink, useLocation, Link, useNavigate } from 'react-router-dom';
 import { 
   Menu, X, Home, Newspaper, ShoppingBag, Coffee, Film, Map, 
   Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Briefcase, 
-  User as UserIcon, Bell, Search, PlusCircle, LogIn, LogOut, MessageCircle, HelpCircle, Eye, Car, Gift, Users, Flag, Settings, Moon, Sun, Trophy, ShoppingCart, Wallet, Truck, Lightbulb, Heart, Repeat, Key
+  User as UserIcon, Bell, Search, PlusCircle, LogIn, LogOut, MessageCircle, HelpCircle, Eye, Car, Gift, Users, Flag, Settings, Moon, Sun, Trophy, ShoppingCart, Wallet, Truck, Lightbulb, Heart, Repeat, Key, ChevronLeft, ArrowUp, Calendar, ChevronDown, ChevronRight, Droplets, Wrench, Building2, ShieldAlert
 } from 'lucide-react';
-import { CATEGORIES } from '../constants';
+import { CATALOG_MENU, SERVICES_MENU } from '../constants';
 import { Button } from './ui/Common';
 import { UserRole, User, Notification } from '../types';
 import { api } from '../services/api';
@@ -14,7 +14,7 @@ import { useTheme } from './ThemeProvider';
 import { useCart } from './CartProvider';
 
 const ICON_MAP: Record<string, React.FC<any>> = {
-  Newspaper, ShoppingBag, Coffee, Film, Map, Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Key
+  Newspaper, ShoppingBag, Coffee, Film, Map, Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Key, Truck, Car, Droplets, Wrench, Building2, Eye, Lightbulb, ShieldAlert, HelpCircle, Briefcase, Repeat, Wallet, Users, Heart, Flag, Trophy, Gift
 };
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -25,6 +25,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotif, setShowNotif] = useState(false);
   const [toast, setToast] = useState<{msg: string, type: 'info' | 'success'} | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  
+  // State for collapsible menus
+  const [openMenus, setOpenMenus] = useState<string[]>([]);
   
   const { theme, toggleTheme } = useTheme();
   const { cartCount } = useCart();
@@ -54,7 +58,23 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         }
     };
     load();
+
+    // Scroll listener
+    const handleScroll = () => {
+        if (window.scrollY > 300) {
+            setShowScrollTop(true);
+        } else {
+            setShowScrollTop(false);
+        }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const scrollToTop = () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const showToast = (msg: string) => {
       setToast({ msg, type: 'info' });
@@ -90,6 +110,86 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   
   const isActive = (path: string) => location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
   const unreadCount = notifications.filter(n => !n.isRead).length;
+  const isHome = location.pathname === '/';
+
+  const toggleMenu = (id: string) => {
+      setOpenMenus(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+  };
+
+  const renderMenuSection = (menuItems: any[]) => {
+      return menuItems.map((item) => {
+          const Icon = ICON_MAP[item.icon as string] || Home;
+          const isOpen = openMenus.includes(item.id);
+          const isItemActive = item.path ? isActive(item.path) : false;
+          // Check if any child is active to keep expanded
+          const isChildActive = item.submenu.some((sub: any) => isActive(sub.path));
+          
+          useEffect(() => {
+              if (isChildActive && !isOpen) {
+                  setOpenMenus(prev => [...prev, item.id]);
+              }
+          }, [isChildActive]);
+
+          return (
+              <div key={item.id} className="mb-1">
+                  <div 
+                    className={`flex items-center justify-between px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${isItemActive || isChildActive ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                    onClick={() => toggleMenu(item.id)}
+                  >
+                      <div className="flex items-center">
+                          <Icon className={`w-5 h-5 mr-3 ${isItemActive || isChildActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
+                          {item.title}
+                      </div>
+                      {isOpen ? <ChevronDown className="w-4 h-4 opacity-50" /> : <ChevronRight className="w-4 h-4 opacity-50" />}
+                  </div>
+                  
+                  {isOpen && (
+                      <div className="ml-6 mt-1 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-2">
+                          {item.submenu.map((sub: any, idx: number) => {
+                              const SubIcon = sub.icon ? ICON_MAP[sub.icon] : null;
+                              return (
+                                <Link 
+                                    key={idx} 
+                                    to={sub.path}
+                                    onClick={closeSidebar}
+                                    className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors ${isActive(sub.path) ? 'text-blue-600 font-medium bg-blue-50/50 dark:bg-blue-900/10' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                                >
+                                    {SubIcon && <SubIcon className={`w-4 h-4 mr-2 ${isActive(sub.path) ? 'text-blue-500' : 'text-gray-400'}`} />}
+                                    {sub.title}
+                                </Link>
+                              );
+                          })}
+                      </div>
+                  )}
+              </div>
+          );
+      });
+  };
+
+  // Helper to render notification list content
+  const renderNotificationList = () => (
+      <>
+        <div className="p-4 border-b border-gray-50 dark:border-gray-700/50 flex justify-between items-center">
+            <span className="font-bold text-gray-900 dark:text-white">Уведомления</span>
+            <button onClick={() => setShowNotif(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+                <div className="py-8 text-center">
+                    <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">Нет новых уведомлений</p>
+                </div>
+            ) : (
+                notifications.map(n => (
+                    <div key={n.id} className="p-4 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors last:border-0">
+                        <p className="text-sm text-gray-700 dark:text-gray-200 font-medium leading-snug">{n.text}</p>
+                        <p className="text-xs text-gray-400 mt-1.5">{new Date(n.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
+                    </div>
+                ))
+            )}
+        </div>
+      </>
+  );
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-gray-900 flex transition-colors duration-200 font-sans">
@@ -108,9 +208,15 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 w-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-40 px-4 py-3 flex items-center justify-between h-[64px]">
-        <button onClick={toggleSidebar} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl h-10 w-10 flex items-center justify-center shrink-0">
-          <Menu className="w-6 h-6" />
-        </button>
+        {isHome ? (
+            <button onClick={toggleSidebar} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl h-10 w-10 flex items-center justify-center shrink-0">
+                <Menu className="w-6 h-6" />
+            </button>
+        ) : (
+            <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl h-10 w-10 flex items-center justify-center shrink-0">
+                <ChevronLeft className="w-6 h-6" />
+            </button>
+        )}
         
         {/* Mobile Search Input */}
         <form onSubmit={handleSearch} className="flex-1 mx-3 relative flex items-center h-10">
@@ -124,7 +230,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         </form>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 relative">
              <Link to="/cart" className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl h-10 w-10 flex items-center justify-center">
                 <ShoppingCart className="w-6 h-6" />
                 {cartCount > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>}
@@ -133,6 +239,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
                 {unreadCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>}
             </div>
+
+            {/* Mobile Notification Dropdown */}
+            {showNotif && (
+                <div className="absolute top-12 right-0 w-72 max-w-[90vw] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden animate-in zoom-in-95 duration-200">
+                    {renderNotificationList()}
+                </div>
+            )}
         </div>
       </div>
 
@@ -167,35 +280,17 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             Каталог
           </div>
           
-          {CATEGORIES.map(cat => (
-            <NavItem 
-              key={cat.id}
-              to={cat.id === 'news' ? '/news' : `/category/${cat.id}`} 
-              icon={ICON_MAP[cat.icon as string] || Home} 
-              label={cat.label} 
-              active={isActive(cat.id === 'news' ? '/news' : `/category/${cat.id}`)}
-              onClick={closeSidebar}
-            />
-          ))}
+          <NavItem to="/events" icon={Calendar} label="Афиша" active={isActive('/events')} onClick={closeSidebar} />
+
+          {renderMenuSection(CATALOG_MENU)}
+
+          <NavItem to="/category/emergency" icon={Siren} label="Экстренные службы" active={isActive('/category/emergency')} onClick={closeSidebar} />
 
           <div className="mt-6 mb-2 px-3 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
             Сервисы
           </div>
-          <NavItem to="/charity" icon={Heart} label="Добро" active={isActive('/charity')} onClick={closeSidebar} />
-          <NavItem to="/smart-city" icon={Eye} label="Умный Город" active={isActive('/smart-city')} onClick={closeSidebar} />
-          <NavItem to="/rentals" icon={Repeat} label="Прокат вещей" active={isActive('/rentals')} onClick={closeSidebar} />
-          <NavItem to="/housing" icon={Lightbulb} label="ЖКХ / Мой Дом" active={isActive('/housing')} onClick={closeSidebar} />
-          <NavItem to="/wallet" icon={Wallet} label="Кошелек" active={isActive('/wallet')} onClick={closeSidebar} />
-          <NavItem to="/delivery" icon={Truck} label="Курьерам" active={isActive('/delivery')} onClick={closeSidebar} />
-          <NavItem to="/communities" icon={Users} label="Сообщества" active={isActive('/communities')} onClick={closeSidebar} />
-          <NavItem to="/quests" icon={Flag} label="Квесты" active={isActive('/quests')} onClick={closeSidebar} />
-          <NavItem to="/monitor" icon={Eye} label="Городской контроль" active={isActive('/monitor')} onClick={closeSidebar} />
-          <NavItem to="/rides" icon={Car} label="Попутчики" active={isActive('/rides')} onClick={closeSidebar} />
-          <NavItem to="/jobs" icon={Briefcase} label="Работа" active={isActive('/jobs')} onClick={closeSidebar} />
-          <NavItem to="/classifieds" icon={ShoppingBag} label="Доска объявлений" active={isActive('/classifieds')} onClick={closeSidebar} />
-          <NavItem to="/lost-found" icon={HelpCircle} label="Бюро находок" active={isActive('/lost-found')} onClick={closeSidebar} />
-          <NavItem to="/bonus-shop" icon={Gift} label="Магазин бонусов" active={isActive('/bonus-shop')} onClick={closeSidebar} />
-          <NavItem to="/leaderboard" icon={Trophy} label="Доска Почета" active={isActive('/leaderboard')} onClick={closeSidebar} />
+          
+          {renderMenuSection(SERVICES_MENU)}
 
           {user && (
             <NavItem to="/chat" icon={MessageCircle} label="Сообщения" active={isActive('/chat')} onClick={closeSidebar} />
@@ -285,28 +380,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                                 {unreadCount > 0 && <span className="absolute top-2.5 right-3 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900 animate-pulse"></span>}
                             </div>
 
-                            {/* Notification Dropdown */}
+                            {/* Desktop Notification Dropdown */}
                             {showNotif && (
                                 <div className="absolute top-14 right-0 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700 z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200">
-                                    <div className="p-4 border-b border-gray-50 dark:border-gray-700/50 flex justify-between items-center">
-                                        <span className="font-bold text-gray-900 dark:text-white">Уведомления</span>
-                                        <button onClick={() => setShowNotif(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
-                                    </div>
-                                    <div className="max-h-80 overflow-y-auto">
-                                        {notifications.length === 0 ? (
-                                            <div className="py-8 text-center">
-                                                <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                                                <p className="text-sm text-gray-400">Нет новых уведомлений</p>
-                                            </div>
-                                        ) : (
-                                            notifications.map(n => (
-                                                <div key={n.id} className="p-4 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors last:border-0">
-                                                    <p className="text-sm text-gray-700 dark:text-gray-200 font-medium leading-snug">{n.text}</p>
-                                                    <p className="text-xs text-gray-400 mt-1.5">{new Date(n.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
+                                    {renderNotificationList()}
                                 </div>
                             )}
 
@@ -333,6 +410,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           <main className="flex-1 overflow-y-auto overflow-x-hidden pt-[72px] lg:pt-0 pb-20 lg:pb-0 bg-[#F8FAFC] dark:bg-gray-900 transition-colors duration-200">
             {children}
           </main>
+
+          {/* Scroll To Top Button */}
+          <button 
+            onClick={scrollToTop}
+            className={`fixed bottom-20 right-4 lg:bottom-8 lg:right-8 z-40 bg-blue-600/90 hover:bg-blue-700 text-white p-3 rounded-full shadow-xl transition-all duration-300 backdrop-blur-sm ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
+          >
+              <ArrowUp className="w-6 h-6" />
+          </button>
       </div>
 
       {/* Mobile Bottom Navigation */}
@@ -349,13 +434,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         >
             <ShoppingBag className="w-6 h-6 mb-1" strokeWidth={isActive ? 2.5 : 2} />
         </NavLink>
-        <div className="relative -top-6">
-            <Link to="/classifieds">
-                <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-500/40 border-4 border-white dark:border-gray-900">
-                    <PlusCircle className="w-7 h-7" />
-                </div>
-            </Link>
+        
+        {/* Central Burger Menu Button */}
+        <div className="relative -top-6 cursor-pointer" onClick={toggleSidebar}>
+            <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-500/40 border-4 border-white dark:border-gray-900 transition-transform active:scale-95">
+                <Building2 className="w-7 h-7" />
+            </div>
         </div>
+
         <NavLink 
             to="/chat" 
             className={({isActive}) => `flex flex-col items-center justify-center w-16 transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
@@ -384,7 +470,7 @@ const NavItem: React.FC<{ to: string; icon: any; label: string; active: boolean;
     to={to} 
     onClick={onClick}
     className={`
-      flex items-center px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all duration-200
+      flex items-center px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all duration-200 mb-1
       ${active 
         ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 shadow-sm' 
         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'

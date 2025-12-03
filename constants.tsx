@@ -177,13 +177,126 @@ export const CATEGORIES = [
   { id: 'news', label: 'Новости', icon: 'Newspaper' },
   { id: 'shops', label: 'Магазины', icon: 'ShoppingBag' },
   { id: 'cafe', label: 'Кафе и рестораны', icon: 'Coffee' },
-  { id: 'rent', label: 'Аренда и Отдых', icon: 'Key' }, // New Category
+  { id: 'rent', label: 'Аренда и Отдых', icon: 'Key' }, 
   { id: 'cinema', label: 'Кино', icon: 'Film' },
   { id: 'tourism', label: 'Туризм', icon: 'Map' },
   { id: 'culture', label: 'Культура', icon: 'Drama' }, 
   { id: 'beauty', label: 'Красота', icon: 'Scissors' },
-  { id: 'sport', label: 'Спортзалы', icon: 'Dumbbell' },
+  { id: 'sport', label: 'Спортзалы и секции', icon: 'Dumbbell' },
   { id: 'med', label: 'Медицина', icon: 'Stethoscope' },
   { id: 'transport', label: 'Транспорт', icon: 'Bus' },
+  { id: 'cargo', label: 'Грузоперевозки', icon: 'Truck' },
+  { id: 'carwash', label: 'Автомойки', icon: 'Droplets' },
+  { id: 'autoservice', label: 'Автосервисы', icon: 'Wrench' },
+  { id: 'med_org', label: 'Медицинские Организации', icon: 'Stethoscope' },
+  { id: 'med_center', label: 'Медицинские центры', icon: 'Stethoscope' },
+  { id: 'taxi', label: 'Такси', icon: 'Car' },
   { id: 'emergency', label: 'Экстренные', icon: 'Siren' },
+];
+
+export const CATALOG_MENU = [
+  {
+    id: 'news_section',
+    title: 'Новости',
+    icon: 'Newspaper',
+    path: '/news',
+    submenu: [
+      { title: 'Новости администрации', path: '/news?cat=admin' },
+      { title: 'Новости ВНИИТФ', path: '/news?cat=vniitf' },
+      { title: 'Новости культуры', path: '/news?cat=culture' },
+      { title: 'Новости спорта', path: '/news?cat=sport' },
+      { title: 'ЖКХ', path: '/news?cat=housing' },
+      { title: 'Город', path: '/news?cat=city' },
+      { title: 'Прочее', path: '/news?cat=other' },
+    ]
+  },
+  {
+    id: 'services_section',
+    title: 'Услуги для жизни',
+    icon: 'ShoppingBag',
+    submenu: [
+      { title: 'Магазины', path: '/category/shops' },
+      { title: 'Кафе и рестораны', path: '/category/cafe' },
+      { title: 'Спортивные залы', path: '/category/sport' },
+      { title: 'Аренда и Отдых', path: '/category/rent' },
+      { title: 'Красота', path: '/category/beauty' },
+      { title: 'Кино', path: '/category/cinema' },
+      { title: 'Грузоперевозки', path: '/category/cargo' },
+      { title: 'Туризм', path: '/category/tourism' },
+      { title: 'Автомойки', path: '/category/carwash' },
+      { title: 'Автосервисы', path: '/category/autoservice' },
+    ]
+  },
+  {
+    id: 'culture_section',
+    title: 'Культура',
+    icon: 'Drama',
+    path: '/events',
+    submenu: [
+      { title: 'Концерты', path: '/events?cat=concert' },
+      { title: 'Выставки', path: '/events?cat=exhibition' },
+      { title: 'Премьеры', path: '/events?cat=premiere' },
+      { title: 'Анонсы', path: '/events?cat=announce' },
+      { title: 'Новости культуры', path: '/news?cat=culture' },
+    ]
+  },
+  {
+    id: 'med_section',
+    title: 'Медицина',
+    icon: 'Stethoscope',
+    submenu: [
+      { title: 'Медицинские Организации', path: '/category/med_org' },
+      { title: 'Медицинские центры', path: '/category/med_center' },
+    ]
+  },
+  {
+    id: 'transport_section',
+    title: 'Транспорт',
+    icon: 'Bus',
+    submenu: [
+      { title: 'Городской транспорт', path: '/category/transport' },
+      { title: 'Междугородний транспорт', path: '/category/transport' },
+      { title: 'Такси', path: '/category/taxi' },
+      { title: 'Грузоперевозки', path: '/category/cargo' },
+    ]
+  }
+];
+
+export const SERVICES_MENU = [
+  {
+    id: 'city_group',
+    title: 'Городская среда',
+    icon: 'Building2',
+    submenu: [
+      { title: 'Умный Город', path: '/smart-city', icon: 'Eye' },
+      { title: 'ЖКХ / Мой Дом', path: '/housing', icon: 'Lightbulb' },
+      { title: 'Городской контроль', path: '/monitor', icon: 'ShieldAlert' },
+      { title: 'Бюро находок', path: '/lost-found', icon: 'HelpCircle' },
+    ]
+  },
+  {
+    id: 'market_group',
+    title: 'Маркет и Работа',
+    icon: 'Briefcase',
+    submenu: [
+      { title: 'Доска объявлений', path: '/classifieds', icon: 'ShoppingBag' },
+      { title: 'Работа', path: '/jobs', icon: 'Briefcase' },
+      { title: 'Попутчики', path: '/rides', icon: 'Car' },
+      { title: 'Прокат вещей', path: '/rentals', icon: 'Repeat' },
+      { title: 'Курьерам', path: '/delivery', icon: 'Truck' },
+      { title: 'Кошелек', path: '/wallet', icon: 'Wallet' },
+    ]
+  },
+  {
+    id: 'social_group',
+    title: 'Социум',
+    icon: 'Users',
+    submenu: [
+      { title: 'Сообщества', path: '/communities', icon: 'Users' },
+      { title: 'Добро', path: '/charity', icon: 'Heart' },
+      { title: 'Квесты', path: '/quests', icon: 'Flag' },
+      { title: 'Доска Почета', path: '/leaderboard', icon: 'Trophy' },
+      { title: 'Магазин бонусов', path: '/bonus-shop', icon: 'Gift' },
+    ]
+  }
 ];

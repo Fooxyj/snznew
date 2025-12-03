@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Badge, Button } from '../components/ui/Common';
-import { Calendar, ChevronRight, MapPin, CloudSun, Wind, Droplets, ExternalLink, Flame, Bus, Loader2, Plus, PenSquare, Sun, CloudRain, Snowflake, Cloud, PieChart, Check } from 'lucide-react';
+import { Calendar, ChevronRight, MapPin, CloudSun, Wind, Droplets, ExternalLink, Flame, Bus, Loader2, Plus, PenSquare, Sun, CloudRain, Snowflake, Cloud, PieChart, Check, Gauge } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Ad, Event, NewsItem, Poll } from '../types';
 import { api } from '../services/api';
@@ -9,14 +9,99 @@ import { CreateEventModal } from '../components/CreateEventModal';
 import { CreateNewsModal } from '../components/CreateNewsModal';
 import { StoriesRail } from '../components/StoriesRail';
 
+// NEW: Events Page Component
+export const EventsPage: React.FC = () => {
+    const [events, setEvents] = useState<Event[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isEventModalOpen, setEventModalOpen] = useState(false);
+    const [user, setUser] = useState<any>(null);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const load = async () => {
+            const [e, u] = await Promise.all([api.getEvents(), api.getCurrentUser()]);
+            setEvents(e);
+            setUser(u);
+            setLoading(false);
+        };
+        load();
+    }, []);
+
+    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600 w-8 h-8" /></div>;
+
+    return (
+        <div className="max-w-7xl mx-auto p-4 lg:p-8">
+            <CreateEventModal 
+                isOpen={isEventModalOpen}
+                onClose={() => setEventModalOpen(false)}
+                onSuccess={(evt) => setEvents([evt, ...events])}
+            />
+
+            <div className="flex justify-between items-center mb-8">
+                <h1 className="text-2xl font-bold flex items-center gap-3 dark:text-white">
+                    <Calendar className="w-8 h-8 text-blue-600" /> Афиша мероприятий
+                </h1>
+                {user && (
+                    <Button onClick={() => setEventModalOpen(true)} className="flex items-center gap-2">
+                        <Plus className="w-4 h-4" /> Добавить
+                    </Button>
+                )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {events.length > 0 ? events.map(event => (
+                    <div 
+                        key={event.id} 
+                        onClick={() => navigate(`/event/${event.id}`)}
+                        className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden flex flex-col h-full group"
+                    >
+                        <div className="h-48 relative overflow-hidden">
+                            <img 
+                                src={event.image} 
+                                alt={event.title} 
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                            <div className="absolute top-3 left-3 bg-white/90 dark:bg-black/70 backdrop-blur px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider dark:text-white">
+                                {event.category}
+                            </div>
+                            {event.price && (
+                                <div className="absolute top-3 right-3 bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow">
+                                    {event.price} ₽
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-5 flex-1 flex flex-col">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                {event.title}
+                            </h3>
+                            <div className="mt-auto space-y-2 text-sm text-gray-500 dark:text-gray-400">
+                                <div className="flex items-center">
+                                    <Calendar className="w-4 h-4 mr-2 text-blue-500" /> {event.date}
+                                </div>
+                                <div className="flex items-center">
+                                    <MapPin className="w-4 h-4 mr-2 text-blue-500" /> {event.location}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )) : (
+                    <div className="col-span-full text-center py-20 text-gray-400">
+                        Событий пока нет
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Modified Home Component
 export const Home: React.FC = () => {
   const [news, setNews] = useState<NewsItem[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
+  // Events removed from main view
   const [vipAds, setVipAds] = useState<Ad[]>([]);
   const [regularAds, setRegularAds] = useState<Ad[]>([]);
   const [poll, setPoll] = useState<Poll | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEventModalOpen, setEventModalOpen] = useState(false);
   const [isNewsModalOpen, setNewsModalOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [weather, setWeather] = useState<any>(null);
@@ -27,9 +112,8 @@ export const Home: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [newsData, eventsData, adsData, currentUser, weatherData, pollData] = await Promise.all([
+        const [newsData, adsData, currentUser, weatherData, pollData] = await Promise.all([
           api.getNews(),
-          api.getEvents(),
           api.getAds(),
           api.getCurrentUser(),
           api.getWeather(),
@@ -37,7 +121,6 @@ export const Home: React.FC = () => {
         ]);
 
         setNews(newsData);
-        setEvents(eventsData);
         setVipAds(adsData.filter(ad => ad.isVip));
         setRegularAds(adsData.filter(ad => !ad.isVip));
         setUser(currentUser);
@@ -99,12 +182,6 @@ export const Home: React.FC = () => {
   return (
     <div className="p-4 lg:p-10 max-w-7xl mx-auto space-y-6 lg:space-y-12">
       
-      <CreateEventModal 
-        isOpen={isEventModalOpen}
-        onClose={() => setEventModalOpen(false)}
-        onSuccess={(evt) => setEvents([evt, ...events])}
-      />
-
       <CreateNewsModal 
         isOpen={isNewsModalOpen}
         onClose={() => setNewsModalOpen(false)}
@@ -114,59 +191,6 @@ export const Home: React.FC = () => {
       {/* Stories Rail */}
       <section className="mt-2 lg:mt-0">
           <StoriesRail />
-      </section>
-
-      {/* Hero / Events */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-             <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Афиша</h2>
-             {user && (
-                <button 
-                  onClick={() => setEventModalOpen(true)}
-                  className="w-8 h-8 flex items-center justify-center bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
-                  title="Добавить событие"
-                >
-                    <Plus className="w-5 h-5" />
-                </button>
-             )}
-          </div>
-          <Link to="/category/culture" className="text-blue-600 dark:text-blue-400 font-bold text-sm hover:underline flex items-center bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full transition-colors">
-            Все мероприятия <ChevronRight className="w-4 h-4 ml-1" />
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {events.length > 0 ? events.map(event => (
-            <div 
-                key={event.id} 
-                onClick={() => navigate(`/event/${event.id}`)}
-                className="relative group overflow-hidden rounded-3xl shadow-xl shadow-blue-900/5 cursor-pointer h-72 hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-300 transform hover:-translate-y-1"
-            >
-              <img 
-                src={event.image} 
-                alt={event.title} 
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-8 flex flex-col justify-end">
-                <div className="flex justify-between items-start mb-auto">
-                   <span className="bg-white/20 backdrop-blur-md border border-white/10 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{event.category}</span>
-                   {event.price && <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg shadow-blue-600/30">{event.price} ₽</span>}
-                </div>
-                <h3 className="text-white text-2xl font-bold mt-2 leading-tight group-hover:text-blue-200 transition-colors">{event.title}</h3>
-                <div className="flex items-center text-gray-300 text-sm mt-3 font-medium">
-                  <Calendar className="w-4 h-4 mr-2 text-blue-400" /> {event.date}
-                  <div className="w-1 h-1 bg-gray-500 rounded-full mx-4"></div>
-                  <MapPin className="w-4 h-4 mr-2 text-blue-400" /> {event.location}
-                </div>
-              </div>
-            </div>
-          )) : (
-            <div className="col-span-2 bg-white dark:bg-gray-800 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 h-48 flex flex-col items-center justify-center text-gray-400">
-                <Calendar className="w-10 h-10 mb-3 opacity-30" />
-                <p>Событий пока нет. Добавьте первое!</p>
-            </div>
-          )}
-        </div>
       </section>
 
       {/* Main Grid: Ads Left, Widgets Right */}
@@ -230,13 +254,18 @@ export const Home: React.FC = () => {
                         </div>
                         <div className="transform scale-125 origin-top-right">{getWeatherIcon(weather.code)}</div>
                         </div>
-                        <div className="mt-8 flex items-center gap-6 text-sm font-medium opacity-90">
+                        <div className="mt-8 flex flex-wrap gap-4 text-sm font-medium opacity-90">
                             <div className="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-full backdrop-blur-sm">
                                 <Wind className="w-4 h-4" /> {weather.wind} м/с
                             </div>
                             <div className="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-full backdrop-blur-sm">
                                 <Droplets className="w-4 h-4" /> {weather.humidity}%
                             </div>
+                            {weather.pressure && (
+                                <div className="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-full backdrop-blur-sm" title="Атмосферное давление">
+                                    <Gauge className="w-4 h-4" /> {weather.pressure} мм рт. ст.
+                                </div>
+                            )}
                         </div>
                     </>
                 ) : (

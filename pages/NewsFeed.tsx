@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
-import { NewsItem } from '../types';
+import { NewsItem, UserRole } from '../types';
 import { Link } from 'react-router-dom';
-import { Loader2, Calendar, Newspaper, PenSquare } from 'lucide-react';
+import { Loader2, Calendar, Newspaper, PenSquare, Trash2 } from 'lucide-react';
 import { CreateNewsModal } from '../components/CreateNewsModal';
 import { Button } from '../components/ui/Common';
 
@@ -34,6 +34,21 @@ export const NewsFeed: React.FC = () => {
         setNews([newItem, ...news]);
     };
 
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if(confirm("АДМИН: Удалить эту новость?")) {
+            try {
+                await api.deleteNews(id);
+                loadData();
+            } catch(e: any) {
+                alert(e.message);
+            }
+        }
+    };
+
+    const isAdmin = user?.role === UserRole.ADMIN;
+
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8">
             <CreateNewsModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSuccess={handleNewsCreated} />
@@ -52,7 +67,7 @@ export const NewsFeed: React.FC = () => {
             {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600 w-8 h-8" /></div> : (
                 <div className="grid gap-6">
                     {news.map(n => (
-                        <Link key={n.id} to={`/news/${n.id}`} className="block group">
+                        <Link key={n.id} to={`/news/${n.id}`} className="block group relative">
                             <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col md:flex-row hover:shadow-md transition-shadow h-full md:h-48">
                                 <div className="md:w-64 h-48 md:h-full relative shrink-0">
                                     <img src={n.image} alt={n.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -72,6 +87,15 @@ export const NewsFeed: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+                            {isAdmin && (
+                                <button 
+                                    onClick={(e) => handleDelete(e, n.id)} 
+                                    className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                    title="Удалить новость"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
                         </Link>
                     ))}
                 </div>

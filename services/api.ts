@@ -1,5 +1,5 @@
 
-import { ADS_DATA, BUSINESS_DATA, EVENTS_DATA, NEWS_DATA, CURRENT_USER, CATEGORIES } from '../constants';
+import { ADS_DATA, EVENTS_DATA, NEWS_DATA, CURRENT_USER, CATEGORIES, BUSINESS_DATA } from '../constants';
 import { Ad, Business, Event, NewsItem, User, UserRole, Review, Comment, Conversation, Message, Notification, Poll, LostFoundItem, Appeal, Ride, Vacancy, Resume, Coupon, UserCoupon, Product, Story, Community, CommunityPost, Quest, Service, Booking, Ticket, Order, Transaction, MeterReading, UtilityBill, Campaign, RentalItem, RentalBooking, SmartDevice } from '../types';
 import { supabase } from '../lib/supabase';
 import { isSupabaseConfigured } from '../config';
@@ -15,6 +15,52 @@ const MOCK_USERS: Record<string, Partial<User>> = {
     'u6': { name: 'Анна Л.', avatar: 'https://i.pravatar.cc/150?u=6' },
 };
 
+// Updated Constants for this specific file scope to support the new features
+const UPDATED_BUSINESS_DATA: Business[] = [
+  ...BUSINESS_DATA.filter(b => b.id !== 'b3'), // Remove old cinema
+  {
+    id: 'b3',
+    name: 'Кинотеатр "Космос"',
+    category: 'Кино',
+    rating: 4.2,
+    reviewsCount: 230,
+    address: 'пр. Мира, 5',
+    image: 'https://picsum.photos/seed/cinema/400/300',
+    description: 'Новинки кино в 3D и 2D. Самый большой экран в городе.',
+    lat: 40,
+    lng: 60,
+    phone: '+79227277322', // Updated phone
+    workHours: '10:00 - 02:00',
+    authorId: 'u_cinema_owner' // Mock ID for owner
+  }
+];
+
+const UPDATED_EVENTS_DATA: Event[] = [
+    ...EVENTS_DATA,
+    {
+        id: 'mv1',
+        title: 'Головоломка 2',
+        date: 'Сегодня',
+        image: 'https://picsum.photos/seed/movie1/400/600',
+        location: 'Зал 1',
+        category: 'Кино',
+        price: 350,
+        authorId: 'u_cinema_owner',
+        sessions: ['10:00', '12:30', '15:00', '18:40', '21:00']
+    },
+    {
+        id: 'mv2',
+        title: 'Дэдпул и Росомаха',
+        date: 'Сегодня',
+        image: 'https://picsum.photos/seed/movie2/400/600',
+        location: 'Зал 2',
+        category: 'Кино',
+        price: 400,
+        authorId: 'u_cinema_owner',
+        sessions: ['14:00', '17:30', '20:15', '23:00']
+    }
+];
+
 // --- Mappers ---
 
 const mapAdFromDB = (dbAd: any): Ad => ({
@@ -28,7 +74,8 @@ const mapAdFromDB = (dbAd: any): Ad => ({
   authorId: dbAd.author_id,
   description: dbAd.description,
   location: dbAd.location,
-  isVip: dbAd.is_vip
+  isVip: dbAd.is_vip,
+  status: dbAd.status || 'approved'
 });
 
 const mapNewsFromDB = (dbNews: any): NewsItem => ({
@@ -66,7 +113,8 @@ const mapEventFromDB = (dbEvent: any): Event => ({
     location: dbEvent.location,
     category: dbEvent.category,
     price: dbEvent.price || 350,
-    description: 'Описание мероприятия...'
+    description: 'Описание мероприятия...',
+    sessions: dbEvent.sessions || []
 });
 
 const mapLostFoundFromDB = (dbItem: any): LostFoundItem => ({
@@ -152,13 +200,16 @@ export const api = {
   // --- REAL WEATHER ---
   async getWeather() {
       try {
-          const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=56.08&longitude=60.73&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&wind_speed_unit=ms');
+          // Added surface_pressure
+          const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=56.08&longitude=60.73&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,surface_pressure&wind_speed_unit=ms');
           if (!res.ok) throw new Error("Failed");
           const data = await res.json();
           return {
               temp: Math.round(data.current.temperature_2m),
               wind: Math.round(data.current.wind_speed_10m),
               humidity: data.current.relative_humidity_2m,
+              // Convert hPa to mmHg
+              pressure: Math.round(data.current.surface_pressure * 0.750062),
               code: data.current.weather_code
           };
       } catch (e) {
@@ -168,6 +219,7 @@ export const api = {
               temp: 18,
               wind: 3,
               humidity: 65,
+              pressure: 742,
               code: 1 // Clear sky
           };
       }
@@ -497,6 +549,94 @@ export const api = {
     return data.publicUrl;
   },
 
+  async getAds(category?: string): Promise<Ad[]> {
+    if (isSupabaseConfigured() && supabase) {
+      let query = supabase.from('ads').select('*').order('is_vip', { ascending: false }).order('id', { ascending: false });
+      
+      // Check current user to see if they are admin
+      const { data: { user } } = await supabase.auth.getUser();
+      let isAdmin = false;
+      if (user) {
+          const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+          if (profile?.role === 'ADMIN') isAdmin = true;
+      }
+
+      if (!isAdmin) {
+          query = query.eq('status', 'approved');
+      }
+
+      if (category && category !== 'Все') query = query.eq('category', category);
+      
+      const { data, error } = await query;
+      if (!error && data) return data.map(mapAdFromDB);
+    }
+    if (!isSupabaseConfigured()) await delay(600);
+    if (category && category !== 'Все') return ADS_DATA.filter(ad => ad.category === category);
+    return [...ADS_DATA];
+  },
+
+  async createAd(newAd: Partial<Ad>): Promise<Ad> {
+    if (isSupabaseConfigured() && supabase) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Нужно войти в систему");
+        
+        const status = 'pending'; 
+
+        const dbPayload = { 
+            title: newAd.title, 
+            price: newAd.price, 
+            currency: newAd.currency || '₽', 
+            category: newAd.category, 
+            image: newAd.image, 
+            description: newAd.description, 
+            location: newAd.location, 
+            author_id: user.id, 
+            is_vip: false, 
+            date: 'Сегодня',
+            status: status 
+        };
+        const { data, error } = await supabase.from('ads').insert([dbPayload]).select();
+        if (error) throw new Error(error.message);
+        
+        await supabase.from('notifications').insert({ user_id: user.id, type: 'system', text: `Ваше объявление "${newAd.title}" отправлено на модерацию.`, is_read: false });
+        
+        if (data) return mapAdFromDB(data[0]);
+    }
+    await delay(1000);
+    return { ...newAd, id: 'temp_' + Date.now(), authorId: 'u1', status: 'pending' } as Ad;
+  },
+
+  async getPendingAds(): Promise<Ad[]> {
+      if (isSupabaseConfigured() && supabase) {
+          const { data } = await supabase.from('ads').select('*').eq('status', 'pending').order('created_at', { ascending: false });
+          if (data) return data.map(mapAdFromDB);
+      }
+      return [];
+  },
+
+  async approveAd(id: string) {
+      if (isSupabaseConfigured() && supabase) {
+          await supabase.from('ads').update({ status: 'approved' }).eq('id', id);
+          
+          const { data: ad } = await supabase.from('ads').select('author_id, title').eq('id', id).single();
+          if (ad) {
+              await supabase.from('notifications').insert({ user_id: ad.author_id, type: 'system', text: `Объявление "${ad.title}" опубликовано!`, link: `/ad/${id}`, is_read: false });
+              const { data: profile } = await supabase.from('profiles').select('xp').eq('id', ad.author_id).single();
+              if (profile) await supabase.from('profiles').update({ xp: (profile.xp || 0) + 15 }).eq('id', ad.author_id);
+          }
+      }
+  },
+
+  async rejectAd(id: string) {
+      if (isSupabaseConfigured() && supabase) {
+          const { data: ad } = await supabase.from('ads').select('author_id, title').eq('id', id).single();
+          if (ad) {
+              await supabase.from('notifications').insert({ user_id: ad.author_id, type: 'system', text: `Объявление "${ad.title}" отклонено модератором.`, is_read: false });
+          }
+          await supabase.from('ads').delete().eq('id', id);
+      }
+  },
+
   async deleteAd(id: string) {
       if (isSupabaseConfigured() && supabase) {
           const { error } = await supabase.from('ads').delete().eq('id', id);
@@ -554,7 +694,6 @@ export const api = {
       if (isSupabaseConfigured() && supabase) {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) throw new Error("Нужно войти");
-          // Fake transaction record
           await supabase.from('transactions').insert({ sender_id: user.id, amount: 99, type: 'purchase', description: 'Продвижение объявления (VIP)' });
           
           const { error } = await supabase.from('ads').update({ is_vip: true, date: 'Поднято сейчас' }).eq('id', id);
@@ -629,52 +768,34 @@ export const api = {
     throw new Error("База данных не подключена");
   },
 
-  async getAds(category?: string): Promise<Ad[]> {
-    if (isSupabaseConfigured() && supabase) {
-      let query = supabase.from('ads').select('*').order('is_vip', { ascending: false }).order('id', { ascending: false });
-      if (category && category !== 'Все') query = query.eq('category', category);
-      const { data, error } = await query;
-      if (!error && data) return data.map(mapAdFromDB);
-    }
-    if (!isSupabaseConfigured()) await delay(600);
-    if (category && category !== 'Все') return ADS_DATA.filter(ad => ad.category === category);
-    return [...ADS_DATA];
-  },
-
-  async createAd(newAd: Partial<Ad>): Promise<Ad> {
-    if (isSupabaseConfigured() && supabase) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Нужно войти в систему");
-        const dbPayload = { title: newAd.title, price: newAd.price, currency: newAd.currency || '₽', category: newAd.category, image: newAd.image, description: newAd.description, location: newAd.location, author_id: user.id, is_vip: false, date: 'Сегодня' };
-        const { data, error } = await supabase.from('ads').insert([dbPayload]).select();
-        if (error) throw new Error(error.message);
-        await this.incrementXP(15);
-        await supabase.from('notifications').insert({ user_id: user.id, type: 'system', text: `Ваше объявление "${newAd.title}" успешно опубликовано!`, link: '/classifieds', is_read: false });
-        if (data) return mapAdFromDB(data[0]);
-    }
-    await delay(1000);
-    return { ...newAd, id: 'temp_' + Date.now(), authorId: 'u1' } as Ad;
+  async deleteNews(id: string) {
+      if (isSupabaseConfigured() && supabase) {
+          const { error } = await supabase.from('news').delete().eq('id', id);
+          if (error) throw error;
+      }
   },
 
   async getBusinesses(categoryId?: string): Promise<Business[]> {
-    let categoryLabel = undefined;
-    if (categoryId) {
-        const cat = CATEGORIES.find(c => c.id === categoryId);
-        categoryLabel = cat ? cat.label : undefined;
-    }
-    if (isSupabaseConfigured() && supabase) {
-      let query = supabase.from('businesses').select('*');
-      if (categoryLabel) {
-          // Use ilike for partial matching (e.g. 'Спорт' matches 'Спортзалы')
-          query = query.ilike('category', `%${categoryLabel}%`);
+      let categoryLabel: string | undefined = undefined;
+      
+      if (categoryId) {
+          const cat = CATEGORIES.find(c => c.id === categoryId);
+          categoryLabel = cat ? cat.label : categoryId;
       }
-      const { data } = await query;
-      if (data) return data.map(mapBusinessFromDB);
-    }
-    if (!isSupabaseConfigured()) await delay(600);
-    // Use includes for fuzzy match in mock data
-    if (categoryLabel) return BUSINESS_DATA.filter(b => b.category.includes(categoryLabel));
-    return [...BUSINESS_DATA];
+
+      if (isSupabaseConfigured() && supabase) {
+          let query = supabase.from('businesses').select('*').order('rating', { ascending: false });
+          if (categoryLabel && categoryLabel !== 'all') query = query.eq('category', categoryLabel);
+          const { data } = await query;
+          if (data) return data.map(mapBusinessFromDB);
+      }
+      
+      if (!isSupabaseConfigured()) await delay(500);
+      
+      if (categoryLabel && categoryLabel !== 'all') {
+          return UPDATED_BUSINESS_DATA.filter(b => b.category === categoryLabel);
+      }
+      return [...UPDATED_BUSINESS_DATA];
   },
 
   async getBusinessById(id: string): Promise<Business | null> {
@@ -682,7 +803,7 @@ export const api = {
           const { data } = await supabase.from('businesses').select('*').eq('id', id).single();
           if (data) return mapBusinessFromDB(data);
       }
-      return BUSINESS_DATA.find(b => b.id === id) || null;
+      return UPDATED_BUSINESS_DATA.find(b => b.id === id) || null;
   },
 
   async createBusiness(biz: Partial<Business>): Promise<void> {
@@ -766,14 +887,26 @@ export const api = {
       }
       return [];
   },
-
+  
   async getEvents(): Promise<Event[]> {
     if (isSupabaseConfigured() && supabase) {
         const { data } = await supabase.from('events').select('*').order('date', { ascending: true });
         if (data) return data.map(mapEventFromDB);
     }
     if (!isSupabaseConfigured()) await delay(500);
-    return [...EVENTS_DATA];
+    return [...UPDATED_EVENTS_DATA];
+  },
+
+  // NEW: Get Events by Author (For Business/Cinema Page)
+  async getEventsByAuthor(authorId: string): Promise<Event[]> {
+      if (isSupabaseConfigured() && supabase) {
+          const { data } = await supabase.from('events').select('*').eq('author_id', authorId).order('date', { ascending: true });
+          if (data) return data.map(mapEventFromDB);
+      }
+      if (!isSupabaseConfigured()) {
+          return UPDATED_EVENTS_DATA.filter(e => e.authorId === authorId);
+      }
+      return [];
   },
 
   async getEventById(id: string): Promise<Event | null> {
@@ -781,7 +914,7 @@ export const api = {
           const { data } = await supabase.from('events').select('*').eq('id', id).single();
           if (data) return mapEventFromDB(data);
       }
-      return EVENTS_DATA.find(e => e.id === id) || null;
+      return UPDATED_EVENTS_DATA.find(e => e.id === id) || null;
   },
 
   async createEvent(evt: Partial<Event>): Promise<Event> {
@@ -834,7 +967,6 @@ export const api = {
           const { data: existing } = await supabase.from('tickets').select('id').eq('event_id', eventId).eq('row_idx', row).eq('col_idx', col).maybeSingle();
           if (existing) throw new Error("Место уже занято");
           
-          // Transaction record
           await supabase.from('transactions').insert({ sender_id: user.id, amount: price, type: 'purchase', description: `Билет на мероприятие (Ряд ${row+1}, Место ${col+1})` });
 
           const qrCode = `SNZ-TICKET-${eventId.slice(0,4)}-${row}-${col}-${Math.random().toString(36).substring(7)}`;
@@ -856,11 +988,9 @@ export const api = {
 
   async getReviews(businessId: string): Promise<Review[]> {
     if (isSupabaseConfigured() && supabase) {
-        // Fetch raw reviews
         const { data } = await supabase.from('reviews').select('*').eq('business_id', businessId).order('date', { ascending: false });
         if (!data) return [];
         
-        // Enhance with current profile data
         const reviews: Review[] = [];
         for (const r of data) {
             let authorName = r.author_name;
@@ -892,7 +1022,6 @@ export const api = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Войдите, чтобы оставить отзыв");
         
-        // Fetch current profile name
         const { data: profile } = await supabase.from('profiles').select('name').eq('id', user.id).single();
         const name = profile?.name || user.email;
 
@@ -1123,7 +1252,20 @@ export const api = {
           const stories: Story[] = [];
           for (const s of data) {
               const { data: profile } = await supabase.from('profiles').select('name, avatar').eq('id', s.author_id).maybeSingle();
-              stories.push({ id: s.id, authorId: s.author_id, media: s.media, caption: s.caption, createdAt: s.created_at, authorName: profile?.name || 'User', authorAvatar: profile?.avatar || '' });
+              stories.push({ 
+                  id: s.id, 
+                  authorId: s.author_id, 
+                  media: s.media, 
+                  caption: s.caption, 
+                  createdAt: s.created_at, 
+                  authorName: profile?.name || 'User', 
+                  authorAvatar: profile?.avatar || '',
+                  viewers: [ // Mock Viewers
+                      { name: 'Алексей Иванов', avatar: 'https://i.pravatar.cc/150?u=a' },
+                      { name: 'Мария Смирнова', avatar: 'https://i.pravatar.cc/150?u=b' },
+                      { name: 'Дмитрий Козлов', avatar: 'https://i.pravatar.cc/150?u=c' },
+                  ]
+              });
           }
           return stories;
       }
@@ -1244,7 +1386,6 @@ export const api = {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) throw new Error("Войдите для заказа");
           
-          // Transaction record
           await supabase.from('transactions').insert({ sender_id: user.id, amount: totalPrice, type: 'purchase', description: `Заказ товаров (${items.length} поз.)` });
 
           const { data: order, error } = await supabase.from('orders').insert({ user_id: user.id, business_id: businessId, total_price: totalPrice, address: address, status: 'new' }).select().single();
@@ -1267,11 +1408,8 @@ export const api = {
       return [];
   },
 
-  // --- DELIVERY / COURIER ---
-
   async getDeliveryOrders(): Promise<Order[]> {
       if (isSupabaseConfigured() && supabase) {
-          // For demo, we show any order that is not done and has no courier
           const { data } = await supabase.from('orders')
             .select('*, businesses(name, address)')
             .is('courier_id', null)
@@ -1341,7 +1479,6 @@ export const api = {
           const { error } = await supabase.from('orders').update({ status: 'done' }).eq('id', orderId);
           if (error) throw error;
 
-          // Pay courier
           const { data: profile } = await supabase.from('profiles').select('balance').eq('id', user.id).single();
           const newBalance = (profile?.balance || 0) + fee;
           await supabase.from('profiles').update({ balance: newBalance }).eq('id', user.id);
@@ -1356,8 +1493,6 @@ export const api = {
           await this.incrementXP(50);
       }
   },
-
-  // --- WALLET METHODS ---
 
   async getTransactions(): Promise<Transaction[]> {
       if (isSupabaseConfigured() && supabase) {
@@ -1400,7 +1535,6 @@ export const api = {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) throw new Error("Войдите");
           
-          // Find receiver
           const { data: receiver } = await supabase.from('profiles')
             .select('id, balance')
             .or(`email.eq.${emailOrPhone},phone.eq.${emailOrPhone}`)
@@ -1412,7 +1546,6 @@ export const api = {
           const { data: sender } = await supabase.from('profiles').select('balance').eq('id', user.id).single();
           if ((sender?.balance || 0) < amount) throw new Error("Недостаточно средств");
 
-          // Execute Transfer
           const newSenderBalance = (sender?.balance || 0) - amount;
           const newReceiverBalance = (receiver.balance || 0) + amount;
 
@@ -1428,8 +1561,6 @@ export const api = {
           });
       }
   },
-
-  // --- HOUSING / UTILITIES ---
 
   async submitMeterReading(type: 'hot_water' | 'cold_water' | 'electricity', value: number) {
       if (isSupabaseConfigured() && supabase) {
@@ -1489,8 +1620,6 @@ export const api = {
       }
   },
 
-  // --- CHARITY ---
-
   async getCampaigns(): Promise<Campaign[]> {
       if (isSupabaseConfigured() && supabase) {
           const { data } = await supabase.from('campaigns').select('*').eq('is_active', true).order('created_at', { ascending: false });
@@ -1512,23 +1641,18 @@ export const api = {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) throw new Error("Войдите для пожертвования");
           
-          // Check balance
           const { data: profile } = await supabase.from('profiles').select('balance').eq('id', user.id).single();
           if ((profile?.balance || 0) < amount) throw new Error("Недостаточно средств");
 
-          // Deduct balance
           const newBalance = (profile?.balance || 0) - amount;
           await supabase.from('profiles').update({ balance: newBalance }).eq('id', user.id);
 
-          // Update campaign
           const { data: campaign } = await supabase.from('campaigns').select('collected_amount').eq('id', campaignId).single();
           const newCollected = (campaign?.collected_amount || 0) + amount;
           await supabase.from('campaigns').update({ collected_amount: newCollected }).eq('id', campaignId);
 
-          // Record donation
           await supabase.from('campaign_donations').insert({ campaign_id: campaignId, user_id: user.id, amount });
 
-          // Transaction record
           await supabase.from('transactions').insert({ 
               sender_id: user.id, 
               amount: amount, 
@@ -1539,8 +1663,6 @@ export const api = {
           await this.incrementXP(amount > 500 ? 50 : 10);
       }
   },
-
-  // --- RENTALS / SHARING ---
 
   async getRentals(): Promise<RentalItem[]> {
       if (isSupabaseConfigured() && supabase) {
@@ -1587,20 +1709,16 @@ export const api = {
           const { data: profile } = await supabase.from('profiles').select('balance').eq('id', user.id).single();
           if ((profile?.balance || 0) < fullAmount) throw new Error("Недостаточно средств (Цена + Залог)");
 
-          // Deduct
           const newBalance = (profile?.balance || 0) - fullAmount;
           await supabase.from('profiles').update({ balance: newBalance }).eq('id', user.id);
 
-          // Create Booking
           const { error } = await supabase.from('rental_bookings').insert({
               rental_id: rentalId, renter_id: user.id, start_date: startDate, end_date: endDate, total_price: totalPrice, status: 'active'
           });
           if (error) throw error;
 
-          // Mark unavailable
           await supabase.from('rentals').update({ is_available: false }).eq('id', rentalId);
 
-          // TX
           await supabase.from('transactions').insert({ sender_id: user.id, amount: totalPrice, type: 'purchase', description: 'Аренда вещи' });
           await supabase.from('transactions').insert({ sender_id: user.id, amount: deposit, type: 'rental_deposit', description: 'Залог за аренду' });
       }
@@ -1614,7 +1732,6 @@ export const api = {
           const deposit = booking.rentals.deposit;
           const { data: profile } = await supabase.from('profiles').select('balance').eq('id', booking.renter_id).single();
           
-          // Refund deposit
           await supabase.from('profiles').update({ balance: (profile?.balance || 0) + deposit }).eq('id', booking.renter_id);
           
           await supabase.from('rental_bookings').update({ status: 'returned' }).eq('id', bookingId);
@@ -1623,8 +1740,6 @@ export const api = {
           await supabase.from('transactions').insert({ receiver_id: booking.renter_id, amount: deposit, type: 'rental_refund', description: 'Возврат залога за аренду' });
       }
   },
-
-  // --- BUSINESS CRM ---
 
   async getMyBusiness(): Promise<Business | null> {
       if (isSupabaseConfigured() && supabase) {
@@ -1684,7 +1799,6 @@ export const api = {
               time: b.time,
               status: b.status,
               serviceTitle: b.business_services?.title,
-              // Abuse businessName field to store customer info for CRM view
               businessName: `${b.profiles?.name} (${b.profiles?.phone || 'Нет тел.'})`
           }));
       }
@@ -1709,8 +1823,6 @@ export const api = {
       return { valid: false, msg: 'Ошибка базы данных' };
   },
 
-  // --- SMART CITY ---
-
   async getSmartDevices(): Promise<SmartDevice[]> {
       if (isSupabaseConfigured() && supabase) {
           const { data: { user } } = await supabase.auth.getUser();
@@ -1729,8 +1841,6 @@ export const api = {
 
   async controlDevice(deviceId: string, action: 'open') {
       if (isSupabaseConfigured() && supabase) {
-          // In a real IoT system, this would call the device API
-          // Here we just simulate a delay
           await delay(1000);
           return true;
       }

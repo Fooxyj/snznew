@@ -18,6 +18,7 @@ const BadgeIcon: React.FC<{ name: string }> = ({ name }) => {
     }
 };
 
+// ... (EditProfileModal and EditBusinessModal remain unchanged) ...
 // Edit Profile Modal
 const EditProfileModal: React.FC<{ user: User; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ user, isOpen, onClose, onSuccess }) => {
     const [name, setName] = useState(user.name);
@@ -200,6 +201,7 @@ const EditBusinessModal: React.FC<{ business: Business; isOpen: boolean; onClose
     );
 };
 
+// ... (Profile component remains unchanged) ...
 // Profile Component
 export const Profile: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -467,7 +469,10 @@ export const Profile: React.FC = () => {
                      <div key={ad.id} className="flex items-center gap-4 p-4 border dark:border-gray-700 rounded-lg hover:shadow-sm transition-shadow">
                          <img src={ad.image} alt="" className="w-16 h-16 rounded object-cover bg-gray-100" />
                          <div className="flex-1 min-w-0">
-                             <h4 className="font-bold text-gray-900 dark:text-white truncate">{ad.title}</h4>
+                             <div className="flex justify-between">
+                                <h4 className="font-bold text-gray-900 dark:text-white truncate">{ad.title}</h4>
+                                {ad.status === 'pending' && <Badge color="orange">На проверке</Badge>}
+                             </div>
                              <p className="text-blue-600 dark:text-blue-400 font-medium">{ad.price} {ad.currency}</p>
                              <div className="flex items-center gap-2 mt-1">
                                  <Badge color={ad.isVip ? "orange" : "gray"}>{ad.isVip ? "VIP" : ad.category}</Badge>
@@ -566,6 +571,7 @@ const data = [
 
 export const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<any>({ users: 0, ads: 0, businesses: 0, news: 0 });
+  const [pendingAds, setPendingAds] = useState<Ad[]>([]);
   const [recentItems, setRecentItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -589,9 +595,13 @@ export const AdminDashboard: React.FC = () => {
         setStats(s);
         const c = await api.getAllContent();
         setRecentItems(Array.isArray(c) ? c : []);
+        
+        // Load pending moderation
+        const pending = await api.getPendingAds();
+        setPendingAds(pending);
+
     } catch (e) {
         console.error(e);
-        // Fallback to avoid crashes
         setRecentItems([]);
     } finally {
         setLoading(false);
@@ -610,6 +620,20 @@ export const AdminDashboard: React.FC = () => {
           } catch(e: any) {
             alert("Ошибка удаления: " + e.message);
           }
+      }
+  };
+
+  const handleApproveAd = async (id: string) => {
+      if(confirm("Одобрить объявление?")) {
+          await api.approveAd(id);
+          loadData();
+      }
+  };
+
+  const handleRejectAd = async (id: string) => {
+      if(confirm("Отклонить объявление? Оно будет удалено.")) {
+          await api.rejectAd(id);
+          loadData();
       }
   };
 
@@ -676,6 +700,52 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* MODERATION QUEUE */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-yellow-100 rounded-full text-yellow-600">
+                  <ShieldAlert className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-lg dark:text-white">Модерация объявлений ({pendingAds.length})</h3>
+          </div>
+          
+          <div className="space-y-4 max-h-[400px] overflow-y-auto">
+              {pendingAds.length === 0 ? (
+                  <p className="text-gray-400 text-sm text-center py-4">Нет объявлений, ожидающих проверки.</p>
+              ) : (
+                  pendingAds.map(ad => (
+                      <div key={ad.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl gap-4">
+                          <div className="flex gap-4 items-center">
+                              <img src={ad.image} className="w-16 h-16 rounded-lg object-cover bg-gray-200" alt="" />
+                              <div>
+                                  <h4 className="font-bold dark:text-white">{ad.title}</h4>
+                                  <p className="text-xs text-gray-500">{ad.category} • {ad.price} ₽</p>
+                                  <p className="text-xs text-gray-400 mt-1 line-clamp-1">{ad.description}</p>
+                              </div>
+                          </div>
+                          <div className="flex gap-2 w-full sm:w-auto">
+                              <Button 
+                                size="sm" 
+                                className="bg-green-600 hover:bg-green-700 text-white flex-1 sm:flex-none"
+                                onClick={() => handleApproveAd(ad.id)}
+                              >
+                                  <Check className="w-4 h-4 mr-1" /> Одобрить
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="danger"
+                                className="flex-1 sm:flex-none"
+                                onClick={() => handleRejectAd(ad.id)}
+                              >
+                                  <X className="w-4 h-4 mr-1" /> Отклонить
+                              </Button>
+                          </div>
+                      </div>
+                  ))
+              )}
+          </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
          {/* Poll Creator */}
          <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm">
@@ -734,7 +804,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
          </div>
 
-         {/* Moderation Queue */}
+         {/* Moderation Queue / Activity Log */}
          <div className="lg:col-span-3 bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
             <h3 className="font-bold text-lg mb-4 dark:text-white">Лента активности</h3>
             <div className="space-y-4 max-h-[400px] overflow-y-auto">
@@ -761,6 +831,7 @@ export const AdminDashboard: React.FC = () => {
   );
 };
 
+// ... (ConnectBusiness remains unchanged) ...
 // Connect Business Page
 export const ConnectBusiness: React.FC = () => {
     const navigate = useNavigate();

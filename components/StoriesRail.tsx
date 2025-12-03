@@ -2,22 +2,47 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../services/api';
 import { Story, User } from '../types';
-import { Plus, X, Upload, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, X, Upload, Loader2, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+
+const ViewersList: React.FC<{ viewers: {name: string, avatar: string}[]; onClose: () => void }> = ({ viewers, onClose }) => {
+    return (
+        <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center pointer-events-none">
+            <div className="absolute inset-0" onClick={onClose}></div>
+            <div className="bg-white dark:bg-gray-800 w-full max-w-sm sm:rounded-2xl rounded-t-2xl shadow-2xl p-4 max-h-[60vh] overflow-y-auto pointer-events-auto animate-in slide-in-from-bottom-10">
+                <div className="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b dark:border-gray-700">
+                    <h3 className="font-bold text-lg dark:text-white">Просмотры ({viewers.length})</h3>
+                    <button onClick={onClose}><X className="w-5 h-5 text-gray-500" /></button>
+                </div>
+                <div className="space-y-3">
+                    {viewers.map((v, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                            <img src={v.avatar} className="w-10 h-10 rounded-full object-cover bg-gray-200" alt="" />
+                            <span className="font-medium text-gray-900 dark:text-white">{v.name}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const StoryViewer: React.FC<{ 
     stories: Story[]; 
     initialIndex: number; 
+    currentUser: User | null;
     onClose: () => void 
-}> = ({ stories, initialIndex, onClose }) => {
+}> = ({ stories, initialIndex, currentUser, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [progress, setProgress] = useState(0);
+    const [showViewers, setShowViewers] = useState(false);
     const timerRef = useRef<any>(null);
 
     const activeStory = stories[currentIndex];
+    const isOwner = currentUser && activeStory.authorId === currentUser.id;
 
     // Auto-advance
     useEffect(() => {
-        if (!activeStory) return;
+        if (!activeStory || showViewers) return; // Pause if viewing list
         setProgress(0);
         const duration = 5000; // 5 seconds per story
         const interval = 50;
@@ -34,7 +59,7 @@ const StoryViewer: React.FC<{
         }, interval);
 
         return () => clearInterval(timerRef.current);
-    }, [currentIndex]);
+    }, [currentIndex, showViewers]);
 
     const handleNext = () => {
         if (currentIndex < stories.length - 1) {
@@ -73,11 +98,10 @@ const StoryViewer: React.FC<{
                     ))}
                 </div>
 
-                {/* Header */}
+                {/* Header - Removed Time as requested */}
                 <div className="absolute top-8 left-4 flex items-center gap-3 z-30">
                     <img src={activeStory.authorAvatar} className="w-8 h-8 rounded-full border border-white/50 bg-gray-600" alt="" />
                     <span className="text-white font-bold text-sm shadow-black drop-shadow-md">{activeStory.authorName}</span>
-                    <span className="text-white/70 text-xs">{new Date(activeStory.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                 </div>
                 
                 <button onClick={onClose} className="absolute top-8 right-4 z-40 text-white hover:opacity-70">
@@ -88,13 +112,34 @@ const StoryViewer: React.FC<{
                 <img src={activeStory.media} className="w-full h-full object-cover" alt="" />
                 
                 {activeStory.caption && (
-                    <div className="absolute bottom-10 left-0 right-0 p-4 text-center z-30">
+                    <div className="absolute bottom-20 left-0 right-0 p-4 text-center z-30 pointer-events-none">
                         <div className="inline-block bg-black/50 backdrop-blur-md px-4 py-2 rounded-xl text-white text-sm">
                             {activeStory.caption}
                         </div>
                     </div>
                 )}
+
+                {/* Viewers Eye (Only for Owner) */}
+                {isOwner && (
+                    <div className="absolute bottom-6 left-4 z-50">
+                        <button 
+                            onClick={() => setShowViewers(true)}
+                            className="flex items-center gap-2 text-white bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full hover:bg-black/60 transition-colors"
+                        >
+                            <Eye className="w-4 h-4" />
+                            <span className="text-xs font-bold">{activeStory.viewers?.length || 0}</span>
+                        </button>
+                    </div>
+                )}
             </div>
+
+            {/* Viewers Modal Overlay */}
+            {showViewers && activeStory.viewers && (
+                <ViewersList 
+                    viewers={activeStory.viewers} 
+                    onClose={() => setShowViewers(false)} 
+                />
+            )}
         </div>
     );
 };
@@ -177,6 +222,7 @@ export const StoriesRail: React.FC = () => {
                 <StoryViewer 
                     stories={groupedStories[activeAuthorId]} 
                     initialIndex={0} 
+                    currentUser={currentUser}
                     onClose={() => setActiveAuthorId(null)} 
                 />
             )}

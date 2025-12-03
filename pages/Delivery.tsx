@@ -85,19 +85,19 @@ export const DeliveryPage: React.FC = () => {
             </div>
 
             <div className="flex border-b mb-6 overflow-x-auto">
-                <button
+                <button 
                     onClick={() => setActiveTab('available')}
                     className={`px-6 py-3 font-medium transition-colors border-b-2 whitespace-nowrap flex items-center gap-2 ${activeTab === 'available' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500'}`}
                 >
                     <Package className="w-4 h-4" /> Доступные ({availableOrders.length})
                 </button>
-                <button
+                <button 
                     onClick={() => setActiveTab('active')}
                     className={`px-6 py-3 font-medium transition-colors border-b-2 whitespace-nowrap flex items-center gap-2 ${activeTab === 'active' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500'}`}
                 >
                     <Navigation className="w-4 h-4" /> В работе ({activeOrders.length})
                 </button>
-                <button
+                <button 
                     onClick={() => setActiveTab('history')}
                     className={`px-6 py-3 font-medium transition-colors border-b-2 whitespace-nowrap flex items-center gap-2 ${activeTab === 'history' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500'}`}
                 >
@@ -108,76 +108,76 @@ export const DeliveryPage: React.FC = () => {
             <div className="space-y-4">
                 {activeTab === 'available' && (
                     availableOrders.length === 0 ? <p className="text-center py-10 text-gray-400">Нет свободных заказов. Ждем...</p> :
-                        availableOrders.map(order => (
-                            <div key={order.id} className="bg-white p-6 rounded-xl border shadow-sm hover:shadow-md transition-all">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 className="font-bold text-lg">{order.businessName}</h3>
-                                        <p className="text-gray-500 text-sm flex items-center gap-1"><MapPin className="w-3 h-3" /> {order.businessAddress || 'Центр'}</p>
-                                    </div>
-                                    <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
-                                        <DollarSign className="w-3 h-3" /> {order.deliveryFee || 150} ₽
-                                    </div>
+                    availableOrders.map(order => (
+                        <div key={order.id} className="bg-white p-6 rounded-xl border shadow-sm hover:shadow-md transition-all">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="font-bold text-lg">{order.businessName}</h3>
+                                    <p className="text-gray-500 text-sm flex items-center gap-1"><MapPin className="w-3 h-3" /> {order.businessAddress || 'Центр'}</p>
                                 </div>
-
-                                <div className="border-l-2 border-gray-200 pl-4 py-2 my-4 relative">
-                                    <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-gray-300"></div>
-                                    <div className="absolute -left-[5px] bottom-0 w-2 h-2 rounded-full bg-blue-500"></div>
-                                    <p className="text-xs text-gray-400 mb-1">Доставить:</p>
-                                    <p className="font-medium text-gray-900">{order.address}</p>
-                                </div>
-
-                                <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                                    <span className="text-xs text-gray-400"><Clock className="w-3 h-3 inline mr-1" /> {new Date(order.createdAt).toLocaleTimeString()}</span>
-                                    <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleTakeOrder(order.id)}>
-                                        Взять заказ
-                                    </Button>
+                                <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
+                                    <DollarSign className="w-3 h-3" /> {order.deliveryFee || 150} ₽
                                 </div>
                             </div>
-                        ))
+                            
+                            <div className="border-l-2 border-gray-200 pl-4 py-2 my-4 relative">
+                                <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-gray-300"></div>
+                                <div className="absolute -left-[5px] bottom-0 w-2 h-2 rounded-full bg-blue-500"></div>
+                                <p className="text-xs text-gray-400 mb-1">Доставить:</p>
+                                <p className="font-medium text-gray-900">{order.address}</p>
+                            </div>
+
+                            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                                <span className="text-xs text-gray-400"><Clock className="w-3 h-3 inline mr-1" /> {new Date(order.createdAt).toLocaleTimeString()}</span>
+                                <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleTakeOrder(order.id)}>
+                                    Взять заказ
+                                </Button>
+                            </div>
+                        </div>
+                    ))
                 )}
 
                 {activeTab === 'active' && (
                     activeOrders.length === 0 ? <p className="text-center py-10 text-gray-400">Вы пока не взяли ни одного заказа.</p> :
-                        activeOrders.map(order => (
-                            <div key={order.id} className="bg-white p-6 rounded-xl border-2 border-green-500 shadow-md">
-                                <div className="flex items-center gap-2 mb-4 text-green-700 font-bold">
-                                    <Loader2 className="w-5 h-5 animate-spin" /> В процессе выполнения
-                                </div>
-
-                                <div className="grid md:grid-cols-2 gap-6 mb-6">
-                                    <div className="bg-gray-50 p-4 rounded-lg">
-                                        <p className="text-xs text-gray-500 mb-1">ЗАБРАТЬ ИЗ</p>
-                                        <p className="font-bold text-lg">{order.businessName}</p>
-                                        <p className="text-sm text-gray-600">{order.businessAddress}</p>
-                                    </div>
-                                    <div className="bg-blue-50 p-4 rounded-lg">
-                                        <p className="text-xs text-blue-500 mb-1">ОТВЕЗТИ КЛИЕНТУ</p>
-                                        <p className="font-bold text-lg text-blue-900">{order.address}</p>
-                                        <Button variant="outline" size="sm" className="mt-2 text-xs h-7 bg-white">Показать на карте</Button>
-                                    </div>
-                                </div>
-
-                                <Button className="w-full py-4 text-lg bg-green-600 hover:bg-green-700 text-white" onClick={() => handleComplete(order.id)}>
-                                    <CheckCircle className="w-6 h-6 mr-2" /> Заказ доставлен
-                                </Button>
+                    activeOrders.map(order => (
+                        <div key={order.id} className="bg-white p-6 rounded-xl border-2 border-green-500 shadow-md">
+                            <div className="flex items-center gap-2 mb-4 text-green-700 font-bold">
+                                <Loader2 className="w-5 h-5 animate-spin" /> В процессе выполнения
                             </div>
-                        ))
+                            
+                            <div className="grid md:grid-cols-2 gap-6 mb-6">
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <p className="text-xs text-gray-500 mb-1">ЗАБРАТЬ ИЗ</p>
+                                    <p className="font-bold text-lg">{order.businessName}</p>
+                                    <p className="text-sm text-gray-600">{order.businessAddress}</p>
+                                </div>
+                                <div className="bg-blue-50 p-4 rounded-lg">
+                                    <p className="text-xs text-blue-500 mb-1">ОТВЕЗТИ КЛИЕНТУ</p>
+                                    <p className="font-bold text-lg text-blue-900">{order.address}</p>
+                                    <Button variant="outline" size="sm" className="mt-2 text-xs h-7 bg-white">Показать на карте</Button>
+                                </div>
+                            </div>
+
+                            <Button className="w-full py-4 text-lg bg-green-600 hover:bg-green-700 text-white" onClick={() => handleComplete(order.id)}>
+                                <CheckCircle className="w-6 h-6 mr-2" /> Заказ доставлен
+                            </Button>
+                        </div>
+                    ))
                 )}
 
                 {activeTab === 'history' && (
                     historyOrders.length === 0 ? <p className="text-center py-10 text-gray-400">История пуста</p> :
-                        historyOrders.map(order => (
-                            <div key={order.id} className="bg-white p-4 rounded-xl border flex items-center justify-between opacity-70">
-                                <div>
-                                    <p className="font-bold text-gray-900">{order.businessName} &rarr; {order.address}</p>
-                                    <p className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</p>
-                                </div>
-                                <div className="font-bold text-green-600">
-                                    +{order.deliveryFee || 150} ₽
-                                </div>
+                    historyOrders.map(order => (
+                        <div key={order.id} className="bg-white p-4 rounded-xl border flex items-center justify-between opacity-70">
+                            <div>
+                                <p className="font-bold text-gray-900">{order.businessName} -> {order.address}</p>
+                                <p className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</p>
                             </div>
-                        ))
+                            <div className="font-bold text-green-600">
+                                +{order.deliveryFee || 150} ₽
+                            </div>
+                        </div>
+                    ))
                 )}
             </div>
         </div>

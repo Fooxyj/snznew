@@ -53,6 +53,7 @@ export interface Ad {
   description: string;
   location: string;
   isVip?: boolean;
+  status?: 'pending' | 'approved' | 'rejected'; // Moderation status
 }
 
 export interface Business {
@@ -111,6 +112,8 @@ export interface Event {
   category: string;
   price?: number;
   description?: string;
+  authorId?: string; // Link to creator/business
+  sessions?: string[]; // Array of times, e.g. ["10:00", "14:00"]
 }
 
 export interface Ticket {
@@ -279,6 +282,7 @@ export interface Story {
   createdAt: string;
   authorName?: string;
   authorAvatar?: string;
+  viewers?: { name: string; avatar: string }[]; // New field for viewers
 }
 
 export interface Community {
