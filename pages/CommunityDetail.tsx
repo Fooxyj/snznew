@@ -104,10 +104,10 @@ export const CommunityDetail: React.FC = () => {
                     
                     {/* Create Post Box */}
                     {community.isMember ? (
-                        <div className="bg-white rounded-xl border p-4 shadow-sm">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm">
                             <form onSubmit={handlePost}>
                                 <textarea 
-                                    className="w-full border-none resize-none focus:ring-0 text-gray-800 placeholder-gray-400 mb-2" 
+                                    className="w-full border-none resize-none focus:ring-0 text-gray-800 dark:text-white placeholder-gray-400 bg-transparent mb-2" 
                                     placeholder="Напишите что-нибудь..."
                                     rows={3}
                                     value={content}
@@ -115,11 +115,11 @@ export const CommunityDetail: React.FC = () => {
                                 />
                                 {image && (
                                     <div className="relative mb-3 inline-block">
-                                        <img src={image} className="h-20 rounded-lg border" alt="" />
-                                        <button type="button" onClick={() => setImage('')} className="absolute -top-1 -right-1 bg-gray-200 rounded-full p-0.5"><Users className="w-3 h-3" /></button>
+                                        <img src={image} className="h-20 rounded-lg border dark:border-gray-600" alt="" />
+                                        <button type="button" onClick={() => setImage('')} className="absolute -top-1 -right-1 bg-gray-200 dark:bg-gray-600 rounded-full p-0.5"><Users className="w-3 h-3" /></button>
                                     </div>
                                 )}
-                                <div className="flex justify-between items-center border-t pt-3">
+                                <div className="flex justify-between items-center border-t dark:border-gray-700 pt-3">
                                     <div className="relative cursor-pointer text-gray-400 hover:text-blue-600 transition-colors">
                                         {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImageIcon className="w-5 h-5" />}
                                         <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleUpload} />
@@ -131,7 +131,7 @@ export const CommunityDetail: React.FC = () => {
                             </form>
                         </div>
                     ) : (
-                        <div className="bg-blue-50 p-4 rounded-xl text-center text-blue-800 text-sm">
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-center text-blue-800 dark:text-blue-300 text-sm">
                             Вступите в сообщество, чтобы писать посты и комментировать.
                         </div>
                     )}
@@ -141,21 +141,21 @@ export const CommunityDetail: React.FC = () => {
                         <div className="text-center py-10 text-gray-400">На стене пока пусто</div>
                     ) : (
                         posts.map(post => (
-                            <div key={post.id} className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                            <div key={post.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
                                 <div className="p-4 flex items-center gap-3">
-                                    <img src={post.authorAvatar || 'https://ui-avatars.com/api/?name=User'} className="w-10 h-10 rounded-full bg-gray-100" alt="" />
+                                    <img src={post.authorAvatar || 'https://ui-avatars.com/api/?name=User'} className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700" alt="" />
                                     <div>
-                                        <div className="font-bold text-gray-900 text-sm">{post.authorName}</div>
+                                        <div className="font-bold text-gray-900 dark:text-white text-sm">{post.authorName}</div>
                                         <div className="text-xs text-gray-400">{new Date(post.createdAt).toLocaleString()}</div>
                                     </div>
                                 </div>
-                                <div className="px-4 pb-2 text-gray-800 whitespace-pre-wrap">
+                                <div className="px-4 pb-2 text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
                                     {post.content}
                                 </div>
                                 {post.image && (
-                                    <img src={post.image} className="w-full max-h-96 object-cover bg-gray-100 mt-2" alt="" />
+                                    <img src={post.image} className="w-full max-h-96 object-cover bg-gray-100 dark:bg-gray-700 mt-2" alt="" />
                                 )}
-                                <div className="p-3 border-t flex items-center gap-4 text-gray-500 text-sm">
+                                <div className="p-3 border-t dark:border-gray-700 flex items-center gap-4 text-gray-500 dark:text-gray-400 text-sm">
                                     {/* Likes placeholder */}
                                     <button className="flex items-center gap-1 hover:text-red-500 transition-colors">
                                         ❤️ {post.likes}
@@ -168,9 +168,9 @@ export const CommunityDetail: React.FC = () => {
 
                 {/* Sidebar Info */}
                 <div className="space-y-6">
-                    <div className="bg-white rounded-xl border p-5 shadow-sm">
-                        <h3 className="font-bold text-gray-900 mb-2">О сообществе</h3>
-                        <p className="text-sm text-gray-600">{community.description}</p>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-5 shadow-sm">
+                        <h3 className="font-bold text-gray-900 dark:text-white mb-2">О сообществе</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{community.description}</p>
                     </div>
                 </div>
             </div>

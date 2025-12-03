@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { X, Loader2, Upload, Check } from 'lucide-react';
+import { X, Loader2, Upload } from 'lucide-react';
 import { Button } from './ui/Common';
 import { api } from '../services/api';
 import { Ad } from '../types';
@@ -70,12 +69,12 @@ export const EditAdModal: React.FC<EditAdModalProps> = ({ ad, isOpen, onClose, o
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 h-[90vh] overflow-y-auto transition-colors duration-200">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 sticky top-0 z-10">
-          <h3 className="text-lg font-bold text-gray-900">Редактировать объявление</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+        <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Редактировать объявление</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -84,17 +83,17 @@ export const EditAdModal: React.FC<EditAdModalProps> = ({ ad, isOpen, onClose, o
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           
           {errorMsg && (
-            <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+            <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm rounded-lg border border-red-200 dark:border-red-800">
                 {errorMsg}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Заголовок</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Заголовок</label>
             <input 
               required
               type="text" 
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2 border rounded-lg outline-none bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
               value={formData.title}
               onChange={e => setFormData({...formData, title: e.target.value})}
             />
@@ -102,19 +101,19 @@ export const EditAdModal: React.FC<EditAdModalProps> = ({ ad, isOpen, onClose, o
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Цена (₽)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Цена (₽)</label>
               <input 
                 required
                 type="number" 
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full px-3 py-2 border rounded-lg outline-none bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                 value={formData.price}
                 onChange={e => setFormData({...formData, price: e.target.value})}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Категория</label>
               <select 
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                className="w-full px-3 py-2 border rounded-lg outline-none bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                 value={formData.category}
                 onChange={e => setFormData({...formData, category: e.target.value})}
               >
@@ -126,21 +125,21 @@ export const EditAdModal: React.FC<EditAdModalProps> = ({ ad, isOpen, onClose, o
           </div>
 
           <div>
-             <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Описание</label>
              <textarea 
                 required
                 rows={3}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                className="w-full px-3 py-2 border rounded-lg outline-none resize-none bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                 value={formData.description}
                 onChange={e => setFormData({...formData, description: e.target.value})}
              />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Местоположение</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Местоположение</label>
             <input 
               type="text" 
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2 border rounded-lg outline-none bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
               value={formData.location}
               onChange={e => setFormData({...formData, location: e.target.value})}
             />
@@ -148,8 +147,8 @@ export const EditAdModal: React.FC<EditAdModalProps> = ({ ad, isOpen, onClose, o
 
           {/* Real Image Upload */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Фотография</label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-500 text-sm bg-gray-50 hover:bg-gray-100 transition-colors relative">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Фотография</label>
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center text-gray-500 dark:text-gray-400 text-sm bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
                 {formData.image ? (
                     <div className="relative group">
                         <img src={formData.image} alt="Preview" className="h-32 mx-auto rounded object-cover" />
@@ -168,7 +167,7 @@ export const EditAdModal: React.FC<EditAdModalProps> = ({ ad, isOpen, onClose, o
                         {isUploading ? (
                             <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-2" />
                         ) : (
-                            <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                            <Upload className="w-8 h-8 text-gray-400 dark:text-gray-500 mb-2" />
                         )}
                         <p>{isUploading ? "Загрузка..." : "Нажмите для загрузки фото"}</p>
                         <input 

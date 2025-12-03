@@ -39,29 +39,29 @@ export const Communities: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8">
-            <h1 className="text-2xl font-bold mb-2 flex items-center gap-3">
-                <Users className="text-indigo-600 w-8 h-8" /> Сообщества Снежинска
+            <h1 className="text-2xl font-bold mb-2 flex items-center gap-3 dark:text-white">
+                <Users className="text-indigo-600 dark:text-indigo-400 w-8 h-8" /> Сообщества Снежинска
             </h1>
-            <p className="text-gray-500 mb-8">Вступайте в клубы по интересам, находите друзей и обсуждайте важное.</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-8">Вступайте в клубы по интересам, находите друзей и обсуждайте важное.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {communities.map(c => (
-                    <div key={c.id} className="bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
-                        <div className="h-32 bg-gray-100 relative">
+                    <div key={c.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+                        <div className="h-32 bg-gray-100 dark:bg-gray-700 relative">
                             <img src={c.image} className="w-full h-full object-cover" alt="" />
                             <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                                 <h3 className="text-white font-bold text-xl text-center px-4 shadow-black drop-shadow-md">{c.name}</h3>
                             </div>
                         </div>
                         <div className="p-5 flex-1 flex flex-col">
-                            <p className="text-gray-600 text-sm mb-4 flex-1">{c.description}</p>
+                            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 flex-1">{c.description}</p>
                             <div className="flex items-center justify-between mt-auto">
-                                <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded-full">
+                                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
                                     {c.membersCount} участников
                                 </span>
                                 {c.isMember ? (
                                     <Link to={`/community/${c.id}`}>
-                                        <Button variant="secondary" size="sm" className="flex items-center gap-2">
+                                        <Button variant="secondary" size="sm" className="flex items-center gap-2 dark:bg-gray-700 dark:text-white dark:border-gray-600">
                                             Открыть <ArrowRight className="w-4 h-4" />
                                         </Button>
                                     </Link>

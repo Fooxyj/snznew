@@ -1,44 +1,49 @@
-
 import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Button, XPBar, Badge } from '../components/ui/Common';
-import { Settings, Package, CheckCircle, AlertTriangle, Loader2, Trash2, MapPin, Edit, Upload, X, Heart, Users, FileText, ShoppingBag, Newspaper, ShieldAlert, PieChart, Plus, Star, Zap, Crown, Shield, Calendar, Ticket as TicketIcon, QrCode, Truck, Check } from 'lucide-react';
 import { api } from '../services/api';
-import { User, Ad, Business, UserRole, Booking, Ticket, Order } from '../types';
+import { User, Ad, Business, Booking, RentalBooking, UserRole } from '../types';
+import { Button, Badge, XPBar } from '../components/ui/Common';
+import { 
+    User as UserIcon, Settings, LogOut, Loader2, Plus, 
+    Briefcase, Calendar, ShoppingBag, PieChart, Check, X, 
+    Trophy, MapPin, Building2, Clock, CreditCard,
+    Repeat, Upload, Pencil, Star, Shield, Zap, Crown,
+    LayoutDashboard, FileText, BarChart3, Users,
+    MoreVertical, Eye, Edit3, Trash2, ChevronDown, List
+} from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { EditAdModal } from '../components/EditAdModal';
+import { EditBusinessModal } from '../components/EditBusinessModal';
 
+// Helper for Badges
 const BadgeIcon: React.FC<{ name: string }> = ({ name }) => {
     switch(name) {
-        case 'verified': return <div className="text-blue-500 bg-blue-100 p-1 rounded-full" title="Проверенный"><Star className="w-3 h-3 fill-current" /></div>;
-        case 'admin': return <div className="text-red-500 bg-red-100 p-1 rounded-full" title="Администратор"><Shield className="w-3 h-3 fill-current" /></div>;
-        case 'quest_master': return <div className="text-purple-500 bg-purple-100 p-1 rounded-full" title="Мастер квестов"><Zap className="w-3 h-3 fill-current" /></div>;
-        case 'early_adopter': return <div className="text-orange-500 bg-orange-100 p-1 rounded-full" title="Старожил"><Crown className="w-3 h-3 fill-current" /></div>;
-        default: return null;
+        case 'verified': return <div className="text-blue-500 bg-blue-50 p-1.5 rounded-full" title="Проверенный"><Star className="w-3.5 h-3.5 fill-current" /></div>;
+        case 'admin': return <div className="text-red-500 bg-red-50 p-1.5 rounded-full" title="Администратор"><Shield className="w-3.5 h-3.5 fill-current" /></div>;
+        case 'quest_master': return <div className="text-purple-500 bg-purple-50 p-1.5 rounded-full" title="Мастер квестов"><Zap className="w-3.5 h-3.5 fill-current" /></div>;
+        case 'early_adopter': return <div className="text-orange-500 bg-orange-50 p-1.5 rounded-full" title="Старожил"><Crown className="w-3.5 h-3.5 fill-current" /></div>;
+        default: return <div className="text-gray-500 bg-gray-50 p-1.5 rounded-full"><Star className="w-3.5 h-3.5" /></div>;
     }
 };
 
-// ... (EditProfileModal and EditBusinessModal remain unchanged) ...
 // Edit Profile Modal
 const EditProfileModal: React.FC<{ user: User; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ user, isOpen, onClose, onSuccess }) => {
-    const [name, setName] = useState(user.name);
-    const [phone, setPhone] = useState(user.phone || '');
-    const [avatar, setAvatar] = useState(user.avatar);
+    const [formData, setFormData] = useState({ name: user.name, phone: user.phone || '', avatar: user.avatar || '' });
     const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     if (!isOpen) return null;
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        setLoading(true);
+        setUploading(true);
         try {
             const url = await api.uploadImage(file);
-            setAvatar(url);
+            setFormData(prev => ({ ...prev, avatar: url }));
         } catch (e: any) {
-            alert(e.message || "Ошибка загрузки");
+            alert(e.message);
         } finally {
-            setLoading(false);
+            setUploading(false);
         }
     };
 
@@ -46,11 +51,11 @@ const EditProfileModal: React.FC<{ user: User; isOpen: boolean; onClose: () => v
         e.preventDefault();
         setLoading(true);
         try {
-            await api.updateProfile({ name, phone, avatar });
+            await api.updateProfile(formData);
             onSuccess();
             onClose();
         } catch (e: any) {
-            alert("Ошибка сохранения: " + (e.message || "Неизвестная ошибка"));
+            alert(e.message);
         } finally {
             setLoading(false);
         }
@@ -58,31 +63,32 @@ const EditProfileModal: React.FC<{ user: User; isOpen: boolean; onClose: () => v
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-gray-900">Редактирование профиля</h3>
-                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
+            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-sm p-6 shadow-2xl transition-colors duration-200">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg text-gray-900 dark:text-white">Редактировать профиль</h3>
+                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors" /></button>
                 </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="flex flex-col items-center mb-4">
-                        <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 relative group">
-                            <img src={avatar} alt="" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                                <Upload className="w-6 h-6 text-white" />
-                                <input type="file" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                        <div className="relative w-20 h-20">
+                            <img src={formData.avatar || user.avatar} alt="Avatar" className="w-full h-full rounded-full object-cover border-2 border-gray-200 dark:border-gray-600" />
+                            <div className="absolute bottom-0 right-0 bg-blue-600 p-1.5 rounded-full text-white cursor-pointer hover:bg-blue-700">
+                                {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageUpload} />
                             </div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">Нажмите на фото, чтобы изменить</p>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Имя</label>
-                        <input type="text" className="w-full border rounded-lg px-3 py-2" value={name} onChange={e => setName(e.target.value)} required />
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Имя</label>
+                        <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
-                        <input type="tel" className="w-full border rounded-lg px-3 py-2" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+7" />
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Телефон</label>
+                        <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="+7" />
                     </div>
-                    <Button disabled={loading} className="w-full">{loading ? 'Сохранение...' : 'Сохранить'}</Button>
+                    <Button className="w-full" disabled={loading || uploading}>
+                        {loading ? <Loader2 className="animate-spin" /> : 'Сохранить'}
+                    </Button>
                 </form>
             </div>
         </div>
@@ -93,10 +99,9 @@ const EditProfileModal: React.FC<{ user: User; isOpen: boolean; onClose: () => v
 const EditBusinessModal: React.FC<{ business: Business; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ business, isOpen, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
         name: business.name,
-        phone: business.phone,
-        category: business.category,
-        address: business.address,
         description: business.description,
+        address: business.address,
+        phone: business.phone,
         workHours: business.workHours,
         image: business.image
     });
@@ -135,717 +140,667 @@ const EditBusinessModal: React.FC<{ business: Business; isOpen: boolean; onClose
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto max-h-[90vh]">
-                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-gray-900">Редактирование бизнеса</h3>
-                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
+            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-y-auto transition-colors duration-200">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg text-gray-900 dark:text-white">Редактировать бизнес</h3>
+                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors" /></button>
                 </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Название</label>
-                        <input className="w-full border rounded-lg px-3 py-2" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Название</label>
+                        <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Телефон</label>
+                            <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Часы работы</label>
+                            <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.workHours} onChange={e => setFormData({...formData, workHours: e.target.value})} required />
+                        </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
-                        <select className="w-full border rounded-lg px-3 py-2 bg-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                            <option value="Магазины">Магазины</option>
-                            <option value="Кафе и рестораны">Кафе и рестораны</option>
-                            <option value="Спортзалы и секции">Спортзалы и секции</option>
-                            <option value="Услуги">Услуги (Ремонт, Обучение)</option>
-                            <option value="Аренда и Отдых">Аренда и Отдых (Бани, Домики)</option>
-                            <option value="Медицина">Медицина (Аптеки, Клиники)</option>
-                            <option value="Красота">Красота (Салоны, Мастера)</option>
-                            <option value="Культура">Культура (Музеи, Театры)</option>
-                            <option value="Туризм">Туризм (Экскурсии)</option>
-                            <option value="Кино">Кино</option>
-                            <option value="Транспорт">Транспорт</option>
-                        </select>
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Адрес</label>
+                        <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
-                        <input className="w-full border rounded-lg px-3 py-2" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required />
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Описание</label>
+                        <textarea className="w-full border rounded-lg p-2 resize-none bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Время работы</label>
-                        <input className="w-full border rounded-lg px-3 py-2" value={formData.workHours} onChange={e => setFormData({...formData, workHours: e.target.value})} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
-                        <input className="w-full border rounded-lg px-3 py-2" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
-                        <textarea className="w-full border rounded-lg px-3 py-2 resize-none" rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-                    </div>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        {formData.image ? (
-                            <div className="relative group">
-                                <img src={formData.image} alt="" className="h-24 mx-auto rounded object-cover" />
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <span className="text-xs">Изменить</span>
-                                </div>
-                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageUpload} />
+                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center bg-gray-50 dark:bg-gray-700/50">
+                        <div className="relative cursor-pointer">
+                            {formData.image && <img src={formData.image} alt="" className="h-20 w-full object-cover rounded mb-2" />}
+                            <div className="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
+                                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                <span className="text-xs">{uploading ? "Загрузка..." : "Изменить фото"}</span>
                             </div>
-                        ) : (
-                            <div className="relative cursor-pointer">
-                                <Upload className="w-6 h-6 text-gray-400 mx-auto mb-1" />
-                                <span className="text-xs text-gray-500">{uploading ? "..." : "Фото"}</span>
-                                <input type="file" className="absolute inset-0 opacity-0" onChange={handleImageUpload} />
-                            </div>
-                        )}
+                            <input type="file" className="absolute inset-0 opacity-0" onChange={handleImageUpload} />
+                        </div>
                     </div>
-                    <Button disabled={loading || uploading} className="w-full">{loading ? 'Сохранение...' : 'Сохранить изменения'}</Button>
+                    <Button className="w-full" disabled={loading || uploading}>
+                        {loading ? <Loader2 className="animate-spin" /> : 'Сохранить изменения'}
+                    </Button>
                 </form>
             </div>
         </div>
     );
 };
 
-// ... (Profile component remains unchanged) ...
-// Profile Component
 export const Profile: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'stats' | 'orders' | 'tickets' | 'ads' | 'biz' | 'fav'>('stats');
-  
-  const [myAds, setMyAds] = useState<Ad[]>([]);
-  const [myBiz, setMyBiz] = useState<Business[]>([]);
-  const [myFavs, setMyFavs] = useState<Ad[]>([]);
-  const [myBookings, setMyBookings] = useState<Booking[]>([]);
-  const [myTickets, setMyTickets] = useState<Ticket[]>([]);
-  const [myOrders, setMyOrders] = useState<Order[]>([]);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  
-  // Edit Business Logic
-  const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
-  const [editingAd, setEditingAd] = useState<Ad | null>(null);
-  
-  // Data loader
-  const loadData = async () => {
-    const u = await api.getCurrentUser();
-    setUser(u);
-    if (u) {
-        const [content, bookings, tickets, orders] = await Promise.all([
-            api.getUserContent(u.id),
-            api.getMyBookings(),
-            api.getMyTickets(),
-            api.getMyOrders()
-        ]);
-        setMyAds(content.ads);
-        setMyBiz(content.businesses);
-        setMyFavs(content.favorites || []);
-        setMyBookings(bookings);
-        setMyTickets(tickets);
-        setMyOrders(orders);
-    }
-    setLoading(false);
-  };
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [myAds, setMyAds] = useState<Ad[]>([]);
+    const [myBusinesses, setMyBusinesses] = useState<Business[]>([]);
+    const navigate = useNavigate();
 
-  useEffect(() => {
-    loadData();
-  }, []);
+    const [editingAd, setEditingAd] = useState<Ad | null>(null);
+    const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
+    const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
-  const handleDeleteAd = async (id: string) => {
-      if(confirm('Вы уверены, что хотите удалить это объявление?')) {
-          try {
+    const loadData = async () => {
+        try {
+            const u = await api.getCurrentUser();
+            setUser(u);
+            if (u) {
+                const [adsData, businessesData] = await Promise.all([
+                    api.getUserContent(u.id), 
+                    api.getMyBusinesses()
+                ]);
+                
+                setMyAds(adsData.ads);
+                setMyBusinesses(businessesData);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const handleLogout = async () => {
+        await api.signOut();
+        navigate('/auth');
+    };
+
+    const handleDeleteAd = async (id: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (confirm("Удалить объявление?")) {
             await api.deleteAd(id);
-            loadData(); // Reload
-          } catch (e: any) {
-            alert("Не удалось удалить: " + (e.message || "Ошибка"));
-          }
-      }
-  };
+            loadData();
+        }
+    };
 
-  const handleDeleteBiz = async (id: string) => {
-      if(confirm('Вы уверены, что хотите удалить эту организацию? Все товары и записи также будут удалены.')) {
-          try {
-            await api.deleteBusiness(id);
-            loadData(); // Reload
-          } catch (e: any) {
-            alert("Не удалось удалить: " + (e.message || "Возможно, есть связанные данные, мешающие удалению."));
-          }
-      }
-  };
+    const handleEditAd = (ad: Ad, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setEditingAd(ad);
+    };
 
-  const getOrderStatus = (status: string) => {
-      switch(status) {
-          case 'new': return { label: 'Принят', color: 'text-gray-500', step: 1 };
-          case 'cooking': return { label: 'Готовится', color: 'text-orange-500', step: 2 };
-          case 'delivery': return { label: 'В пути', color: 'text-blue-500', step: 3 };
-          case 'done': return { label: 'Доставлен', color: 'text-green-500', step: 4 };
-          default: return { label: 'Неизвестно', color: 'text-gray-500', step: 0 };
-      }
-  };
+    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (!user) {
+        navigate('/auth');
+        return null;
+    }
 
-  if (loading) return <div className="p-10 text-center"><Loader2 className="animate-spin mx-auto text-blue-600" /></div>;
-  if (!user) return <div className="p-10 text-center">Пожалуйста, войдите в систему</div>;
+    return (
+        <div className="max-w-6xl mx-auto p-4 lg:p-8 pb-24">
+            {editingAd && (
+                <EditAdModal 
+                    ad={editingAd} 
+                    isOpen={!!editingAd} 
+                    onClose={() => setEditingAd(null)} 
+                    onSuccess={() => { setEditingAd(null); loadData(); }} 
+                />
+            )}
+            {user && (
+                <EditProfileModal 
+                    user={user}
+                    isOpen={isEditProfileOpen}
+                    onClose={() => setIsEditProfileOpen(false)}
+                    onSuccess={loadData}
+                />
+            )}
+            {editingBusiness && (
+                <EditBusinessModal 
+                    business={editingBusiness}
+                    isOpen={!!editingBusiness}
+                    onClose={() => setEditingBusiness(null)}
+                    onSuccess={loadData}
+                />
+            )}
 
-  return (
-    <div className="p-4 lg:p-8 max-w-5xl mx-auto space-y-6">
-      <EditProfileModal 
-        user={user} 
-        isOpen={isEditOpen} 
-        onClose={() => setIsEditOpen(false)} 
-        onSuccess={loadData}
-      />
-      
-      {editingBusiness && (
-          <EditBusinessModal 
-            business={editingBusiness}
-            isOpen={!!editingBusiness}
-            onClose={() => setEditingBusiness(null)}
-            onSuccess={loadData}
-          />
-      )}
-
-      {editingAd && (
-          <EditAdModal 
-            ad={editingAd}
-            isOpen={!!editingAd}
-            onClose={() => setEditingAd(null)}
-            onSuccess={loadData}
-          />
-      )}
-
-      {/* Profile Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start gap-6">
-        <div className="relative">
-          <img src={user.avatar} alt="Profile" className="w-32 h-32 rounded-full border-4 border-blue-50 dark:border-blue-900 object-cover" />
-          {user.role === UserRole.ADMIN && (
-              <div className="absolute -bottom-2 -right-2 bg-red-600 text-white p-1.5 rounded-full border-4 border-white dark:border-gray-800" title="Администратор">
-                  <ShieldAlert className="w-5 h-5" />
-              </div>
-          )}
-        </div>
-        <div className="flex-1 text-center md:text-left w-full">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 justify-center md:justify-start">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{user.name}</h1>
-                  {user.badges && user.badges.map(b => <BadgeIcon key={b} name={b} />)}
-              </div>
-              <p className="text-gray-500 dark:text-gray-400">{user.email}</p>
-              {user.phone && <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{user.phone}</p>}
-            </div>
-            <div className="flex gap-2 justify-center md:justify-start">
-                <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)} className="dark:border-gray-600 dark:text-gray-300">
-                    <Edit className="w-4 h-4 mr-2" /> Редактировать
-                </Button>
-                {/* ONLY SHOW ADMIN BUTTON FOR ADMINS */}
-                {user.role === UserRole.ADMIN && (
-                    <Button variant="danger" size="sm" onClick={() => window.location.hash = '#/admin'}>
-                        <Settings className="w-4 h-4 mr-2" /> Админка
-                    </Button>
-                )}
-            </div>
-          </div>
-          
-          <div className="mt-6 max-w-md">
-            <XPBar xp={user.xp} />
-            <p className="text-xs text-gray-400 mt-2">Публикуйте объявления и оставляйте отзывы, чтобы повышать уровень!</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b dark:border-gray-700 bg-white dark:bg-gray-800 px-6 pt-2 rounded-t-xl overflow-x-auto">
-          <button onClick={() => setActiveTab('stats')} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'stats' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>Статистика</button>
-          <button onClick={() => setActiveTab('orders')} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'orders' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>Заказы ({myOrders.length})</button>
-          <button onClick={() => setActiveTab('tickets')} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'tickets' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>Билеты</button>
-          <button onClick={() => setActiveTab('ads')} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'ads' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>Объявления</button>
-          <button onClick={() => setActiveTab('biz')} className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'biz' ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>Организации</button>
-      </div>
-
-      {/* Tab Content */}
-      <div className="bg-white dark:bg-gray-800 rounded-b-xl border dark:border-gray-700 shadow-sm p-6 min-h-[300px]">
-         
-         {activeTab === 'stats' && (
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-               <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg text-center">
-                  <span className="block text-2xl font-bold text-blue-700 dark:text-blue-400">{myAds.length}</span>
-                  <span className="text-sm text-blue-600 dark:text-blue-300">Объявлений</span>
-               </div>
-               <div className="bg-orange-50 dark:bg-orange-900/30 p-4 rounded-lg text-center">
-                  <span className="block text-2xl font-bold text-orange-700 dark:text-orange-400">{myBiz.length}</span>
-                  <span className="text-sm text-orange-600 dark:text-orange-300">Бизнесов</span>
-               </div>
-               <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded-lg text-center">
-                  <span className="block text-2xl font-bold text-green-700 dark:text-green-400">{Math.floor(user.xp / 100)}</span>
-                  <span className="text-sm text-green-600 dark:text-green-300">Бонусов</span>
-               </div>
-               <div className="bg-purple-50 dark:bg-purple-900/30 p-4 rounded-lg text-center">
-                  <span className="block text-2xl font-bold text-purple-700 dark:text-purple-400">{user.xp}</span>
-                  <span className="text-sm text-purple-600 dark:text-purple-300">Всего XP</span>
-               </div>
-             </div>
-         )}
-
-         {activeTab === 'orders' && (
-             <div className="space-y-6">
-                 {myOrders.length > 0 ? myOrders.map(order => {
-                     const statusInfo = getOrderStatus(order.status);
-                     return (
-                         <div key={order.id} className="border dark:border-gray-700 rounded-xl p-5 hover:shadow-md transition-all">
-                             <div className="flex flex-col md:flex-row justify-between mb-4">
-                                 <div>
-                                     <h4 className="font-bold text-lg dark:text-white mb-1">{order.businessName || 'Заказ'}</h4>
-                                     <p className="text-sm text-gray-500 dark:text-gray-400">{new Date(order.createdAt).toLocaleDateString()}</p>
-                                 </div>
-                                 <div className="text-right mt-2 md:mt-0">
-                                     <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{order.totalPrice} ₽</div>
-                                     <p className="text-xs text-gray-400">{order.address}</p>
-                                 </div>
-                             </div>
-                             
-                             {/* Tracker */}
-                             <div className="relative pt-4 pb-2">
-                                 <div className="h-1 bg-gray-200 dark:bg-gray-700 w-full rounded-full absolute top-1/2 -translate-y-1/2 z-0"></div>
-                                 <div className={`h-1 bg-green-500 rounded-full absolute top-1/2 -translate-y-1/2 z-0 transition-all duration-1000`} style={{ width: `${(statusInfo.step / 4) * 100}%` }}></div>
-                                 
-                                 <div className="relative z-10 flex justify-between">
-                                     {['new', 'cooking', 'delivery', 'done'].map((s, idx) => {
-                                         const isActive = idx + 1 <= statusInfo.step;
-                                         return (
-                                             <div key={s} className="flex flex-col items-center">
-                                                 <div className={`w-4 h-4 rounded-full border-2 ${isActive ? 'bg-green-500 border-green-500' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'}`}></div>
-                                             </div>
-                                         );
-                                     })}
-                                 </div>
-                             </div>
-                             <div className={`text-center font-bold text-sm mt-3 ${statusInfo.color}`}>
-                                 {statusInfo.label}
-                             </div>
-                         </div>
-                     );
-                 }) : (
-                     <div className="text-center py-10 text-gray-400">У вас нет заказов</div>
-                 )}
-             </div>
-         )}
-
-         {activeTab === 'tickets' && (
-             <div className="space-y-4">
-                 {myTickets.length > 0 ? myTickets.map(t => (
-                     <div key={t.id} className="relative flex flex-col md:flex-row bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                         {/* Perforated edge illusion */}
-                         <div className="hidden md:block absolute top-0 bottom-0 left-2/3 border-l-2 border-dashed border-gray-300 dark:border-gray-600"></div>
-                         <div className="hidden md:block absolute -top-3 left-[66.66%] -ml-3 w-6 h-6 bg-white dark:bg-gray-800 rounded-full border-b dark:border-gray-700"></div>
-                         <div className="hidden md:block absolute -bottom-3 left-[66.66%] -ml-3 w-6 h-6 bg-white dark:bg-gray-800 rounded-full border-t dark:border-gray-700"></div>
-
-                         <div className="flex-1 p-5 flex gap-4">
-                             <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg shrink-0 overflow-hidden">
-                                 <img src={t.eventImage} alt="" className="w-full h-full object-cover" />
-                             </div>
-                             <div>
-                                 <h4 className="font-bold text-lg dark:text-white mb-1">{t.eventTitle}</h4>
-                                 <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-2">
-                                     <Calendar className="w-4 h-4" /> {t.eventDate}
-                                 </div>
-                                 <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                                     <MapPin className="w-4 h-4" /> {t.eventLocation}
-                                 </div>
-                             </div>
-                         </div>
-
-                         <div className="md:w-1/3 bg-gray-50 dark:bg-gray-700/30 p-5 flex flex-col justify-center items-center text-center border-t md:border-t-0">
-                             <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Ряд {t.row + 1}, Место {t.col + 1}</div>
-                             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">{t.price} ₽</div>
-                             <div className="bg-white p-1 rounded">
-                                <QrCode className="w-16 h-16 text-black" />
-                             </div>
-                             <div className="text-[10px] text-gray-400 mt-2 font-mono">{t.qrCode}</div>
-                         </div>
-                     </div>
-                 )) : (
-                     <div className="text-center py-10 text-gray-400">У вас нет купленных билетов</div>
-                 )}
-             </div>
-         )}
-
-         {activeTab === 'ads' && (
-             <div className="space-y-4">
-                 {myAds.length > 0 ? myAds.map(ad => (
-                     <div key={ad.id} className="flex items-center gap-4 p-4 border dark:border-gray-700 rounded-lg hover:shadow-sm transition-shadow">
-                         <img src={ad.image} alt="" className="w-16 h-16 rounded object-cover bg-gray-100" />
-                         <div className="flex-1 min-w-0">
-                             <div className="flex justify-between">
-                                <h4 className="font-bold text-gray-900 dark:text-white truncate">{ad.title}</h4>
-                                {ad.status === 'pending' && <Badge color="orange">На проверке</Badge>}
-                             </div>
-                             <p className="text-blue-600 dark:text-blue-400 font-medium">{ad.price} {ad.currency}</p>
-                             <div className="flex items-center gap-2 mt-1">
-                                 <Badge color={ad.isVip ? "orange" : "gray"}>{ad.isVip ? "VIP" : ad.category}</Badge>
-                                 <span className="text-xs text-gray-400">{ad.date}</span>
-                             </div>
-                         </div>
-                         <div className="flex gap-2">
-                             <Button variant="outline" size="sm" onClick={() => setEditingAd(ad)}>
-                                 <Edit className="w-4 h-4" />
-                             </Button>
-                             <Button variant="danger" size="sm" onClick={() => handleDeleteAd(ad.id)}>
-                                 <Trash2 className="w-4 h-4" />
-                             </Button>
-                         </div>
-                     </div>
-                 )) : (
-                     <div className="text-center py-10 text-gray-400">У вас пока нет активных объявлений</div>
-                 )}
-             </div>
-         )}
-
-         {activeTab === 'biz' && (
-             <div className="space-y-4">
-                 <div className="flex justify-end mb-4">
-                     <Link to="/business-connect">
-                         <Button size="sm" variant="outline" className="flex items-center gap-2">
-                            <Plus className="w-4 h-4" /> Добавить еще бизнес
-                         </Button>
-                     </Link>
-                 </div>
-                 
-                 {myBiz.length > 0 ? myBiz.map(biz => (
-                     <div key={biz.id} className="flex items-center gap-4 p-4 border dark:border-gray-700 rounded-lg hover:shadow-sm transition-shadow">
-                         <img src={biz.image} alt="" className="w-16 h-16 rounded object-cover bg-gray-100" />
-                         <div className="flex-1 min-w-0">
-                             <h4 className="font-bold text-gray-900 dark:text-white truncate">{biz.name}</h4>
-                             <p className="text-sm text-gray-500 line-clamp-1">{biz.address}</p>
-                             <div className="flex items-center gap-2 mt-1">
-                                 <Badge color="blue">{biz.category}</Badge>
-                             </div>
-                         </div>
-                         <div className="flex gap-2">
-                             <Button variant="outline" size="sm" onClick={() => setEditingBusiness(biz)}>
-                                 <Edit className="w-4 h-4" />
-                             </Button>
-                             <Button variant="danger" size="sm" onClick={() => handleDeleteBiz(biz.id)}>
-                                 <Trash2 className="w-4 h-4" />
-                             </Button>
-                         </div>
-                     </div>
-                 )) : (
-                     <div className="text-center py-10 text-gray-400">
-                         <p className="mb-4">У вас нет подключенных организаций</p>
-                     </div>
-                 )}
-             </div>
-         )}
-
-         {activeTab === 'fav' && (
-            <div className="space-y-4">
-                {myFavs.length > 0 ? myFavs.map(ad => (
-                    <div key={ad.id} className="flex items-center gap-4 p-4 border dark:border-gray-700 rounded-lg hover:shadow-sm transition-shadow">
-                        <img src={ad.image} alt="" className="w-16 h-16 rounded object-cover bg-gray-100" />
-                        <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-gray-900 dark:text-white truncate">{ad.title}</h4>
-                            <p className="text-blue-600 dark:text-blue-400 font-medium">{ad.price} {ad.currency}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <Badge color="gray">{ad.category}</Badge>
-                                <span className="text-xs text-gray-400">{ad.date}</span>
-                            </div>
-                        </div>
-                        <div className="text-red-500">
-                            <Heart className="w-5 h-5 fill-current" />
+            {/* Profile Header */}
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 lg:p-8 shadow-sm border border-gray-100 dark:border-gray-700 mb-8 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 dark:bg-blue-900/10 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none"></div>
+                
+                <div className="relative shrink-0">
+                    <div className="w-28 h-28 rounded-full p-1 bg-gradient-to-tr from-blue-500 to-purple-500">
+                        <img src={user.avatar} className="w-full h-full rounded-full object-cover border-4 border-white dark:border-gray-800" alt="" />
+                    </div>
+                    <button 
+                        onClick={() => setIsEditProfileOpen(true)}
+                        className="absolute bottom-1 right-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-white p-2 rounded-full shadow-md border border-gray-100 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                    >
+                        <Pencil className="w-4 h-4" />
+                    </button>
+                </div>
+                
+                <div className="flex-1 text-center md:text-left z-10">
+                    <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">{user.name}</h1>
+                        <div className="flex gap-1">
+                            {user.badges?.map(b => <BadgeIcon key={b} name={b} />)}
                         </div>
                     </div>
-                )) : (
-                    <div className="text-center py-10 text-gray-400">У вас нет сохраненных объявлений</div>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">{user.email}</p>
+                    
+                    <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-4">
+                        {user.role === UserRole.ADMIN && <span className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Admin</span>}
+                        {user.role === UserRole.BUSINESS && <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Business</span>}
+                    </div>
+
+                    <div className="max-w-xs mx-auto md:mx-0">
+                        <XPBar xp={user.xp} />
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-3 min-w-[140px] z-10">
+                    <Link to="/settings">
+                        <Button variant="secondary" className="w-full bg-white dark:bg-gray-700 dark:text-white border-none shadow-sm">
+                            <Settings className="w-4 h-4 mr-2" /> Настройки
+                        </Button>
+                    </Link>
+                    <button onClick={handleLogout} className="flex items-center justify-center w-full px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+                        <LogOut className="w-4 h-4 mr-2" /> Выйти
+                    </button>
+                </div>
+            </div>
+
+            {/* Admin Panel Link */}
+            {user.role === UserRole.ADMIN && (
+                <div className="mb-8">
+                    <Link to="/admin" className="block group">
+                        <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-2xl p-6 shadow-sm flex items-center justify-between transition-transform group-hover:scale-[1.01]">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-xl">
+                                    <LayoutDashboard className="w-6 h-6 text-gray-900 dark:text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-lg text-gray-900 dark:text-white">Панель администратора</h3>
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm">Управление контентом и модерация</p>
+                                </div>
+                            </div>
+                            <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-full">
+                                <ChevronDown className="w-5 h-5 -rotate-90 text-gray-600 dark:text-gray-300" />
+                            </div>
+                        </div>
+                    </Link>
+                </div>
+            )}
+
+            <div className="space-y-10">
+                {/* My Ads - Horizontal Rail */}
+                <section>
+                    <div className="flex justify-between items-center mb-5 px-1">
+                        <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">
+                            <ShoppingBag className="w-5 h-5 text-blue-600" /> Мои объявления
+                            <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full ml-1">{myAds.length}</span>
+                        </h2>
+                        <Link to="/classifieds">
+                            <Button size="sm" className="rounded-full px-4"><Plus className="w-4 h-4 mr-1" /> Добавить</Button>
+                        </Link>
+                    </div>
+
+                    {myAds.length > 0 ? (
+                        <div className="flex overflow-x-auto gap-4 pb-4 -mx-4 px-4 scrollbar-hide snap-x">
+                            {myAds.map(ad => (
+                                <div key={ad.id} onClick={() => navigate(`/ad/${ad.id}`)} className="min-w-[260px] w-[260px] snap-center bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col group cursor-pointer hover:shadow-md transition-all">
+                                    <div className="relative h-40 bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                                        <img src={ad.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
+                                        {ad.isVip && (
+                                            <div className="absolute top-2 left-2 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1">
+                                                <Crown className="w-3 h-3" /> VIP
+                                            </div>
+                                        )}
+                                        <div className={`absolute top-2 right-2 px-2 py-1 rounded text-[10px] font-bold uppercase backdrop-blur-md ${ad.status === 'pending' ? 'bg-yellow-500/80 text-white' : 'bg-green-500/80 text-white'}`}>
+                                            {ad.status === 'pending' ? 'На проверке' : 'Активно'}
+                                        </div>
+                                    </div>
+                                    <div className="p-4 flex-1 flex flex-col">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h3 className="font-bold text-gray-900 dark:text-white truncate pr-2 text-sm">{ad.title}</h3>
+                                        </div>
+                                        <p className="font-bold text-blue-600 dark:text-blue-400 mb-4">{ad.price.toLocaleString()} {ad.currency}</p>
+                                        
+                                        <div className="mt-auto flex gap-2 pt-3 border-t dark:border-gray-700">
+                                            <button 
+                                                onClick={(e) => handleEditAd(ad, e)}
+                                                className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                                            >
+                                                <Edit3 className="w-3.5 h-3.5" /> Ред.
+                                            </button>
+                                            <button 
+                                                onClick={(e) => handleDeleteAd(ad.id, e)}
+                                                className="flex items-center justify-center p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed dark:border-gray-700">
+                            <ShoppingBag className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                            <p className="text-gray-500 dark:text-gray-400 text-sm">У вас пока нет объявлений</p>
+                        </div>
+                    )}
+                </section>
+
+                {/* My Business - Grid */}
+                {myBusinesses.length > 0 && (
+                    <section>
+                        <div className="flex justify-between items-center mb-5 px-1">
+                            <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">
+                                <Briefcase className="w-5 h-5 text-purple-600" /> Мой бизнес
+                            </h2>
+                            <Link to="/business-connect">
+                                <Button size="sm" variant="secondary" className="rounded-full"><Plus className="w-4 h-4 mr-1" /> Добавить</Button>
+                            </Link>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            {myBusinesses.map(biz => (
+                                <div key={biz.id} className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col group">
+                                    <div className="h-32 bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+                                        <img src={biz.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                                        <div className="absolute bottom-3 left-4 text-white">
+                                            <h3 className="font-bold text-lg leading-tight">{biz.name}</h3>
+                                            <p className="text-xs opacity-80">{biz.category}</p>
+                                        </div>
+                                        <Link 
+                                            to="/business-crm"
+                                            className="absolute top-3 right-3 p-2 bg-black/40 backdrop-blur-md rounded-full text-white hover:bg-black/60 transition-colors"
+                                            title="Кабинет управления"
+                                        >
+                                            <LayoutDashboard className="w-4 h-4" />
+                                        </Link>
+                                    </div>
+                                    <div className="p-4 flex gap-2">
+                                        <Link to={`/business/${biz.id}`} className="flex-1">
+                                            <Button variant="secondary" className="w-full text-xs dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                                Страница
+                                            </Button>
+                                        </Link>
+                                        <Button 
+                                            className="flex-1 text-xs bg-purple-600 hover:bg-purple-700 text-white border-none shadow-purple-200 dark:shadow-none flex items-center justify-center gap-2"
+                                            onClick={() => setEditingBusiness(biz)}
+                                        >
+                                            <Edit3 className="w-3.5 h-3.5" /> Редактировать
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
                 )}
             </div>
-         )}
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
 
 // Admin Dashboard
-const data = [
-  { name: 'Пн', visits: 4000 },
-  { name: 'Вт', visits: 3000 },
-  { name: 'Ср', visits: 2000 },
-  { name: 'Чт', visits: 2780 },
-  { name: 'Пт', visits: 1890 },
-  { name: 'Сб', visits: 2390 },
-  { name: 'Вс', visits: 3490 },
-];
-
 export const AdminDashboard: React.FC = () => {
-  const [stats, setStats] = useState<any>({ users: 0, ads: 0, businesses: 0, news: 0 });
-  const [pendingAds, setPendingAds] = useState<Ad[]>([]);
-  const [recentItems, setRecentItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Create Poll State
-  const [pollQuestion, setPollQuestion] = useState('');
-  const [pollOptions, setPollOptions] = useState(['', '']);
-
-  const navigate = useNavigate();
-
-  const loadData = async () => {
-    try {
-        // SECURITY CHECK
-        const user = await api.getCurrentUser();
-        if (!user || user.role !== UserRole.ADMIN) {
-            alert("Доступ запрещен!");
-            navigate('/');
-            return;
-        }
-
-        const s = await api.getSystemStats();
+    const [stats, setStats] = useState({ users: 0, ads: 0, businesses: 0, news: 0 });
+    const [pendingAds, setPendingAds] = useState<Ad[]>([]);
+    const [allAds, setAllAds] = useState<Ad[]>([]); // New state for all ads
+    const [activeTab, setActiveTab] = useState<'overview' | 'moderation' | 'content' | 'ads'>('overview');
+    
+    // Poll State
+    const [pollQuestion, setPollQuestion] = useState('');
+    const [pollOptions, setPollOptions] = useState(['', '']);
+    
+    const loadAllData = async () => {
+        const [s, p, all] = await Promise.all([
+            api.getSystemStats(), 
+            api.getPendingAds(),
+            api.getAllAdsForAdmin()
+        ]);
         setStats(s);
-        const c = await api.getAllContent();
-        setRecentItems(Array.isArray(c) ? c : []);
+        setPendingAds(p);
+        setAllAds(all);
+    };
+
+    useEffect(() => {
+        loadAllData();
+    }, []);
+
+    const handleCreatePoll = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const validOptions = pollOptions.filter(o => o.trim() !== '');
+        if (!pollQuestion || validOptions.length < 2) return alert("Введите вопрос и минимум 2 варианта");
         
-        // Load pending moderation
-        const pending = await api.getPendingAds();
-        setPendingAds(pending);
+        try {
+            await api.createPoll(pollQuestion, validOptions);
+            alert("Опрос создан!");
+            setPollQuestion('');
+            setPollOptions(['', '']);
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
 
-    } catch (e) {
-        console.error(e);
-        setRecentItems([]);
-    } finally {
-        setLoading(false);
-    }
-  };
+    const handleOptionChange = (idx: number, val: string) => {
+        const newOpts = [...pollOptions];
+        newOpts[idx] = val;
+        setPollOptions(newOpts);
+    };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+    const approveAd = async (id: string) => {
+        await api.approveAd(id);
+        loadAllData();
+    };
 
-  const handleDelete = async (id: string) => {
-      if (confirm('Админ: Удалить эту запись?')) {
-          try {
-            await api.deleteAd(id);
-            loadData();
-          } catch(e: any) {
-            alert("Ошибка удаления: " + e.message);
-          }
-      }
-  };
+    const rejectAd = async (id: string) => {
+        if(confirm("Отклонить объявление?")) {
+            await api.rejectAd(id);
+            loadAllData();
+        }
+    };
 
-  const handleApproveAd = async (id: string) => {
-      if(confirm("Одобрить объявление?")) {
-          await api.approveAd(id);
-          loadData();
-      }
-  };
+    const toggleVipAd = async (ad: Ad) => {
+        try {
+            await api.adminToggleVip(ad.id, !!ad.isVip);
+            loadAllData();
+        } catch(e:any) {
+            alert(e.message);
+        }
+    };
 
-  const handleRejectAd = async (id: string) => {
-      if(confirm("Отклонить объявление? Оно будет удалено.")) {
-          await api.rejectAd(id);
-          loadData();
-      }
-  };
+    const deleteAdPermanently = async (id: string) => {
+        if(confirm("Удалить это объявление навсегда?")) {
+            try {
+                await api.deleteAd(id);
+                loadAllData();
+            } catch(e:any) {
+                alert(e.message);
+            }
+        }
+    };
 
-  const handleCreatePoll = async (e: React.FormEvent) => {
-      e.preventDefault();
-      try {
-          const validOptions = pollOptions.filter(o => o.trim().length > 0);
-          if (validOptions.length < 2) {
-              alert("Минимум 2 варианта ответа");
-              return;
-          }
-          await api.createPoll(pollQuestion, validOptions);
-          alert("Опрос создан и опубликован!");
-          setPollQuestion('');
-          setPollOptions(['', '']);
-      } catch (e: any) {
-          alert("Ошибка создания опроса: " + e.message);
-      }
-  };
+    return (
+        <div className="max-w-6xl mx-auto p-4 lg:p-8">
+            <h1 className="text-3xl font-bold mb-8 dark:text-white flex items-center gap-3">
+                <LayoutDashboard className="w-8 h-8 text-blue-600" /> Администрирование
+            </h1>
 
-  const handleOptionChange = (idx: number, val: string) => {
-      const newOpts = [...pollOptions];
-      newOpts[idx] = val;
-      setPollOptions(newOpts);
-  };
-
-  if (loading) return <div className="p-10 text-center">Проверка прав доступа...</div>;
-
-  return (
-    <div className="p-4 lg:p-8 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Центр управления (Админка)</h1>
-        <Button variant="secondary" onClick={loadData}>Обновить данные</Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm flex items-center gap-4">
-           <div className="p-3 bg-blue-100 rounded-full text-blue-600"><Users className="w-6 h-6" /></div>
-           <div>
-               <p className="text-gray-500 text-sm">Пользователей</p>
-               <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.users}</h3>
-           </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm flex items-center gap-4">
-           <div className="p-3 bg-orange-100 rounded-full text-orange-600"><FileText className="w-6 h-6" /></div>
-           <div>
-               <p className="text-gray-500 text-sm">Объявлений</p>
-               <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.ads}</h3>
-           </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm flex items-center gap-4">
-           <div className="p-3 bg-green-100 rounded-full text-green-600"><ShoppingBag className="w-6 h-6" /></div>
-           <div>
-               <p className="text-gray-500 text-sm">Компаний</p>
-               <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.businesses}</h3>
-           </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm flex items-center gap-4">
-           <div className="p-3 bg-purple-100 rounded-full text-purple-600"><Newspaper className="w-6 h-6" /></div>
-           <div>
-               <p className="text-gray-500 text-sm">Новостей</p>
-               <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.news}</h3>
-           </div>
-        </div>
-      </div>
-
-      {/* MODERATION QUEUE */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-yellow-100 rounded-full text-yellow-600">
-                  <ShieldAlert className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-lg dark:text-white">Модерация объявлений ({pendingAds.length})</h3>
-          </div>
-          
-          <div className="space-y-4 max-h-[400px] overflow-y-auto">
-              {pendingAds.length === 0 ? (
-                  <p className="text-gray-400 text-sm text-center py-4">Нет объявлений, ожидающих проверки.</p>
-              ) : (
-                  pendingAds.map(ad => (
-                      <div key={ad.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl gap-4">
-                          <div className="flex gap-4 items-center">
-                              <img src={ad.image} className="w-16 h-16 rounded-lg object-cover bg-gray-200" alt="" />
-                              <div>
-                                  <h4 className="font-bold dark:text-white">{ad.title}</h4>
-                                  <p className="text-xs text-gray-500">{ad.category} • {ad.price} ₽</p>
-                                  <p className="text-xs text-gray-400 mt-1 line-clamp-1">{ad.description}</p>
-                              </div>
-                          </div>
-                          <div className="flex gap-2 w-full sm:w-auto">
-                              <Button 
-                                size="sm" 
-                                className="bg-green-600 hover:bg-green-700 text-white flex-1 sm:flex-none"
-                                onClick={() => handleApproveAd(ad.id)}
-                              >
-                                  <Check className="w-4 h-4 mr-1" /> Одобрить
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="danger"
-                                className="flex-1 sm:flex-none"
-                                onClick={() => handleRejectAd(ad.id)}
-                              >
-                                  <X className="w-4 h-4 mr-1" /> Отклонить
-                              </Button>
-                          </div>
-                      </div>
-                  ))
-              )}
-          </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-         {/* Poll Creator */}
-         <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm">
-             <div className="flex items-center gap-2 mb-4">
-                 <PieChart className="w-5 h-5 text-blue-600" />
-                 <h3 className="font-bold text-lg dark:text-white">Создать опрос</h3>
-             </div>
-             <form onSubmit={handleCreatePoll} className="space-y-3">
-                 <div>
-                     <label className="text-xs font-bold text-gray-500">Вопрос</label>
-                     <input 
-                        required
-                        className="w-full border rounded-lg p-2 text-sm mt-1" 
-                        placeholder="Например: Где установить елку?"
-                        value={pollQuestion}
-                        onChange={e => setPollQuestion(e.target.value)}
-                     />
-                 </div>
-                 <div className="space-y-2">
-                     <label className="text-xs font-bold text-gray-500">Варианты ответов</label>
-                     {pollOptions.map((opt, idx) => (
-                         <input 
-                            key={idx}
-                            className="w-full border rounded-lg p-2 text-sm"
-                            placeholder={`Вариант ${idx + 1}`}
-                            value={opt}
-                            onChange={e => handleOptionChange(idx, e.target.value)}
-                            required
-                         />
-                     ))}
-                     <button 
-                        type="button" 
-                        onClick={() => setPollOptions([...pollOptions, ''])}
-                        className="text-xs text-blue-600 font-medium flex items-center gap-1"
-                     >
-                         <Plus className="w-3 h-3" /> Добавить вариант
-                     </button>
-                 </div>
-                 <Button className="w-full mt-2" size="sm">Опубликовать опрос</Button>
-             </form>
-         </div>
-
-         {/* Chart */}
-         <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm">
-            <h3 className="font-bold text-lg mb-4 dark:text-white">Посещаемость портала</h3>
-            <div className="h-64 w-full">
-               <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data}>
-                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                     <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                     <YAxis axisLine={false} tickLine={false} />
-                     <Tooltip cursor={{fill: 'transparent'}} />
-                     <Bar dataKey="visits" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-               </ResponsiveContainer>
+            {/* Tabs */}
+            <div className="flex border-b dark:border-gray-700 mb-8 overflow-x-auto">
+                <button 
+                    onClick={() => setActiveTab('overview')}
+                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'overview' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                    <BarChart3 className="w-4 h-4" /> Обзор
+                </button>
+                <button 
+                    onClick={() => setActiveTab('moderation')}
+                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'moderation' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                    <Shield className="w-4 h-4" /> Модерация {pendingAds.length > 0 && <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">{pendingAds.length}</span>}
+                </button>
+                <button 
+                    onClick={() => setActiveTab('ads')}
+                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'ads' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                    <List className="w-4 h-4" /> Объявления
+                </button>
+                <button 
+                    onClick={() => setActiveTab('content')}
+                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'content' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                    <FileText className="w-4 h-4" /> Контент
+                </button>
             </div>
-         </div>
 
-         {/* Moderation Queue / Activity Log */}
-         <div className="lg:col-span-3 bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
-            <h3 className="font-bold text-lg mb-4 dark:text-white">Лента активности</h3>
-            <div className="space-y-4 max-h-[400px] overflow-y-auto">
-               {recentItems.length === 0 ? <p className="text-gray-400 text-sm">Нет недавних действий</p> : recentItems.map(item => (
-                  <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg group">
-                     <div>
-                        <p className="text-sm font-medium line-clamp-1 dark:text-gray-200">{item.title}</p>
-                        <p className="text-xs text-gray-500">{item.type} • {item.date}</p>
-                     </div>
-                     <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="sm" variant="danger" className="h-7 w-7 p-0 flex items-center justify-center" onClick={() => handleDelete(item.id)}>
-                            <Trash2 className="w-3 h-3" />
-                        </Button>
-                     </div>
-                  </div>
-               ))}
-            </div>
-            <div className="mt-4 p-3 bg-yellow-50 text-yellow-800 text-xs rounded-lg">
-                Вы вошли как Администратор. Будьте осторожны с удалением данных.
-            </div>
-         </div>
-      </div>
-    </div>
-  );
+            {activeTab === 'overview' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
+                        <div className="relative z-10">
+                            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wider">Пользователи</p>
+                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.users}</h3>
+                        </div>
+                        <div className="absolute right-4 bottom-4 text-blue-100 dark:text-blue-900/20">
+                            <Users className="w-16 h-16" />
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
+                        <div className="relative z-10">
+                            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wider">Объявления</p>
+                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.ads}</h3>
+                        </div>
+                        <div className="absolute right-4 bottom-4 text-green-100 dark:text-green-900/20">
+                            <ShoppingBag className="w-16 h-16" />
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
+                        <div className="relative z-10">
+                            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wider">Компании</p>
+                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.businesses}</h3>
+                        </div>
+                        <div className="absolute right-4 bottom-4 text-purple-100 dark:text-purple-900/20">
+                            <Building2 className="w-16 h-16" />
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
+                        <div className="relative z-10">
+                            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wider">Новости</p>
+                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.news}</h3>
+                        </div>
+                        <div className="absolute right-4 bottom-4 text-orange-100 dark:text-orange-900/20">
+                            <FileText className="w-16 h-16" />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'moderation' && (
+                <div className="animate-in fade-in">
+                    <h2 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2">
+                        Ожидают проверки <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm px-2 py-0.5 rounded-full">{pendingAds.length}</span>
+                    </h2>
+                    
+                    <div className="grid gap-4">
+                        {pendingAds.length === 0 ? (
+                            <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed dark:border-gray-700">
+                                <Check className="w-12 h-12 text-green-500 mx-auto mb-2 opacity-50" />
+                                <p className="text-gray-500 dark:text-gray-400">Все чисто! Нет объявлений на проверку.</p>
+                            </div>
+                        ) : (
+                            pendingAds.map(ad => (
+                                <div key={ad.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col md:flex-row gap-6">
+                                    <img src={ad.image} className="w-full md:w-48 h-32 rounded-xl object-cover bg-gray-100" alt="" />
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h3 className="font-bold text-lg dark:text-white">{ad.title}</h3>
+                                            <span className="font-bold text-blue-600">{ad.price} ₽</span>
+                                        </div>
+                                        <div className="flex gap-2 mb-3">
+                                            <Badge color="gray">{ad.category}</Badge>
+                                            <span className="text-xs text-gray-400 flex items-center"><MapPin className="w-3 h-3 mr-1" /> {ad.location}</span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">{ad.description}</p>
+                                        
+                                        <div className="flex gap-3">
+                                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white shadow-green-200 dark:shadow-none" onClick={() => approveAd(ad.id)}>
+                                                <Check className="w-4 h-4 mr-2" /> Одобрить
+                                            </Button>
+                                            <Button size="sm" variant="danger" className="bg-red-50 text-red-600 hover:bg-red-100 border-none dark:bg-red-900/20 dark:text-red-400" onClick={() => rejectAd(ad.id)}>
+                                                <X className="w-4 h-4 mr-2" /> Отклонить
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'ads' && (
+                <div className="animate-in fade-in">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-gray-50 dark:bg-gray-700/50 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
+                                    <tr>
+                                        <th className="px-6 py-4">Фото</th>
+                                        <th className="px-6 py-4">Заголовок</th>
+                                        <th className="px-6 py-4">Цена</th>
+                                        <th className="px-6 py-4">Статус</th>
+                                        <th className="px-6 py-4 text-right">Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                    {allAds.map(ad => (
+                                        <tr key={ad.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                            <td className="px-6 py-3">
+                                                <img src={ad.image} className="w-12 h-12 rounded-lg object-cover bg-gray-100" alt="" />
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <div className="font-medium text-gray-900 dark:text-white line-clamp-1">{ad.title}</div>
+                                                <div className="text-xs text-gray-500">{ad.category}</div>
+                                            </td>
+                                            <td className="px-6 py-3 text-sm font-bold text-gray-900 dark:text-gray-200">
+                                                {ad.price.toLocaleString()} ₽
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                                    ad.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                    ad.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                }`}>
+                                                    {ad.status === 'approved' ? 'Активно' : ad.status === 'pending' ? 'Ждет' : 'Отклонено'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-3 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button 
+                                                        onClick={() => toggleVipAd(ad)}
+                                                        className={`p-2 rounded-lg transition-colors ${ad.isVip ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-gray-100 text-gray-400 hover:text-orange-500 dark:bg-gray-700 dark:text-gray-500'}`}
+                                                        title="Toggle VIP"
+                                                    >
+                                                        <Crown className="w-4 h-4" />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => deleteAdPermanently(ad.id)}
+                                                        className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 transition-colors"
+                                                        title="Удалить"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'content' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm">
+                        <div className="flex items-center gap-3 mb-6 border-b dark:border-gray-700 pb-4">
+                            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600">
+                                <PieChart className="w-6 h-6" />
+                            </div>
+                            <h3 className="font-bold text-lg dark:text-white">Создать опрос</h3>
+                        </div>
+                        
+                        <form onSubmit={handleCreatePoll} className="space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Вопрос</label>
+                                <input 
+                                   required
+                                   className="w-full border rounded-xl p-3 mt-1 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                                   placeholder="Например: Где установить елку?"
+                                   value={pollQuestion}
+                                   onChange={e => setPollQuestion(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Варианты ответов</label>
+                                {pollOptions.map((opt, idx) => (
+                                    <div key={idx} className="flex gap-2">
+                                        <span className="py-3 px-1 text-gray-400 text-sm font-mono">{idx + 1}.</span>
+                                        <input 
+                                           className="w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                           placeholder={`Вариант ответа`}
+                                           value={opt}
+                                           onChange={e => handleOptionChange(idx, e.target.value)}
+                                           required
+                                        />
+                                    </div>
+                                ))}
+                                <button 
+                                   type="button" 
+                                   onClick={() => setPollOptions([...pollOptions, ''])}
+                                   className="text-sm text-blue-600 dark:text-blue-400 font-bold flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-2 rounded-lg transition-colors"
+                                >
+                                    <Plus className="w-4 h-4" /> Добавить вариант
+                                </button>
+                            </div>
+                            <div className="pt-4 border-t dark:border-gray-700">
+                                <Button className="w-full py-3 shadow-lg shadow-blue-200 dark:shadow-none">Опубликовать опрос</Button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-8 rounded-2xl shadow-lg relative overflow-hidden flex flex-col justify-center items-center text-center">
+                        <div className="relative z-10">
+                            <h3 className="text-2xl font-bold mb-2">Управление новостями</h3>
+                            <p className="opacity-90 mb-6">Добавляйте важные события и новости города.</p>
+                            <Link to="/news">
+                                <Button variant="secondary" className="border-none shadow-lg text-indigo-700">
+                                    Перейти к новостям
+                                </Button>
+                            </Link>
+                        </div>
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full -ml-10 -mb-10 blur-2xl"></div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };
 
-// ... (ConnectBusiness remains unchanged) ...
 // Connect Business Page
 export const ConnectBusiness: React.FC = () => {
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
-        phone: '',
         category: 'Магазины',
-        address: '',
         description: '',
+        address: '',
+        phone: '',
         workHours: '09:00 - 18:00',
         image: ''
     });
+    const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const navigate = useNavigate();
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -855,7 +810,7 @@ export const ConnectBusiness: React.FC = () => {
             const url = await api.uploadImage(file);
             setFormData(prev => ({ ...prev, image: url }));
         } catch (e: any) {
-            alert(e.message || "Ошибка загрузки фото");
+            alert(e.message);
         } finally {
             setUploading(false);
         }
@@ -866,130 +821,72 @@ export const ConnectBusiness: React.FC = () => {
         setLoading(true);
         try {
             await api.createBusiness(formData);
-            alert("Бизнес успешно добавлен в каталог!");
-            navigate('/category/shops');
+            alert("Заявка на подключение бизнеса отправлена!");
+            navigate('/profile');
+            // Force reload to update sidebar state
+            window.location.reload(); 
         } catch (e: any) {
-            alert("Ошибка: " + (e.message || "Неизвестная ошибка"));
+            alert(e.message);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="p-4 lg:p-8 max-w-3xl mx-auto text-center">
-            <div className="bg-white dark:bg-gray-800 p-10 rounded-2xl shadow-lg border dark:border-gray-700">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Package className="w-8 h-8 text-blue-600" />
-                </div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Подключите свой бизнес</h1>
-                <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-lg mx-auto">
-                    Заполните форму, и ваша компания сразу появится в каталоге Снежинска.
-                </p>
-
-                <form onSubmit={handleSubmit} className="space-y-4 max-w-md mx-auto text-left">
+        <div className="max-w-2xl mx-auto p-4 lg:p-8">
+            <h1 className="text-2xl font-bold mb-6 dark:text-white flex items-center gap-3">
+                <Briefcase className="w-8 h-8 text-blue-600" /> Подключить бизнес
+            </h1>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Название организации</label>
-                        <input 
-                            type="text" 
-                            required
-                            className="w-full border rounded-lg px-4 py-2" 
-                            placeholder='ООО "Ромашка"' 
-                            value={formData.name}
-                            onChange={e => setFormData({...formData, name: e.target.value})}
-                        />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Название компании</label>
+                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Категория</label>
-                        <select 
-                            className="w-full border rounded-lg px-4 py-2 bg-white"
-                            value={formData.category}
-                            onChange={e => setFormData({...formData, category: e.target.value})}
-                        >
-                            <option value="Магазины">Магазины</option>
-                            <option value="Кафе и рестораны">Кафе и рестораны</option>
-                            <option value="Спортзалы и секции">Спортзалы и секции</option>
-                            <option value="Услуги">Услуги (Ремонт, Обучение)</option>
-                            <option value="Аренда и Отдых">Аренда и Отдых (Бани, Домики)</option>
-                            <option value="Медицина">Медицина (Аптеки, Больницы)</option>
-                            <option value="Красота">Красота (Салоны, Мастера)</option>
-                            <option value="Культура">Культура (Музеи, Театры)</option>
-                            <option value="Туризм">Туризм (Экскурсии)</option>
-                            <option value="Кино">Кино</option>
-                            <option value="Транспорт">Транспорт</option>
+                        <select className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                            <option>Магазины</option>
+                            <option>Кафе и рестораны</option>
+                            <option>Услуги</option>
+                            <option>Красота</option>
+                            <option>Спорт</option>
+                            <option>Авто</option>
+                            <option>Кино</option>
+                            <option>Развлечения</option>
                         </select>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Адрес</label>
-                        <input 
-                            type="text" 
-                            required
-                            className="w-full border rounded-lg px-4 py-2" 
-                            placeholder='ул. Ленина, 1' 
-                            value={formData.address}
-                            onChange={e => setFormData({...formData, address: e.target.value})}
-                        />
+                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Телефон</label>
+                            <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Часы работы</label>
+                            <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.workHours} onChange={e => setFormData({...formData, workHours: e.target.value})} required />
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Описание</label>
-                        <textarea 
-                            required
-                            rows={3}
-                            className="w-full border rounded-lg px-4 py-2 resize-none" 
-                            placeholder='Чем вы занимаетесь...' 
-                            value={formData.description}
-                            onChange={e => setFormData({...formData, description: e.target.value})}
-                        />
+                        <textarea rows={4} className="w-full border rounded-lg p-2 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Телефон</label>
-                        <input 
-                            type="tel" 
-                            required
-                            className="w-full border rounded-lg px-4 py-2" 
-                            placeholder='+7 (999) 000-00-00' 
-                            value={formData.phone}
-                            onChange={e => setFormData({...formData, phone: e.target.value})}
-                        />
+                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
+                        {formData.image ? (
+                            <img src={formData.image} alt="" className="h-32 mx-auto rounded object-cover" />
+                        ) : (
+                            <div className="relative cursor-pointer">
+                                <Upload className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
+                                <span className="text-sm text-gray-500 dark:text-gray-400">{uploading ? "Загрузка..." : "Загрузить логотип / фото"}</span>
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageUpload} />
+                            </div>
+                        )}
                     </div>
-
-                    {/* Image Upload */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Фотография / Логотип</label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center relative hover:bg-gray-50 transition-colors">
-                            {formData.image ? (
-                                <div className="relative group">
-                                    <img src={formData.image} alt="Preview" className="h-32 mx-auto rounded object-cover" />
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <span className="text-xs font-bold">Изменить фото</span>
-                                    </div>
-                                    <input 
-                                        type="file" 
-                                        accept="image/*"
-                                        onChange={handleImageUpload}
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                    />
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center">
-                                    {uploading ? (
-                                        <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-2" />
-                                    ) : (
-                                        <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                                    )}
-                                    <p className="text-sm text-gray-500">{uploading ? "Загрузка..." : "Нажмите для загрузки"}</p>
-                                    <input 
-                                        type="file" 
-                                        accept="image/*"
-                                        onChange={handleImageUpload}
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <Button size="lg" className="w-full" disabled={loading || uploading}>
-                        {loading ? 'Сохранение...' : 'Создать компанию'}
+                    <Button className="w-full" disabled={loading || uploading}>
+                        {loading ? <Loader2 className="animate-spin" /> : 'Подключить'}
                     </Button>
                 </form>
             </div>

@@ -25,7 +25,7 @@ export const NEWS_DATA: NewsItem[] = [
   {
     id: 'n2',
     title: 'Открытие нового спорткомплекса "Айсберг"',
-    category: 'Спорт',
+    category: 'Новости спорта',
     image: 'https://picsum.photos/seed/news2/600/400',
     date: 'Вчера',
     views: 850,
@@ -56,7 +56,8 @@ export const ADS_DATA: Ad[] = [
     authorId: 'u2',
     description: 'Продам велосипед, катался пару раз. Дисковые тормоза, 27 скоростей.',
     location: 'ул. Ленина',
-    isVip: true
+    isVip: true,
+    status: 'approved'
   },
   {
     id: 'a2',
@@ -69,7 +70,8 @@ export const ADS_DATA: Ad[] = [
     authorId: 'u3',
     description: 'Уютная квартира в центре. Евроремонт.',
     location: 'ул. Васильева',
-    isVip: true
+    isVip: true,
+    status: 'approved'
   },
   {
     id: 'a3',
@@ -81,7 +83,8 @@ export const ADS_DATA: Ad[] = [
     date: '3 дня назад',
     authorId: 'u4',
     description: 'Подготовка к ЕГЭ и ОГЭ. Опыт 10 лет.',
-    location: 'Онлайн'
+    location: 'Онлайн',
+    status: 'approved'
   },
   {
     id: 'a4',
@@ -93,7 +96,8 @@ export const ADS_DATA: Ad[] = [
     date: '1 час назад',
     authorId: 'u5',
     description: 'Мощный игровой ноутбук. RTX 3060, Ryzen 7.',
-    location: 'ул. Дзержинского'
+    location: 'ул. Дзержинского',
+    status: 'approved'
   },
   {
     id: 'a5',
@@ -105,7 +109,8 @@ export const ADS_DATA: Ad[] = [
     date: 'Сегодня',
     authorId: 'u6',
     description: 'В отличном состоянии, после одного ребенка.',
-    location: 'ул. Мира'
+    location: 'ул. Мира',
+    status: 'approved'
   }
 ];
 
@@ -169,7 +174,7 @@ export const EVENTS_DATA: Event[] = [
     date: 'до 30 июня',
     image: 'https://picsum.photos/seed/gems/400/200',
     location: 'Музей истории',
-    category: 'Культура'
+    category: 'Выставки'
   }
 ];
 
@@ -201,13 +206,26 @@ export const CATALOG_MENU = [
     icon: 'Newspaper',
     path: '/news',
     submenu: [
-      { title: 'Новости администрации', path: '/news?cat=admin' },
-      { title: 'Новости ВНИИТФ', path: '/news?cat=vniitf' },
-      { title: 'Новости культуры', path: '/news?cat=culture' },
-      { title: 'Новости спорта', path: '/news?cat=sport' },
-      { title: 'ЖКХ', path: '/news?cat=housing' },
-      { title: 'Город', path: '/news?cat=city' },
-      { title: 'Прочее', path: '/news?cat=other' },
+      { title: 'Новости администрации', path: '/news?cat=Новости администрации' },
+      { title: 'Новости ВНИИТФ', path: '/news?cat=Новости ВНИИТФ' },
+      { title: 'Новости культуры', path: '/news?cat=Новости культуры' },
+      { title: 'Новости спорта', path: '/news?cat=Новости спорта' },
+      { title: 'ЖКХ', path: '/news?cat=ЖКХ' },
+      { title: 'Город', path: '/news?cat=Город' },
+      { title: 'Прочее', path: '/news?cat=Прочее' },
+    ]
+  },
+  {
+    id: 'culture_section',
+    title: 'Культура',
+    icon: 'Drama',
+    path: '/events',
+    submenu: [
+      { title: 'Афиша', path: '/events', icon: 'Calendar' },
+      { title: 'Концерты', path: '/events?cat=Концерт' },
+      { title: 'Выставки', path: '/events?cat=Выставки' },
+      { title: 'Премьеры', path: '/events?cat=Премьеры' },
+      { title: 'Новости культуры', path: '/news?cat=Новости культуры' },
     ]
   },
   {
@@ -215,7 +233,6 @@ export const CATALOG_MENU = [
     title: 'Услуги для жизни',
     icon: 'ShoppingBag',
     submenu: [
-      { title: 'Магазины', path: '/category/shops' },
       { title: 'Кафе и рестораны', path: '/category/cafe' },
       { title: 'Спортивные залы', path: '/category/sport' },
       { title: 'Аренда и Отдых', path: '/category/rent' },
@@ -225,19 +242,6 @@ export const CATALOG_MENU = [
       { title: 'Туризм', path: '/category/tourism' },
       { title: 'Автомойки', path: '/category/carwash' },
       { title: 'Автосервисы', path: '/category/autoservice' },
-    ]
-  },
-  {
-    id: 'culture_section',
-    title: 'Культура',
-    icon: 'Drama',
-    path: '/events',
-    submenu: [
-      { title: 'Концерты', path: '/events?cat=concert' },
-      { title: 'Выставки', path: '/events?cat=exhibition' },
-      { title: 'Премьеры', path: '/events?cat=premiere' },
-      { title: 'Анонсы', path: '/events?cat=announce' },
-      { title: 'Новости культуры', path: '/news?cat=culture' },
     ]
   },
   {
@@ -264,27 +268,15 @@ export const CATALOG_MENU = [
 
 export const SERVICES_MENU = [
   {
-    id: 'city_group',
+    id: 'city_environment',
     title: 'Городская среда',
     icon: 'Building2',
-    submenu: [
-      { title: 'Умный Город', path: '/smart-city', icon: 'Eye' },
-      { title: 'ЖКХ / Мой Дом', path: '/housing', icon: 'Lightbulb' },
-      { title: 'Городской контроль', path: '/monitor', icon: 'ShieldAlert' },
-      { title: 'Бюро находок', path: '/lost-found', icon: 'HelpCircle' },
-    ]
-  },
-  {
-    id: 'market_group',
-    title: 'Маркет и Работа',
-    icon: 'Briefcase',
     submenu: [
       { title: 'Доска объявлений', path: '/classifieds', icon: 'ShoppingBag' },
       { title: 'Работа', path: '/jobs', icon: 'Briefcase' },
       { title: 'Попутчики', path: '/rides', icon: 'Car' },
       { title: 'Прокат вещей', path: '/rentals', icon: 'Repeat' },
-      { title: 'Курьерам', path: '/delivery', icon: 'Truck' },
-      { title: 'Кошелек', path: '/wallet', icon: 'Wallet' },
+      { title: 'Бюро находок', path: '/lost-found', icon: 'HelpCircle' },
     ]
   },
   {
@@ -292,6 +284,7 @@ export const SERVICES_MENU = [
     title: 'Социум',
     icon: 'Users',
     submenu: [
+      { title: 'Сообщения', path: '/chat', icon: 'MessageCircle' },
       { title: 'Сообщества', path: '/communities', icon: 'Users' },
       { title: 'Добро', path: '/charity', icon: 'Heart' },
       { title: 'Квесты', path: '/quests', icon: 'Flag' },

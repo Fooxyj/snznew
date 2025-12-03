@@ -80,16 +80,16 @@ export const BonusShop: React.FC = () => {
                 )}
             </div>
 
-            <div className="flex border-b mb-6">
+            <div className="flex border-b dark:border-gray-700 mb-6">
                 <button 
                     onClick={() => setActiveTab('shop')}
-                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'shop' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'shop' ? 'border-purple-600 text-purple-600 dark:text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
                     <ShoppingBag className="w-4 h-4" /> Витрина
                 </button>
                 <button 
                     onClick={() => setActiveTab('inventory')}
-                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'inventory' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'inventory' ? 'border-purple-600 text-purple-600 dark:text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
                     <Tag className="w-4 h-4" /> Мои купоны ({myCoupons.length})
                 </button>
@@ -98,7 +98,7 @@ export const BonusShop: React.FC = () => {
             {activeTab === 'shop' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {coupons.map(coupon => (
-                        <div key={coupon.id} className="bg-white rounded-2xl border shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+                        <div key={coupon.id} className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
                             <div className="h-48 relative">
                                 <img src={coupon.image} alt="" className="w-full h-full object-cover" />
                                 <div className="absolute top-3 right-3 bg-white/90 backdrop-blur text-purple-700 font-bold px-3 py-1 rounded-full text-sm shadow-sm flex items-center gap-1">
@@ -106,13 +106,13 @@ export const BonusShop: React.FC = () => {
                                 </div>
                             </div>
                             <div className="p-5 flex-1 flex flex-col">
-                                <div className="text-xs text-gray-500 font-medium mb-1 uppercase tracking-wide">{coupon.partnerName}</div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-2">{coupon.title}</h3>
-                                <p className="text-gray-600 text-sm mb-4 flex-1">{coupon.description}</p>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 uppercase tracking-wide">{coupon.partnerName}</div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{coupon.title}</h3>
+                                <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 flex-1">{coupon.description}</p>
                                 <Button 
                                     onClick={() => handleBuy(coupon)} 
                                     disabled={!user || user.xp < coupon.price || buyingId === coupon.id}
-                                    className={`w-full ${(!user || user.xp < coupon.price) ? 'opacity-50 cursor-not-allowed bg-gray-300 hover:bg-gray-300' : 'bg-purple-600 hover:bg-purple-700'}`}
+                                    className={`w-full ${(!user || user.xp < coupon.price) ? 'opacity-50 cursor-not-allowed bg-gray-300 dark:bg-gray-700 dark:text-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}
                                 >
                                     {buyingId === coupon.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (!user || user.xp < coupon.price) ? 'Недостаточно XP' : 'Купить за баллы'}
                                 </Button>
@@ -126,15 +126,15 @@ export const BonusShop: React.FC = () => {
                         <div className="text-center py-20 text-gray-400">У вас пока нет купонов. Самое время что-нибудь купить!</div>
                     ) : (
                         myCoupons.map(mc => (
-                            <div key={mc.id} className="bg-white p-4 rounded-xl border shadow-sm flex flex-col md:flex-row gap-6 items-center">
-                                <img src={mc.couponImage} alt="" className="w-24 h-24 rounded-lg object-cover bg-gray-100" />
+                            <div key={mc.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm flex flex-col md:flex-row gap-6 items-center">
+                                <img src={mc.couponImage} alt="" className="w-24 h-24 rounded-lg object-cover bg-gray-100 dark:bg-gray-700" />
                                 <div className="flex-1 text-center md:text-left">
-                                    <h3 className="text-lg font-bold">{mc.couponTitle}</h3>
-                                    <p className="text-gray-500 text-sm">Покажите этот код на кассе</p>
+                                    <h3 className="text-lg font-bold dark:text-white">{mc.couponTitle}</h3>
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm">Покажите этот код на кассе</p>
                                 </div>
-                                <div className="bg-gray-100 p-4 rounded-xl border border-dashed border-gray-300 text-center min-w-[200px]">
-                                    <div className="text-xs text-gray-500 mb-1">Ваш промокод</div>
-                                    <div className="text-xl font-mono font-bold tracking-widest text-gray-800">{mc.code}</div>
+                                <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 text-center min-w-[200px]">
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Ваш промокод</div>
+                                    <div className="text-xl font-mono font-bold tracking-widest text-gray-800 dark:text-gray-200">{mc.code}</div>
                                 </div>
                                 <div className="text-green-500 flex items-center gap-2 font-medium">
                                     <CheckCircle className="w-5 h-5" /> Активен

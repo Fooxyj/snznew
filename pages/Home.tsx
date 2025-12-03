@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import { Badge, Button } from '../components/ui/Common';
-import { Calendar, ChevronRight, MapPin, CloudSun, Wind, Droplets, ExternalLink, Flame, Bus, Loader2, Plus, PenSquare, Sun, CloudRain, Snowflake, Cloud, PieChart, Check, Gauge } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Ad, Event, NewsItem, Poll } from '../types';
+import { Calendar, ChevronRight, MapPin, CloudSun, Wind, Droplets, ExternalLink, Flame, Bus, Loader2, Plus, PenSquare, Sun, CloudRain, Snowflake, Cloud, PieChart, Check, Gauge, X, Crown, Heart } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Ad, Event, NewsItem, Poll, UserRole } from '../types';
 import { api } from '../services/api';
 import { CreateEventModal } from '../components/CreateEventModal';
 import { CreateNewsModal } from '../components/CreateNewsModal';
@@ -16,6 +15,9 @@ export const EventsPage: React.FC = () => {
     const [isEventModalOpen, setEventModalOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    
+    const categoryFilter = searchParams.get('cat');
 
     useEffect(() => {
         const load = async () => {
@@ -29,6 +31,10 @@ export const EventsPage: React.FC = () => {
 
     if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600 w-8 h-8" /></div>;
 
+    const filteredEvents = categoryFilter 
+        ? events.filter(e => e.category === categoryFilter)
+        : events;
+
     return (
         <div className="max-w-7xl mx-auto p-4 lg:p-8">
             <CreateEventModal 
@@ -37,7 +43,7 @@ export const EventsPage: React.FC = () => {
                 onSuccess={(evt) => setEvents([evt, ...events])}
             />
 
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex justify-between items-center mb-4">
                 <h1 className="text-2xl font-bold flex items-center gap-3 dark:text-white">
                     <Calendar className="w-8 h-8 text-blue-600" /> Афиша мероприятий
                 </h1>
@@ -48,8 +54,18 @@ export const EventsPage: React.FC = () => {
                 )}
             </div>
 
+            {categoryFilter && (
+                <div className="mb-6 flex items-center gap-2">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Фильтр:</span>
+                    <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2">
+                        {categoryFilter}
+                        <button onClick={() => setSearchParams({})} className="hover:text-blue-600 dark:hover:text-blue-200"><X className="w-3 h-3" /></button>
+                    </span>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {events.length > 0 ? events.map(event => (
+                {filteredEvents.length > 0 ? filteredEvents.map(event => (
                     <div 
                         key={event.id} 
                         onClick={() => navigate(`/event/${event.id}`)}
@@ -86,7 +102,7 @@ export const EventsPage: React.FC = () => {
                     </div>
                 )) : (
                     <div className="col-span-full text-center py-20 text-gray-400">
-                        Событий пока нет
+                        {categoryFilter ? 'В этой категории событий пока нет' : 'Событий пока нет'}
                     </div>
                 )}
             </div>
@@ -106,6 +122,7 @@ export const Home: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [weather, setWeather] = useState<any>(null);
   const [voting, setVoting] = useState(false);
+  const [userFavs, setUserFavs] = useState<string[]>([]);
   
   const navigate = useNavigate();
 
@@ -124,6 +141,9 @@ export const Home: React.FC = () => {
         setVipAds(adsData.filter(ad => ad.isVip));
         setRegularAds(adsData.filter(ad => !ad.isVip));
         setUser(currentUser);
+        if (currentUser) {
+            setUserFavs(currentUser.favorites || []);
+        }
         setWeather(weatherData);
         setPoll(pollData);
       } catch (error) {
@@ -149,6 +169,40 @@ export const Home: React.FC = () => {
       } finally {
           setVoting(false);
       }
+  };
+
+  const handleAdminToggleVip = async (ad: Ad, e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!user || user.role !== UserRole.ADMIN) return;
+      
+      const action = ad.isVip ? 'Снять' : 'Назначить';
+      if (!confirm(`Админ: ${action} VIP статус для "${ad.title}"?`)) return;
+
+      try {
+          await api.adminToggleVip(ad.id, !!ad.isVip);
+          // Reload ads locally
+          const updatedAds = await api.getAds();
+          setVipAds(updatedAds.filter(a => a.isVip));
+          setRegularAds(updatedAds.filter(a => !a.isVip));
+      } catch (e: any) {
+          alert(e.message);
+      }
+  };
+
+  const handleToggleFav = async (id: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+            const isNowFav = await api.toggleFavorite(id, 'ad');
+            if (isNowFav) {
+                setUserFavs(prev => [...prev, id]);
+            } else {
+                setUserFavs(prev => prev.filter(fid => fid !== id));
+            }
+        } catch (err: any) {
+            alert(err.message || "Ошибка");
+        }
   };
 
   if (isLoading) {
@@ -178,6 +232,8 @@ export const Home: React.FC = () => {
       if (code <= 77) return 'Снег';
       return 'Пасмурно';
   };
+
+  const isAdmin = user?.role === UserRole.ADMIN;
 
   return (
     <div className="p-4 lg:p-10 max-w-7xl mx-auto space-y-6 lg:space-y-12">
@@ -210,7 +266,15 @@ export const Home: React.FC = () => {
              
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {vipAds.length > 0 ? vipAds.map(ad => (
-                  <VipAdCard key={ad.id} ad={ad} onClick={() => navigate(`/ad/${ad.id}`)} />
+                  <VipAdCard 
+                    key={ad.id} 
+                    ad={ad} 
+                    onClick={() => navigate(`/ad/${ad.id}`)} 
+                    isAdmin={isAdmin}
+                    onToggleVip={(e) => handleAdminToggleVip(ad, e)}
+                    isFav={userFavs.includes(ad.id)}
+                    onToggleFav={(e) => handleToggleFav(ad.id, e)}
+                  />
                 )) : (
                    <div className="col-span-2 text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-2xl">Нет VIP объявлений</div>
                 )}
@@ -226,7 +290,15 @@ export const Home: React.FC = () => {
             
             <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
                {regularAds.slice(0, 9).map(ad => (
-                 <GridAdCard key={ad.id} ad={ad} onClick={() => navigate(`/ad/${ad.id}`)} />
+                 <GridAdCard 
+                    key={ad.id} 
+                    ad={ad} 
+                    onClick={() => navigate(`/ad/${ad.id}`)} 
+                    isAdmin={isAdmin}
+                    onToggleVip={(e) => handleAdminToggleVip(ad, e)}
+                    isFav={userFavs.includes(ad.id)}
+                    onToggleFav={(e) => handleToggleFav(ad.id, e)}
+                 />
                ))}
             </div>
             <Link to="/classifieds" className="block mt-6">
@@ -405,7 +477,7 @@ export const Home: React.FC = () => {
 };
 
 // Component for VIP Ads
-const VipAdCard: React.FC<{ ad: Ad, onClick: () => void }> = ({ ad, onClick }) => (
+const VipAdCard: React.FC<{ ad: Ad, onClick: () => void, isAdmin?: boolean, onToggleVip?: (e: any) => void, isFav?: boolean, onToggleFav?: (e: any) => void }> = ({ ad, onClick, isAdmin, onToggleVip, isFav, onToggleFav }) => (
     <div onClick={onClick} className="bg-white dark:bg-gray-800 rounded-2xl shadow-md hover:shadow-xl transition-all relative group cursor-pointer overflow-hidden border border-orange-100 dark:border-orange-900/30">
         <div className="flex h-36">
             <div className="w-2/5 relative overflow-hidden">
@@ -423,8 +495,27 @@ const VipAdCard: React.FC<{ ad: Ad, onClick: () => void }> = ({ ad, onClick }) =
                 </div>
                 <div className="flex justify-between items-center">
                     <span className="text-xs font-medium text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded-md max-w-[100px] truncate">{ad.category}</span>
-                    <div className="w-8 h-8 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-orange-500">
-                        <Flame className="w-4 h-4 fill-current" />
+                    <div className="flex items-center gap-2">
+                        {onToggleFav && (
+                            <button
+                                onClick={onToggleFav}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isFav ? 'bg-red-50 text-red-500' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-gray-400'}`}
+                            >
+                                <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
+                            </button>
+                        )}
+                        {isAdmin && onToggleVip && (
+                            <button 
+                                onClick={onToggleVip} 
+                                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-300 transition-colors"
+                                title="Убрать VIP статус"
+                            >
+                                <Crown className="w-4 h-4" />
+                            </button>
+                        )}
+                        <div className="w-8 h-8 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-orange-500">
+                            <Flame className="w-4 h-4 fill-current" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -433,15 +524,34 @@ const VipAdCard: React.FC<{ ad: Ad, onClick: () => void }> = ({ ad, onClick }) =
 );
 
 // Component for Regular Ads in Grid format
-const GridAdCard: React.FC<{ ad: Ad, onClick: () => void }> = ({ ad, onClick }) => (
+const GridAdCard: React.FC<{ ad: Ad, onClick: () => void, isAdmin?: boolean, onToggleVip?: (e: any) => void, isFav?: boolean, onToggleFav?: (e: any) => void }> = ({ ad, onClick, isAdmin, onToggleVip, isFav, onToggleFav }) => (
     <div 
         onClick={onClick}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-lg transition-all group flex flex-col cursor-pointer overflow-hidden"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-lg transition-all group flex flex-col cursor-pointer overflow-hidden relative"
     >
       <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
         <img src={ad.image} alt={ad.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
         <div className="absolute top-2 left-2 bg-white/90 dark:bg-black/50 backdrop-blur text-xs px-2 py-1 rounded-lg font-medium text-gray-700 dark:text-gray-200">
            {ad.category}
+        </div>
+        <div className="absolute top-2 right-2 flex flex-col gap-2 z-20">
+            {onToggleFav && (
+                <button
+                    onClick={onToggleFav}
+                    className={`p-1.5 rounded-full backdrop-blur shadow-sm transition-all ${isFav ? 'bg-white text-red-500' : 'bg-white/70 text-gray-500 hover:text-red-500'}`}
+                >
+                    <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
+                </button>
+            )}
+            {isAdmin && onToggleVip && (
+                <button 
+                    onClick={onToggleVip} 
+                    className="p-1.5 rounded-full bg-white/70 backdrop-blur text-gray-500 hover:text-orange-500 dark:text-gray-300 transition-colors"
+                    title="Сделать VIP"
+                >
+                    <Crown className="w-4 h-4" />
+                </button>
+            )}
         </div>
       </div>
       <div className="p-4 flex-1 flex flex-col">

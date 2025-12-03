@@ -13,7 +13,6 @@ import { ChatPage } from './pages/Chat';
 import { SearchResults } from './pages/SearchResults';
 import { LostFound } from './pages/LostFound';
 import { TransportPage, EmergencyPage } from './pages/CityInfo';
-import { CityMonitor } from './pages/CityMonitor';
 import { RidesPage } from './pages/Rides';
 import { JobsPage } from './pages/Jobs';
 import { BonusShop } from './pages/BonusShop';
@@ -26,13 +25,9 @@ import { SettingsPage } from './pages/Settings';
 import { Leaderboard } from './pages/Leaderboard';
 import { EventDetail } from './pages/EventDetail';
 import { CartPage } from './pages/Cart';
-import { WalletPage } from './pages/Wallet';
-import { DeliveryPage } from './pages/Delivery';
-import { HousingPage } from './pages/Housing';
 import { CharityPage } from './pages/Charity';
 import { BusinessCRM } from './pages/BusinessCRM';
 import { RentalsPage } from './pages/Rentals';
-import { SmartCity } from './pages/SmartCity';
 import { ThemeProvider } from './components/ThemeProvider';
 import { CartProvider } from './components/CartProvider';
 import { SplashScreen } from './components/SplashScreen';
@@ -80,10 +75,7 @@ const App: React.FC = () => {
               <Route path="/events" element={<EventsPage />} />
               <Route path="/charity" element={<CharityPage />} />
               <Route path="/rentals" element={<RentalsPage />} />
-              <Route path="/housing" element={<HousingPage />} />
-              <Route path="/smart-city" element={<SmartCity />} />
               <Route path="/lost-found" element={<LostFound />} />
-              <Route path="/monitor" element={<CityMonitor />} />
               <Route path="/rides" element={<RidesPage />} />
               <Route path="/jobs" element={<JobsPage />} />
               <Route path="/bonus-shop" element={<BonusShop />} />
@@ -102,8 +94,6 @@ const App: React.FC = () => {
               
               <Route path="/event/:id" element={<EventDetail />} />
               <Route path="/cart" element={<CartPage />} />
-              <Route path="/wallet" element={<WalletPage />} />
-              <Route path="/delivery" element={<DeliveryPage />} />
               
               <Route path="/search" element={<SearchResults />} />
               

@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, Link, useNavigate } from 'react-router-dom';
 import { 
   Menu, X, Home, Newspaper, ShoppingBag, Coffee, Film, Map, 
   Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Briefcase, 
-  User as UserIcon, Bell, Search, PlusCircle, LogIn, LogOut, MessageCircle, HelpCircle, Eye, Car, Gift, Users, Flag, Settings, Moon, Sun, Trophy, ShoppingCart, Wallet, Truck, Lightbulb, Heart, Repeat, Key, ChevronLeft, ArrowUp, Calendar, ChevronDown, ChevronRight, Droplets, Wrench, Building2, ShieldAlert
+  User as UserIcon, Bell, Search, PlusCircle, LogIn, LogOut, MessageCircle, HelpCircle, Car, Gift, Users, Flag, Settings, Moon, Sun, Trophy, ShoppingCart, Truck, Heart, Repeat, Key, ChevronLeft, ArrowUp, Calendar, ChevronDown, ChevronRight, Droplets, Wrench, Building2, Trash2
 } from 'lucide-react';
 import { CATALOG_MENU, SERVICES_MENU } from '../constants';
 import { Button } from './ui/Common';
@@ -14,7 +14,7 @@ import { useTheme } from './ThemeProvider';
 import { useCart } from './CartProvider';
 
 const ICON_MAP: Record<string, React.FC<any>> = {
-  Newspaper, ShoppingBag, Coffee, Film, Map, Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Key, Truck, Car, Droplets, Wrench, Building2, Eye, Lightbulb, ShieldAlert, HelpCircle, Briefcase, Repeat, Wallet, Users, Heart, Flag, Trophy, Gift
+  Newspaper, ShoppingBag, Coffee, Film, Map, Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Key, Truck, Car, Droplets, Wrench, Building2, HelpCircle, Briefcase, Repeat, Users, Heart, Flag, Trophy, Gift, MessageCircle
 };
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -35,6 +35,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   
   const location = useLocation();
   const navigate = useNavigate();
+  const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Initial Load
@@ -58,22 +59,38 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         }
     };
     load();
+  }, []);
 
-    // Scroll listener
+  // Scroll listener attached to the main container
+  useEffect(() => {
     const handleScroll = () => {
-        if (window.scrollY > 300) {
-            setShowScrollTop(true);
-        } else {
-            setShowScrollTop(false);
+        if (mainRef.current) {
+            if (mainRef.current.scrollTop > 300) {
+                setShowScrollTop(true);
+            } else {
+                setShowScrollTop(false);
+            }
         }
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const el = mainRef.current;
+    if (el) {
+        el.addEventListener('scroll', handleScroll);
+    }
+    return () => el?.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Scroll to top on route change
+  useEffect(() => {
+      if (mainRef.current) {
+          mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+  }, [location.pathname]);
+
   const scrollToTop = () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (mainRef.current) {
+          mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
   };
 
   const showToast = (msg: string) => {
@@ -105,6 +122,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       }
   };
 
+  const handleDeleteNotif = async (e: React.MouseEvent, id: string) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await api.deleteNotification(id);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const closeSidebar = () => setIsSidebarOpen(false);
   
@@ -112,8 +136,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const unreadCount = notifications.filter(n => !n.isRead).length;
   const isHome = location.pathname === '/';
 
+  // Exclusive Accordion Logic: Only one menu open at a time
   const toggleMenu = (id: string) => {
-      setOpenMenus(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+      setOpenMenus(prev => prev.includes(id) ? [] : [id]);
   };
 
   const renderMenuSection = (menuItems: any[]) => {
@@ -126,7 +151,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           
           useEffect(() => {
               if (isChildActive && !isOpen) {
-                  setOpenMenus(prev => [...prev, item.id]);
+                  setOpenMenus([item.id]); // Open only this one
               }
           }, [isChildActive]);
 
@@ -168,8 +193,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   // Helper to render notification list content
   const renderNotificationList = () => (
-      <>
-        <div className="p-4 border-b border-gray-50 dark:border-gray-700/50 flex justify-between items-center">
+      <div onClick={(e) => e.stopPropagation()}>
+        <div className="p-4 border-b border-gray-50 dark:border-gray-700/50 flex justify-between items-center bg-white dark:bg-gray-800 sticky top-0 z-10">
             <span className="font-bold text-gray-900 dark:text-white">Уведомления</span>
             <button onClick={() => setShowNotif(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
         </div>
@@ -181,14 +206,24 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 </div>
             ) : (
                 notifications.map(n => (
-                    <div key={n.id} className="p-4 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors last:border-0">
-                        <p className="text-sm text-gray-700 dark:text-gray-200 font-medium leading-snug">{n.text}</p>
-                        <p className="text-xs text-gray-400 mt-1.5">{new Date(n.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
+                    <div key={n.id} className="p-4 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors last:border-0 relative group">
+                        <p className="text-sm text-gray-700 dark:text-gray-200 font-medium leading-snug pr-6">{n.text}</p>
+                        <div className="flex justify-between items-center mt-1.5">
+                            <p className="text-xs text-gray-400">{new Date(n.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
+                            <button 
+                                type="button"
+                                onClick={(e) => handleDeleteNotif(e, n.id)} 
+                                className="text-gray-300 hover:text-red-500 p-1 cursor-pointer z-20"
+                                title="Удалить"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                            </button>
+                        </div>
                     </div>
                 ))
             )}
         </div>
-      </>
+      </div>
   );
 
   return (
@@ -204,6 +239,11 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 <p className="text-sm text-gray-500 dark:text-gray-400 leading-snug">{toast.msg}</p>
              </div>
           </div>
+      )}
+
+      {/* Backdrop for closing dropdowns */}
+      {showNotif && (
+          <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowNotif(false)} />
       )}
 
       {/* Mobile Header */}
@@ -280,7 +320,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             Каталог
           </div>
           
-          <NavItem to="/events" icon={Calendar} label="Афиша" active={isActive('/events')} onClick={closeSidebar} />
+          <NavItem to="/category/shops" icon={ShoppingBag} label="Магазины" active={isActive('/category/shops')} onClick={closeSidebar} />
 
           {renderMenuSection(CATALOG_MENU)}
 
@@ -292,10 +332,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           
           {renderMenuSection(SERVICES_MENU)}
 
-          {user && (
-            <NavItem to="/chat" icon={MessageCircle} label="Сообщения" active={isActive('/chat')} onClick={closeSidebar} />
-          )}
-          
           <div className="pt-6 pb-4">
            {user && !hasBusiness && (
                 <NavLink to="/business-connect" onClick={closeSidebar}>
@@ -341,17 +377,25 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       <div className="flex-1 flex flex-col min-w-0 h-screen relative">
           {/* Desktop Header */}
           <header className="hidden lg:flex items-center justify-between bg-white/80 dark:bg-gray-900/80 backdrop-blur-md h-20 px-8 z-30 sticky top-0 transition-colors duration-200">
-             {/* Search */}
-             <form onSubmit={handleSearch} className="flex-1 max-w-xl relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
-                <input 
-                  type="text" 
-                  placeholder="Поиск событий, мест, людей..." 
-                  className="w-full pl-12 pr-4 py-3 bg-gray-100/50 dark:bg-gray-800 border-none rounded-2xl outline-none focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900 transition-all dark:text-white dark:placeholder-gray-500 shadow-sm focus:shadow-md"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
-             </form>
+             {/* Left side with Back button if not home */}
+             <div className="flex items-center gap-4 flex-1">
+                 {!isHome && (
+                     <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">
+                         <ChevronLeft className="w-5 h-5" />
+                     </button>
+                 )}
+                 {/* Search */}
+                 <form onSubmit={handleSearch} className="flex-1 max-w-xl relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
+                    <input 
+                      type="text" 
+                      placeholder="Поиск событий, мест, людей..." 
+                      className="w-full pl-12 pr-4 py-3 bg-gray-100/50 dark:bg-gray-800 border-none rounded-2xl outline-none focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900 transition-all dark:text-white dark:placeholder-gray-500 shadow-sm focus:shadow-md"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                    />
+                 </form>
+             </div>
 
              {/* Right Actions */}
              <div className="flex items-center space-x-5 ml-6">
@@ -407,14 +451,17 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </header>
 
           {/* Main Scrollable Area */}
-          <main className="flex-1 overflow-y-auto overflow-x-hidden pt-[72px] lg:pt-0 pb-20 lg:pb-0 bg-[#F8FAFC] dark:bg-gray-900 transition-colors duration-200">
+          <main 
+            ref={mainRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden pt-[72px] lg:pt-0 pb-20 lg:pb-0 bg-[#F8FAFC] dark:bg-gray-900 transition-colors duration-200"
+          >
             {children}
           </main>
 
           {/* Scroll To Top Button */}
           <button 
             onClick={scrollToTop}
-            className={`fixed bottom-20 right-4 lg:bottom-8 lg:right-8 z-40 bg-blue-600/90 hover:bg-blue-700 text-white p-3 rounded-full shadow-xl transition-all duration-300 backdrop-blur-sm ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
+            className={`fixed bottom-24 right-4 lg:bottom-10 lg:right-10 z-[60] bg-blue-600/90 hover:bg-blue-700 text-white p-3 rounded-full shadow-xl transition-all duration-300 backdrop-blur-sm ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
           >
               <ArrowUp className="w-6 h-6" />
           </button>

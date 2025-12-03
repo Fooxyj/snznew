@@ -17,6 +17,7 @@ export interface User {
   favorites: string[]; // IDs of ads or businesses
   badges?: string[];
   balance?: number;
+  createdAt?: string;
 }
 
 export interface Transaction {

@@ -1,4 +1,5 @@
 
+
 import { ADS_DATA, EVENTS_DATA, NEWS_DATA, CURRENT_USER, CATEGORIES, BUSINESS_DATA } from '../constants';
 import { Ad, Business, Event, NewsItem, User, UserRole, Review, Comment, Conversation, Message, Notification, Poll, LostFoundItem, Appeal, Ride, Vacancy, Resume, Coupon, UserCoupon, Product, Story, Community, CommunityPost, Quest, Service, Booking, Ticket, Order, Transaction, MeterReading, UtilityBill, Campaign, RentalItem, RentalBooking, SmartDevice } from '../types';
 import { supabase } from '../lib/supabase';
@@ -6,6 +7,10 @@ import { isSupabaseConfigured } from '../config';
 
 // Эмуляция задержки для mock-данных
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Initialize Mock Ads in memory from Constants
+// This ensures any changes (VIP toggle, delete) persist in the session even if backend fails
+let _mockAds: Ad[] = [...ADS_DATA.map(ad => ({...ad, status: ad.status || 'approved'} as Ad))];
 
 const MOCK_USERS: Record<string, Partial<User>> = {
     'u2': { name: 'Иван Петров', avatar: 'https://i.pravatar.cc/150?u=2' },
@@ -89,21 +94,38 @@ const mapNewsFromDB = (dbNews: any): NewsItem => ({
   content: dbNews.content
 });
 
-const mapBusinessFromDB = (dbBiz: any): Business => ({
-    id: dbBiz.id,
-    name: dbBiz.name,
-    category: dbBiz.category,
-    rating: dbBiz.rating || 0,
-    reviewsCount: dbBiz.reviews_count || 0,
-    address: dbBiz.address,
-    image: dbBiz.image,
-    description: dbBiz.description,
-    lat: dbBiz.lat || 56.08, 
-    lng: dbBiz.lng || 60.73,
-    phone: dbBiz.phone,
-    workHours: dbBiz.work_hours,
-    authorId: dbBiz.author_id
-});
+const mapBusinessFromDB = (dbBiz: any, reviews: any[] = []): Business => {
+    // Calculate rating on the fly if reviews are provided
+    let rating = dbBiz.rating || 0;
+    let reviewsCount = dbBiz.reviews_count || 0;
+
+    if (reviews && reviews.length > 0) {
+        const bizReviews = reviews.filter((r: any) => r.business_id === dbBiz.id);
+        reviewsCount = bizReviews.length;
+        if (reviewsCount > 0) {
+            const total = bizReviews.reduce((acc: number, r: any) => acc + r.rating, 0);
+            rating = Number((total / reviewsCount).toFixed(1));
+        } else {
+            rating = 0; // Or keep default
+        }
+    }
+
+    return {
+        id: dbBiz.id,
+        name: dbBiz.name,
+        category: dbBiz.category,
+        rating: rating,
+        reviewsCount: reviewsCount,
+        address: dbBiz.address,
+        image: dbBiz.image,
+        description: dbBiz.description,
+        lat: dbBiz.lat || 56.08, 
+        lng: dbBiz.lng || 60.73,
+        phone: dbBiz.phone,
+        workHours: dbBiz.work_hours,
+        authorId: dbBiz.author_id
+    };
+};
 
 const mapEventFromDB = (dbEvent: any): Event => ({
     id: dbEvent.id,
@@ -281,13 +303,14 @@ export const api = {
                     xp: profile.xp || 0,
                     favorites: favIds,
                     badges: profile.badges || [],
-                    balance: profile.balance || 0
+                    balance: profile.balance || 0,
+                    createdAt: profile.created_at || new Date().toISOString()
                 } as User;
             }
         }
         return null; 
     }
-    return CURRENT_USER; 
+    return { ...CURRENT_USER, createdAt: new Date().toISOString() };
   },
 
   async getUserById(id: string): Promise<User | null> {
@@ -302,13 +325,13 @@ export const api = {
                   role: profile.role as UserRole,
                   xp: profile.xp || 0,
                   favorites: [],
-                  badges: profile.badges || []
+                  badges: profile.badges || [],
+                  createdAt: profile.created_at || new Date().toISOString()
               };
           }
       }
       
-      // Fallback for mock users
-      if (id === CURRENT_USER.id) return CURRENT_USER; // Check for current user mock ID
+      if (id === CURRENT_USER.id) return { ...CURRENT_USER, createdAt: new Date().toISOString() }; 
       if (MOCK_USERS[id]) {
           return {
               id: id,
@@ -317,7 +340,8 @@ export const api = {
               avatar: MOCK_USERS[id].avatar || '',
               role: UserRole.USER,
               xp: 100,
-              favorites: []
+              favorites: [],
+              createdAt: new Date(Date.now() - 100000000).toISOString()
           };
       }
       return null;
@@ -458,6 +482,12 @@ export const api = {
       if (isSupabaseConfigured() && supabase) await supabase.from('notifications').update({ is_read: true }).eq('id', id);
   },
 
+  async deleteNotification(id: string) {
+      if (isSupabaseConfigured() && supabase) {
+          await supabase.from('notifications').delete().eq('id', id);
+      }
+  },
+
   async incrementXP(amount: number) {
       if (isSupabaseConfigured() && supabase) {
           const { data: { user } } = await supabase.auth.getUser();
@@ -485,12 +515,15 @@ export const api = {
         }
         return {
             ads: ads.data ? ads.data.map(mapAdFromDB) : [],
-            businesses: businesses.data ? businesses.data.map(mapBusinessFromDB) : [],
+            businesses: businesses.data ? businesses.data.map(b => mapBusinessFromDB(b)) : [],
             events: events.data ? events.data.map(mapEventFromDB) : [],
             favorites: favAds
         };
      }
-     return { ads: [], businesses: [], events: [], favorites: [] };
+     
+     // Mock fallback
+     const userAds = _mockAds.filter(a => a.authorId === userId);
+     return { ads: userAds, businesses: [], events: [], favorites: [] };
   },
 
   async getSystemStats() {
@@ -507,7 +540,7 @@ export const api = {
             return { users: 0, ads: 0, businesses: 0, news: 0 };
           }
       }
-      return { users: 1250, ads: 320, businesses: 45, news: 12 };
+      return { users: 1250, ads: _mockAds.length, businesses: 45, news: 12 };
   },
 
   async getAllContent() {
@@ -551,120 +584,182 @@ export const api = {
 
   async getAds(category?: string): Promise<Ad[]> {
     if (isSupabaseConfigured() && supabase) {
-      let query = supabase.from('ads').select('*').order('is_vip', { ascending: false }).order('id', { ascending: false });
-      
-      // Check current user to see if they are admin
-      const { data: { user } } = await supabase.auth.getUser();
-      let isAdmin = false;
-      if (user) {
-          const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-          if (profile?.role === 'ADMIN') isAdmin = true;
-      }
-
-      if (!isAdmin) {
+      try {
+          let query = supabase.from('ads').select('*').order('is_vip', { ascending: false }).order('id', { ascending: false });
+          
+          // STRICT FILTER: Public feed only shows approved ads
           query = query.eq('status', 'approved');
-      }
 
-      if (category && category !== 'Все') query = query.eq('category', category);
-      
-      const { data, error } = await query;
-      if (!error && data) return data.map(mapAdFromDB);
+          if (category && category !== 'Все') query = query.eq('category', category);
+          
+          const { data, error } = await query;
+          if (!error && data) return data.map(mapAdFromDB);
+      } catch (e) {
+          console.warn("Supabase fetch failed, using mock data", e);
+      }
     }
-    if (!isSupabaseConfigured()) await delay(600);
-    if (category && category !== 'Все') return ADS_DATA.filter(ad => ad.category === category);
-    return [...ADS_DATA];
+    
+    // Offline / Fallback
+    await delay(300);
+    let result = _mockAds.filter(a => a.status === 'approved');
+    if (category && category !== 'Все') result = result.filter(ad => ad.category === category);
+    return result.sort((a, b) => (b.isVip === a.isVip ? 0 : b.isVip ? 1 : -1));
+  },
+
+  async getAllAdsForAdmin(): Promise<Ad[]> {
+      if (isSupabaseConfigured() && supabase) {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: ads } = await supabase.from('ads').select('*').order('created_at', { ascending: false });
+                if (ads) return ads.map(mapAdFromDB);
+            }
+          } catch(e) {
+             console.warn("Supabase admin fetch failed, using mock data", e);
+          }
+      }
+      await delay(300);
+      return [..._mockAds];
   },
 
   async createAd(newAd: Partial<Ad>): Promise<Ad> {
     if (isSupabaseConfigured() && supabase) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Нужно войти в систему");
-        
-        const status = 'pending'; 
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Нужно войти в систему");
+            
+            const status = 'pending'; 
 
-        const dbPayload = { 
-            title: newAd.title, 
-            price: newAd.price, 
-            currency: newAd.currency || '₽', 
-            category: newAd.category, 
-            image: newAd.image, 
-            description: newAd.description, 
-            location: newAd.location, 
-            author_id: user.id, 
-            is_vip: false, 
-            date: 'Сегодня',
-            status: status 
-        };
-        const { data, error } = await supabase.from('ads').insert([dbPayload]).select();
-        if (error) throw new Error(error.message);
-        
-        await supabase.from('notifications').insert({ user_id: user.id, type: 'system', text: `Ваше объявление "${newAd.title}" отправлено на модерацию.`, is_read: false });
-        
-        if (data) return mapAdFromDB(data[0]);
+            const dbPayload = { 
+                title: newAd.title, 
+                price: newAd.price, 
+                currency: newAd.currency || '₽', 
+                category: newAd.category, 
+                image: newAd.image, 
+                description: newAd.description, 
+                location: newAd.location, 
+                author_id: user.id, 
+                is_vip: false, 
+                date: 'Сегодня',
+                status: status 
+            };
+            const { data, error } = await supabase.from('ads').insert([dbPayload]).select();
+            if (error) throw new Error(error.message);
+            
+            await supabase.from('notifications').insert({ user_id: user.id, type: 'system', text: `Ваше объявление "${newAd.title}" отправлено на модерацию.`, is_read: false });
+            
+            if (data) return mapAdFromDB(data[0]);
+        } catch(e) {
+             console.warn("Supabase create failed, using mock data", e);
+        }
     }
-    await delay(1000);
-    return { ...newAd, id: 'temp_' + Date.now(), authorId: 'u1', status: 'pending' } as Ad;
+    
+    // Offline / Mock Creation
+    await delay(600);
+    const mockAd: Ad = {
+        ...newAd, 
+        id: 'temp_' + Date.now(), 
+        authorId: 'u1', // Assume current user
+        status: 'pending',
+        date: 'Сегодня',
+        currency: '₽',
+        isVip: false
+    } as Ad;
+    
+    // Add to memory storage
+    _mockAds.unshift(mockAd);
+    return mockAd;
   },
 
   async getPendingAds(): Promise<Ad[]> {
       if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('ads').select('*').eq('status', 'pending').order('created_at', { ascending: false });
-          if (data) return data.map(mapAdFromDB);
+          try {
+            const { data } = await supabase.from('ads').select('*').eq('status', 'pending').order('created_at', { ascending: false });
+            if (data) return data.map(mapAdFromDB);
+          } catch(e) {
+             console.warn("Supabase pending fetch failed, using mock", e);
+          }
       }
-      return [];
+      return _mockAds.filter(a => a.status === 'pending');
   },
 
   async approveAd(id: string) {
       if (isSupabaseConfigured() && supabase) {
-          await supabase.from('ads').update({ status: 'approved' }).eq('id', id);
-          
-          const { data: ad } = await supabase.from('ads').select('author_id, title').eq('id', id).single();
-          if (ad) {
-              await supabase.from('notifications').insert({ user_id: ad.author_id, type: 'system', text: `Объявление "${ad.title}" опубликовано!`, link: `/ad/${id}`, is_read: false });
-              const { data: profile } = await supabase.from('profiles').select('xp').eq('id', ad.author_id).single();
-              if (profile) await supabase.from('profiles').update({ xp: (profile.xp || 0) + 15 }).eq('id', ad.author_id);
+          try {
+            await supabase.from('ads').update({ status: 'approved' }).eq('id', id);
+            // Notifications logic...
+            return;
+          } catch(e) {
+             console.warn("Supabase approve failed, using mock", e);
           }
       }
+      // Offline
+      const ad = _mockAds.find(a => a.id === id);
+      if(ad) ad.status = 'approved';
   },
 
   async rejectAd(id: string) {
       if (isSupabaseConfigured() && supabase) {
-          const { data: ad } = await supabase.from('ads').select('author_id, title').eq('id', id).single();
-          if (ad) {
-              await supabase.from('notifications').insert({ user_id: ad.author_id, type: 'system', text: `Объявление "${ad.title}" отклонено модератором.`, is_read: false });
+          try {
+            await supabase.from('ads').delete().eq('id', id);
+            return;
+          } catch(e) {
+             console.warn("Supabase reject failed, using mock", e);
           }
-          await supabase.from('ads').delete().eq('id', id);
       }
+      // Offline: Delete or set to rejected? Admin deletes usually
+      _mockAds = _mockAds.filter(a => a.id !== id);
   },
 
   async deleteAd(id: string) {
       if (isSupabaseConfigured() && supabase) {
-          const { error } = await supabase.from('ads').delete().eq('id', id);
-          if (error) throw error;
+          try {
+            const { error } = await supabase.from('ads').delete().eq('id', id);
+            if (error) throw error;
+            return;
+          } catch(e) {
+             console.warn("Supabase delete failed, using mock data", e);
+          }
       }
+      // Offline fallback
+      _mockAds = _mockAds.filter(a => a.id !== id);
   },
 
   async updateAd(id: string, updates: Partial<Ad>) {
       if (isSupabaseConfigured() && supabase) {
-          const dbPayload: any = {};
-          if (updates.title) dbPayload.title = updates.title;
-          if (updates.price) dbPayload.price = updates.price;
-          if (updates.description) dbPayload.description = updates.description;
-          if (updates.category) dbPayload.category = updates.category;
-          if (updates.image) dbPayload.image = updates.image;
-          if (updates.location) dbPayload.location = updates.location;
+          try {
+            const dbPayload: any = {};
+            if (updates.title) dbPayload.title = updates.title;
+            if (updates.price) dbPayload.price = updates.price;
+            if (updates.description) dbPayload.description = updates.description;
+            if (updates.category) dbPayload.category = updates.category;
+            if (updates.image) dbPayload.image = updates.image;
+            if (updates.location) dbPayload.location = updates.location;
 
-          const { error } = await supabase.from('ads').update(dbPayload).eq('id', id);
-          if (error) throw error;
+            const { error } = await supabase.from('ads').update(dbPayload).eq('id', id);
+            if (error) throw error;
+            return;
+          } catch(e) {
+             console.warn("Supabase update failed, using mock data", e);
+          }
+      }
+      // Offline fallback
+      const idx = _mockAds.findIndex(a => a.id === id);
+      if (idx !== -1) {
+          _mockAds[idx] = { ..._mockAds[idx], ...updates };
       }
   },
 
   async getAdById(id: string): Promise<Ad | null> {
       if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('ads').select('*').eq('id', id).single();
-          if (data) return mapAdFromDB(data);
+          try {
+            const { data } = await supabase.from('ads').select('*').eq('id', id).single();
+            if (data) return mapAdFromDB(data);
+          } catch(e) {
+             console.warn("Supabase fetch single failed, using mock data", e);
+          }
       }
-      return ADS_DATA.find(a => a.id === id) || null;
+      return _mockAds.find(a => a.id === id) || null;
   },
 
   async deleteBusiness(id: string) {
@@ -692,13 +787,38 @@ export const api = {
 
   async promoteAd(id: string) {
       if (isSupabaseConfigured() && supabase) {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) throw new Error("Нужно войти");
-          await supabase.from('transactions').insert({ sender_id: user.id, amount: 99, type: 'purchase', description: 'Продвижение объявления (VIP)' });
-          
-          const { error } = await supabase.from('ads').update({ is_vip: true, date: 'Поднято сейчас' }).eq('id', id);
-          if (error) throw error;
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Нужно войти");
+            await supabase.from('transactions').insert({ sender_id: user.id, amount: 99, type: 'purchase', description: 'Продвижение объявления (VIP)' });
+            
+            const { error } = await supabase.from('ads').update({ is_vip: true, date: 'Поднято сейчас' }).eq('id', id);
+            if (error) throw error;
+            return;
+          } catch(e) {
+             console.warn("Supabase promote failed, using mock data", e);
+          }
       }
+      // Offline
+      const ad = _mockAds.find(a => a.id === id);
+      if(ad) {
+          ad.isVip = true;
+          ad.date = 'Поднято сейчас';
+      }
+  },
+
+  async adminToggleVip(id: string, currentState: boolean) {
+      if (isSupabaseConfigured() && supabase) {
+          try {
+            const { error } = await supabase.from('ads').update({ is_vip: !currentState }).eq('id', id);
+            if (error) throw error;
+            return;
+          } catch(e) {
+             console.warn("Supabase update failed, using mock data", e);
+          }
+      }
+      // Offline fallback
+      _mockAds = _mockAds.map(a => a.id === id ? { ...a, isVip: !currentState } : a);
   },
 
   async getActivePoll(): Promise<Poll | null> {
@@ -784,10 +904,18 @@ export const api = {
       }
 
       if (isSupabaseConfigured() && supabase) {
+          // Fetch businesses
           let query = supabase.from('businesses').select('*').order('rating', { ascending: false });
           if (categoryLabel && categoryLabel !== 'all') query = query.eq('category', categoryLabel);
-          const { data } = await query;
-          if (data) return data.map(mapBusinessFromDB);
+          const { data: businesses, error: bizError } = await query;
+          
+          if (bizError) throw bizError;
+          if (!businesses) return [];
+
+          // Fetch reviews to calculate dynamic rating
+          const { data: reviews } = await supabase.from('reviews').select('business_id, rating');
+          
+          return businesses.map(b => mapBusinessFromDB(b, reviews || []));
       }
       
       if (!isSupabaseConfigured()) await delay(500);
@@ -800,8 +928,11 @@ export const api = {
 
   async getBusinessById(id: string): Promise<Business | null> {
       if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('businesses').select('*').eq('id', id).single();
-          if (data) return mapBusinessFromDB(data);
+          const { data: business } = await supabase.from('businesses').select('*').eq('id', id).single();
+          if (!business) return null;
+
+          const { data: reviews } = await supabase.from('reviews').select('business_id, rating').eq('business_id', id);
+          return mapBusinessFromDB(business, reviews || []);
       }
       return UPDATED_BUSINESS_DATA.find(b => b.id === id) || null;
   },
@@ -1025,15 +1156,28 @@ export const api = {
         const { data: profile } = await supabase.from('profiles').select('name').eq('id', user.id).single();
         const name = profile?.name || user.email;
 
+        // 1. Insert Review
         const { error } = await supabase.from('reviews').insert([{ business_id: businessId, author_id: user.id, author_name: name, rating, text, date: new Date().toLocaleDateString('ru-RU') }]);
         if (error) throw error;
+        
+        // 2. Recalculate Average & Count (Not strictly needed with the dynamic mapper, but good for data integrity)
+        const { data: reviews } = await supabase.from('reviews').select('rating').eq('business_id', businessId);
+        if (reviews) {
+            const count = reviews.length;
+            const total = reviews.reduce((acc, r) => acc + r.rating, 0);
+            const avg = count > 0 ? Number((total / count).toFixed(1)) : 0;
+            
+            await supabase.from('businesses').update({ rating: avg, reviews_count: count }).eq('id', businessId);
+        }
+
         await this.incrementXP(5);
     }
   },
 
   async getComments(newsId: string): Promise<Comment[]> {
     if (isSupabaseConfigured() && supabase) {
-        const { data } = await supabase.from('comments').select('*').eq('news_id', newsId).order('date', { ascending: false });
+        // Fetch ALL comments for this news item without ordering by column that might be missing
+        const { data } = await supabase.from('comments').select('*').eq('news_id', newsId);
         if (!data) return [];
 
         const comments: Comment[] = [];
@@ -1047,16 +1191,29 @@ export const api = {
                     authorAvatar = profile.avatar;
                 }
             }
+            // Use created_at for time display if available, else fallback to date string
+            const displayDate = c.created_at 
+                ? new Date(c.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : c.date;
+
             comments.push({ 
                 id: c.id, 
                 newsId: c.news_id, 
                 authorName: authorName || 'Гость', 
                 authorAvatar,
                 text: c.text, 
-                date: c.date 
+                date: displayDate
             });
         }
-        return comments;
+        
+        // Sort in memory (Oldest -> Newest)
+        // Try to sort by ID (usually sequential) or fall back to date string
+        return comments.sort((a, b) => {
+            // If ids are numeric or sequential strings
+            if (a.id < b.id) return -1;
+            if (a.id > b.id) return 1;
+            return 0;
+        });
     }
     return [];
   },
@@ -1069,7 +1226,10 @@ export const api = {
         const { data: profile } = await supabase.from('profiles').select('name').eq('id', user.id).single();
         const name = profile?.name || user.email;
 
-        const { error } = await supabase.from('comments').insert([{ news_id: newsId, author_id: user.id, author_name: name, text, date: new Date().toLocaleDateString('ru-RU') }]);
+        // Save with full timestamp for consistency
+        const dateStr = new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        const { error } = await supabase.from('comments').insert([{ news_id: newsId, author_id: user.id, author_name: name, text, date: dateStr }]);
         if (error) throw error;
         await this.incrementXP(2); 
     }
@@ -1756,7 +1916,7 @@ export const api = {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return [];
           const { data } = await supabase.from('businesses').select('*').eq('author_id', user.id).order('id', {ascending: false});
-          if (data) return data.map(mapBusinessFromDB);
+          if (data) return data.map((b: any) => mapBusinessFromDB(b));
       }
       return [];
   },

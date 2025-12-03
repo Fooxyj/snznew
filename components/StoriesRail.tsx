@@ -2,7 +2,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../services/api';
 import { Story, User } from '../types';
-import { Plus, X, Upload, Loader2, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { Plus, X, Upload, Loader2, Eye } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const ViewersList: React.FC<{ viewers: {name: string, avatar: string}[]; onClose: () => void }> = ({ viewers, onClose }) => {
     return (
@@ -15,10 +16,10 @@ const ViewersList: React.FC<{ viewers: {name: string, avatar: string}[]; onClose
                 </div>
                 <div className="space-y-3">
                     {viewers.map((v, i) => (
-                        <div key={i} className="flex items-center gap-3">
+                        <Link to="/profile" key={i} className="flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors">
                             <img src={v.avatar} className="w-10 h-10 rounded-full object-cover bg-gray-200" alt="" />
                             <span className="font-medium text-gray-900 dark:text-white">{v.name}</span>
-                        </div>
+                        </Link>
                     ))}
                 </div>
             </div>
@@ -36,6 +37,10 @@ const StoryViewer: React.FC<{
     const [progress, setProgress] = useState(0);
     const [showViewers, setShowViewers] = useState(false);
     const timerRef = useRef<any>(null);
+
+    // Swipe handlers
+    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
     const activeStory = stories[currentIndex];
     const isOwner = currentUser && activeStory.authorId === currentUser.id;
@@ -75,15 +80,41 @@ const StoryViewer: React.FC<{
         }
     };
 
+    // Swipe Logic
+    const onTouchStartHandler = (e: React.TouchEvent) => setTouchStart(e.targetTouches[0].clientY);
+    const onTouchMoveHandler = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientY);
+    const onTouchEndHandler = () => {
+        if (!touchStart || !touchEnd) return;
+        const distance = touchEnd - touchStart;
+        if (distance > 100) onClose(); // Swipe down to close
+        setTouchStart(null); setTouchEnd(null);
+    };
+
+    // Mouse drag for desktop swipe simulation
+    const onMouseDownHandler = (e: React.MouseEvent) => setTouchStart(e.clientY);
+    const onMouseUpHandler = (e: React.MouseEvent) => {
+        if (!touchStart) return;
+        const distance = e.clientY - touchStart;
+        if (distance > 100) onClose();
+        setTouchStart(null);
+    };
+
     if (!activeStory) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center">
+        <div 
+            className="fixed inset-0 z-[100] bg-black flex items-center justify-center"
+            onTouchStart={onTouchStartHandler}
+            onTouchMove={onTouchMoveHandler}
+            onTouchEnd={onTouchEndHandler}
+            onMouseDown={onMouseDownHandler}
+            onMouseUp={onMouseUpHandler}
+        >
             {/* Navigation Zones */}
-            <div className="absolute inset-y-0 left-0 w-1/3 z-20 cursor-pointer" onClick={handlePrev}></div>
-            <div className="absolute inset-y-0 right-0 w-1/3 z-20 cursor-pointer" onClick={handleNext}></div>
+            <div className="absolute inset-y-0 left-0 w-1/3 z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); handlePrev(); }}></div>
+            <div className="absolute inset-y-0 right-0 w-1/3 z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleNext(); }}></div>
 
-            <div className="relative w-full max-w-md h-full md:h-[90vh] bg-gray-900 md:rounded-xl overflow-hidden shadow-2xl">
+            <div className="relative w-full max-w-md h-full md:h-[90vh] bg-gray-900 md:rounded-xl overflow-hidden shadow-2xl transition-transform" onClick={e => e.stopPropagation()}>
                 {/* Progress Bar */}
                 <div className="absolute top-4 left-0 right-0 px-2 flex gap-1 z-30">
                     {stories.map((s, idx) => (
@@ -98,13 +129,13 @@ const StoryViewer: React.FC<{
                     ))}
                 </div>
 
-                {/* Header - Removed Time as requested */}
-                <div className="absolute top-8 left-4 flex items-center gap-3 z-30">
+                {/* Header - Removed Time */}
+                <div className="absolute top-8 left-4 flex items-center gap-3 z-30 pointer-events-none">
                     <img src={activeStory.authorAvatar} className="w-8 h-8 rounded-full border border-white/50 bg-gray-600" alt="" />
                     <span className="text-white font-bold text-sm shadow-black drop-shadow-md">{activeStory.authorName}</span>
                 </div>
                 
-                <button onClick={onClose} className="absolute top-8 right-4 z-40 text-white hover:opacity-70">
+                <button onClick={onClose} className="absolute top-8 right-4 z-40 text-white hover:opacity-70 p-2">
                     <X className="w-6 h-6" />
                 </button>
 
@@ -123,7 +154,7 @@ const StoryViewer: React.FC<{
                 {isOwner && (
                     <div className="absolute bottom-6 left-4 z-50">
                         <button 
-                            onClick={() => setShowViewers(true)}
+                            onClick={(e) => { e.stopPropagation(); setShowViewers(true); }}
                             className="flex items-center gap-2 text-white bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full hover:bg-black/60 transition-colors"
                         >
                             <Eye className="w-4 h-4" />

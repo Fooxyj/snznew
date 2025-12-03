@@ -19,6 +19,30 @@ interface YandexMapProps {
   className?: string;
 }
 
+// Singleton promise to ensure we only load the script once per app session
+let ymapsLoadPromise: Promise<void> | null = null;
+
+const loadYandexMaps = (): Promise<void> => {
+    if (window.ymaps) return Promise.resolve();
+    
+    if (!ymapsLoadPromise) {
+        ymapsLoadPromise = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            // Using package.standard to reduce size and avoid "bundle full" errors
+            script.src = "https://api-maps.yandex.ru/2.1/?lang=ru_RU&load=package.standard";
+            script.type = "text/javascript";
+            script.async = true;
+            script.onload = () => resolve();
+            script.onerror = (err) => {
+                console.error("Failed to load Yandex Maps script", err);
+                reject(err);
+            };
+            document.head.appendChild(script);
+        });
+    }
+    return ymapsLoadPromise;
+};
+
 export const YandexMap: React.FC<YandexMapProps> = ({ 
   center = [56.08, 60.73], 
   zoom = 13, 
@@ -27,75 +51,89 @@ export const YandexMap: React.FC<YandexMapProps> = ({
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
-  const [error, setError] = useState(false);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => {
-    // Check if API is loaded
-    if (!window.ymaps) {
-        // Retry once after 1 sec in case script is slow
-        setTimeout(() => {
-            if (!window.ymaps) {
-                console.error("Yandex Maps API not loaded");
-                setError(true);
-            }
-        }, 1500);
-        return;
-    }
+    let active = true;
 
-    try {
-        window.ymaps.ready(() => {
-          if (!mapRef.current) return;
+    const init = async () => {
+        try {
+            await loadYandexMaps();
+            
+            // Wait for ymaps.ready
+            if (!window.ymaps) throw new Error("Yandex Maps API not available after load");
+            
+            window.ymaps.ready(() => {
+                if (!active || !mapRef.current) return;
 
-          // If map already exists, just destroy it to re-init (simplest for React without complex diffing)
-          if (mapInstance.current) {
-            mapInstance.current.destroy();
-          }
+                try {
+                    // Destroy existing instance if any
+                    if (mapInstance.current) {
+                        mapInstance.current.destroy();
+                    }
 
-          mapInstance.current = new window.ymaps.Map(mapRef.current, {
-            center: center,
-            zoom: zoom,
-            controls: ['zoomControl', 'fullscreenControl']
-          });
+                    mapInstance.current = new window.ymaps.Map(mapRef.current, {
+                        center: center,
+                        zoom: zoom,
+                        controls: ['zoomControl', 'fullscreenControl']
+                    });
 
-          markers.forEach(marker => {
-            const placemark = new window.ymaps.Placemark(
-              [marker.lat, marker.lng], 
-              {
-                balloonContent: marker.title
-              },
-              {
-                preset: 'islands#blueIcon'
-              }
-            );
+                    markers.forEach(marker => {
+                        const placemark = new window.ymaps.Placemark(
+                            [marker.lat, marker.lng], 
+                            { balloonContent: marker.title },
+                            { preset: 'islands#blueIcon' }
+                        );
 
-            if (marker.onClick) {
-              placemark.events.add('click', marker.onClick);
-            }
+                        if (marker.onClick) {
+                            placemark.events.add('click', marker.onClick);
+                        }
 
-            mapInstance.current.geoObjects.add(placemark);
-          });
-        });
-    } catch (e) {
-        console.error("Error initializing map", e);
-        setError(true);
-    }
+                        mapInstance.current.geoObjects.add(placemark);
+                    });
+
+                    setStatus('ready');
+                } catch (err) {
+                    console.error("Yandex Map initialization error:", err);
+                    setStatus('error');
+                }
+            });
+        } catch (err) {
+            console.error("Yandex Maps load error:", err);
+            if (active) setStatus('error');
+        }
+    };
+
+    init();
 
     return () => {
-      // Cleanup
-      if (mapInstance.current) {
-        mapInstance.current.destroy();
-        mapInstance.current = null;
-      }
+        active = false;
+        if (mapInstance.current) {
+            try { mapInstance.current.destroy(); } catch(e) {}
+            mapInstance.current = null;
+        }
     };
   }, [center[0], center[1], zoom, markers.length]);
 
-  if (error) {
-      return (
-          <div className={`flex items-center justify-center bg-gray-100 text-gray-400 text-xs p-4 ${className}`}>
-              Карта недоступна
-          </div>
-      );
-  }
-
-  return <div ref={mapRef} className={className} />;
+  return (
+    <div className={`relative ${className} bg-gray-100 overflow-hidden`}>
+        <div ref={mapRef} className="w-full h-full" />
+        
+        {status === 'loading' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 z-10 backdrop-blur-sm">
+                <span className="text-gray-400 text-xs flex items-center gap-2 animate-pulse">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div> 
+                    Загрузка карты...
+                </span>
+            </div>
+        )}
+        
+        {status === 'error' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 z-10 text-gray-400 text-center p-4">
+                <p className="text-xs font-medium">Карта временно недоступна</p>
+                <p className="text-[10px] mt-1 opacity-70">Проверьте соединение или VPN</p>
+            </div>
+        )}
+    </div>
+  );
 };

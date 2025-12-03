@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
@@ -37,19 +38,19 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50 p-4">
-      <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-xl border border-gray-100">
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+      <div className="bg-white dark:bg-gray-800 w-full max-w-md p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-blue-900">
+          <h1 className="text-2xl font-bold text-blue-900 dark:text-blue-400">
             {isLogin ? 'Вход в аккаунт' : 'Регистрация'}
           </h1>
-          <p className="text-gray-500 text-sm mt-2">
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
             Снежинск Онлайн - Единый городской портал
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg mb-6 border border-red-200">
+          <div className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm p-3 rounded-lg mb-6 border border-red-200 dark:border-red-800">
             {error}
           </div>
         )}
@@ -61,7 +62,7 @@ export const AuthPage: React.FC = () => {
               <input
                 type="text"
                 placeholder="Ваше имя"
-                className="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full pl-10 pr-4 py-3 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:bg-gray-700 dark:text-white"
                 required
                 value={formData.name}
                 onChange={e => setFormData({...formData, name: e.target.value})}
@@ -74,7 +75,7 @@ export const AuthPage: React.FC = () => {
             <input
               type="email"
               placeholder="Email"
-              className="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              className="w-full pl-10 pr-4 py-3 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:bg-gray-700 dark:text-white"
               required
               value={formData.email}
               onChange={e => setFormData({...formData, email: e.target.value})}
@@ -86,7 +87,7 @@ export const AuthPage: React.FC = () => {
             <input
               type="password"
               placeholder="Пароль"
-              className="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              className="w-full pl-10 pr-4 py-3 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:bg-gray-700 dark:text-white"
               required
               minLength={6}
               value={formData.password}
@@ -94,7 +95,7 @@ export const AuthPage: React.FC = () => {
             />
           </div>
 
-          <Button className="w-full py-3 text-lg mt-4 shadow-lg shadow-blue-100" disabled={loading}>
+          <Button className="w-full py-3 text-lg mt-4 shadow-lg shadow-blue-100 dark:shadow-none" disabled={loading}>
             {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (isLogin ? 'Войти' : 'Создать аккаунт')}
           </Button>
         </form>
@@ -102,7 +103,7 @@ export const AuthPage: React.FC = () => {
         <div className="mt-6 text-center">
           <button 
             onClick={() => { setError(null); setIsLogin(!isLogin); }}
-            className="text-sm text-blue-600 font-medium hover:underline"
+            className="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline"
           >
             {isLogin ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
           </button>

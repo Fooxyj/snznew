@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { NewsItem, UserRole } from '../types';
-import { Link } from 'react-router-dom';
-import { Loader2, Calendar, Newspaper, PenSquare, Trash2 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Loader2, Calendar, Newspaper, PenSquare, Trash2, Filter, X } from 'lucide-react';
 import { CreateNewsModal } from '../components/CreateNewsModal';
 import { Button } from '../components/ui/Common';
 
@@ -12,6 +12,9 @@ export const NewsFeed: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    
+    const categoryFilter = searchParams.get('cat');
 
     const loadData = async () => {
         setLoading(true);
@@ -49,14 +52,26 @@ export const NewsFeed: React.FC = () => {
 
     const isAdmin = user?.role === UserRole.ADMIN;
 
+    const filteredNews = categoryFilter 
+        ? news.filter(n => n.category === categoryFilter)
+        : news;
+
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8">
             <CreateNewsModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSuccess={handleNewsCreated} />
 
-            <div className="flex justify-between items-center mb-8">
-                <h1 className="text-2xl font-bold flex items-center gap-3 dark:text-white">
-                    <Newspaper className="w-8 h-8 text-blue-600" /> Новости города
-                </h1>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
+                        <Newspaper className="w-8 h-8" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold dark:text-white leading-none">Новости</h1>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            {categoryFilter ? `Категория: ${categoryFilter}` : 'Все события города'}
+                        </p>
+                    </div>
+                </div>
                 {user && (
                     <Button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2">
                         <PenSquare className="w-4 h-4" /> Предложить
@@ -64,9 +79,19 @@ export const NewsFeed: React.FC = () => {
                 )}
             </div>
 
+            {categoryFilter && (
+                <div className="mb-6 flex items-center gap-2">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Фильтр:</span>
+                    <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2">
+                        {categoryFilter}
+                        <button onClick={() => setSearchParams({})} className="hover:text-blue-600 dark:hover:text-blue-200"><X className="w-3 h-3" /></button>
+                    </span>
+                </div>
+            )}
+
             {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600 w-8 h-8" /></div> : (
                 <div className="grid gap-6">
-                    {news.map(n => (
+                    {filteredNews.length > 0 ? filteredNews.map(n => (
                         <Link key={n.id} to={`/news/${n.id}`} className="block group relative">
                             <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col md:flex-row hover:shadow-md transition-shadow h-full md:h-48">
                                 <div className="md:w-64 h-48 md:h-full relative shrink-0">
@@ -97,7 +122,11 @@ export const NewsFeed: React.FC = () => {
                                 </button>
                             )}
                         </Link>
-                    ))}
+                    )) : (
+                        <div className="text-center py-20 text-gray-400">
+                            В этой категории пока нет новостей.
+                        </div>
+                    )}
                 </div>
             )}
         </div>

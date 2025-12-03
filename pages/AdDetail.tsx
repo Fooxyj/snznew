@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { Ad, User, UserRole } from '../types';
 import { Button, Badge } from '../components/ui/Common';
-import { ChevronLeft, MapPin, Calendar, User as UserIcon, MessageCircle, Heart, Share2, Loader2, Sparkles, AlertCircle, Trash2 } from 'lucide-react';
+import { ChevronLeft, MapPin, Calendar, User as UserIcon, MessageCircle, Heart, Share2, Loader2, Sparkles, AlertCircle, Trash2, Crown } from 'lucide-react';
 import { YandexMap } from '../components/YandexMap';
 
 export const AdDetail: React.FC = () => {
@@ -80,11 +80,31 @@ export const AdDetail: React.FC = () => {
         }
     };
 
+    const handleAdminToggleVip = async () => {
+        if (!ad) return;
+        const action = ad.isVip ? 'Снять' : 'Назначить';
+        if (confirm(`АДМИН: ${action} VIP статус для этого объявления?`)) {
+            try {
+                await api.adminToggleVip(ad.id, !!ad.isVip);
+                setAd({ ...ad, isVip: !ad.isVip });
+            } catch (e: any) {
+                alert(e.message);
+            }
+        }
+    };
+
     if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
     if (!ad) return <div className="p-10 text-center">Объявление не найдено</div>;
 
     const isMine = currentUserId === ad.authorId;
     const isAdmin = currentUserRole === UserRole.ADMIN;
+
+    // Date formatting
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return "На сайте с 2024";
+        const date = new Date(dateString);
+        return `На сайте с ${date.toLocaleString('ru', { month: 'long', year: 'numeric' })}`;
+    };
 
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8 pb-24">
@@ -103,13 +123,22 @@ export const AdDetail: React.FC = () => {
                             </div>
                         )}
                         {isAdmin && (
-                            <button 
-                                onClick={handleAdminDelete} 
-                                className="absolute top-4 right-4 bg-red-600 text-white p-2 rounded-full shadow-lg hover:bg-red-700 transition-colors z-20"
-                                title="Админ: Удалить объявление"
-                            >
-                                <Trash2 className="w-5 h-5" />
-                            </button>
+                            <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
+                                <button 
+                                    onClick={handleAdminToggleVip} 
+                                    className="bg-white text-orange-500 p-2 rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+                                    title={ad.isVip ? "Снять VIP" : "Сделать VIP"}
+                                >
+                                    <Crown className="w-5 h-5" />
+                                </button>
+                                <button 
+                                    onClick={handleAdminDelete} 
+                                    className="bg-red-600 text-white p-2 rounded-full shadow-lg hover:bg-red-700 transition-colors"
+                                    title="Админ: Удалить объявление"
+                                >
+                                    <Trash2 className="w-5 h-5" />
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -140,7 +169,7 @@ export const AdDetail: React.FC = () => {
                             {isMine ? (
                                 <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-medium">Это вы</span>
                             ) : (
-                                <div className="text-xs text-gray-400">На сайте с 2024</div>
+                                <div className="text-xs text-gray-400">{formatDate(seller?.createdAt)}</div>
                             )}
                         </div>
                     </div>

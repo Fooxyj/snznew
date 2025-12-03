@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Badge, Button, LocationBadge } from '../components/ui/Common';
-import { Filter, Search, Grid, List, Heart, MessageCircle, Loader2, Sparkles, CreditCard, ShoppingBag } from 'lucide-react';
-import { Ad } from '../types';
+import { Filter, Search, Grid, List, Heart, MessageCircle, Loader2, Sparkles, CreditCard, ShoppingBag, Crown } from 'lucide-react';
+import { Ad, UserRole } from '../types';
 import { api } from '../services/api';
 import { CreateAdModal } from '../components/CreateAdModal';
 import { useNavigate } from 'react-router-dom';
@@ -64,6 +63,7 @@ export const Classifieds: React.FC = () => {
   const [ads, setAds] = useState<Ad[]>([]);
   const [userFavs, setUserFavs] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   // Promotion State
@@ -84,6 +84,7 @@ export const Classifieds: React.FC = () => {
         if (user) {
             setUserFavs(user.favorites);
             setCurrentUserId(user.id);
+            setCurrentUserRole(user.role);
         }
       } catch (error) {
         console.error("Failed to load ads", error);
@@ -127,10 +128,22 @@ export const Classifieds: React.FC = () => {
       }
   };
 
+  const handleAdminToggleVip = async (ad: Ad) => {
+      if (!confirm(`Админ: ${ad.isVip ? 'Снять' : 'Назначить'} VIP статус для "${ad.title}"?`)) return;
+      try {
+          await api.adminToggleVip(ad.id, !!ad.isVip);
+          fetchAds();
+      } catch (e: any) {
+          alert(e.message);
+      }
+  };
+
   const filteredAds = ads.filter(ad => 
     (selectedCategory === 'Все' || ad.category === selectedCategory) &&
     ad.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const isAdmin = currentUserRole === UserRole.ADMIN;
 
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto">
@@ -223,8 +236,10 @@ export const Classifieds: React.FC = () => {
                     mode={viewMode} 
                     isFav={userFavs.includes(ad.id)} 
                     isMine={currentUserId === ad.authorId}
+                    isAdmin={isAdmin}
                     onToggleFav={(e) => toggleFav(ad.id, e)}
                     onPromote={() => setPromoteId(ad.id)}
+                    onAdminToggleVip={() => handleAdminToggleVip(ad)}
                     onClick={() => navigate(`/ad/${ad.id}`)}
                 />
                 ))
@@ -244,12 +259,14 @@ interface AdCardProps {
     mode: 'grid' | 'list'; 
     isFav: boolean; 
     isMine: boolean;
+    isAdmin: boolean;
     onToggleFav: (e: any) => void; 
     onPromote: () => void;
+    onAdminToggleVip: () => void;
     onClick: () => void;
 }
 
-const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, onToggleFav, onPromote, onClick }) => {
+const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onToggleFav, onPromote, onAdminToggleVip, onClick }) => {
   const vipClass = ad.isVip ? "border-2 border-orange-300 ring-2 ring-orange-100 dark:ring-orange-900" : "border dark:border-gray-700";
 
   if (mode === 'list') {
@@ -261,13 +278,22 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, onToggleFav, o
         <div className="w-48 h-32 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden shrink-0 relative">
           <img src={ad.image} alt={ad.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           {ad.isVip && <div className="absolute top-2 left-2 bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">VIP</div>}
-          <div className="absolute top-2 right-2">
+          <div className="absolute top-2 right-2 flex flex-col gap-1">
             <button 
                 onClick={onToggleFav}
                 className={`p-1.5 rounded-full hover:bg-white shadow-sm transition-all ${isFav ? 'bg-white text-red-500' : 'bg-white/80 text-gray-500 hover:text-red-500'}`}
             >
               <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
             </button>
+            {isAdmin && (
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onAdminToggleVip(); }}
+                    className="p-1.5 rounded-full hover:bg-white shadow-sm transition-all bg-white/80 text-gray-500 hover:text-orange-500"
+                    title="Админ: Toggle VIP"
+                >
+                    <Crown className="w-4 h-4" />
+                </button>
+            )}
           </div>
         </div>
         <div className="flex-1 min-w-0 flex flex-col justify-between">
@@ -308,12 +334,23 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, onToggleFav, o
       <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
         <img src={ad.image} alt={ad.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
         {ad.isVip && <div className="absolute top-2 left-2 bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10">VIP</div>}
-        <button 
-            onClick={onToggleFav}
-            className={`absolute top-2 right-2 p-1.5 rounded-full shadow-sm transition-all z-10 ${isFav ? 'bg-white text-red-500 opacity-100' : 'bg-white/80 text-gray-500 opacity-0 group-hover:opacity-100 hover:text-red-500'}`}
-        >
-          <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
-        </button>
+        <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
+            <button 
+                onClick={onToggleFav}
+                className={`p-1.5 rounded-full shadow-sm transition-all ${isFav ? 'bg-white text-red-500' : 'bg-white/80 text-gray-500 hover:text-red-500'}`}
+            >
+              <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
+            </button>
+            {isAdmin && (
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onAdminToggleVip(); }}
+                    className="p-1.5 rounded-full shadow-sm transition-all bg-white/80 text-gray-500 hover:text-orange-500"
+                    title="Админ: Toggle VIP"
+                >
+                    <Crown className="w-4 h-4" />
+                </button>
+            )}
+        </div>
         <div className="absolute bottom-2 left-2">
            <Badge color={ad.isVip ? "orange" : "gray"}>{ad.category}</Badge>
         </div>

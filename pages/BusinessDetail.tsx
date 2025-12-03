@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
@@ -33,7 +32,7 @@ const ProductDetailModal: React.FC<{ product: Product | null; isOpen: boolean; o
                     <div className="flex justify-between items-start mb-2">
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">{product.name}</h2>
                         {canDelete && onDelete && (
-                            <button onClick={() => { onDelete(product.id); onClose(); }} className="text-red-500 p-2 hover:bg-red-50 rounded-full">
+                            <button onClick={() => { onDelete(product.id); onClose(); }} className="text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full">
                                 <Trash2 className="w-5 h-5" />
                             </button>
                         )}
@@ -68,8 +67,6 @@ const BookingTicketModal: React.FC<{ event: Event | null; sessionTime: string | 
 
     useEffect(() => {
         if (isOpen && event) {
-            // Mock fetching booked seats for this specific session
-            // In real app, we'd pass sessionTime to API
             api.getBookedSeats(event.id).then(setBookedSeats);
         }
     }, [isOpen, event]);
@@ -166,23 +163,23 @@ const CreateProductModal: React.FC<{ businessId: string; isOpen: boolean; onClos
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg">Добавить товар/услугу</h3>
-                    <button onClick={onClose}><X className="w-5 h-5" /></button>
+                    <h3 className="font-bold text-lg dark:text-white">Добавить товар/услугу</h3>
+                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400 dark:text-gray-400 hover:text-gray-600 dark:hover:text-white" /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="text-xs font-bold text-gray-500">Название</label>
-                        <input className="w-full border rounded-lg p-2" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Название</label>
+                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500">Цена (₽)</label>
-                        <input type="number" className="w-full border rounded-lg p-2" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Цена (₽)</label>
+                        <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
                     </div>
                     <div>
-                         <label className="text-xs font-bold text-gray-500">Категория</label>
-                         <select className="w-full border rounded-lg p-2 bg-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Категория</label>
+                         <select className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                              <option>Еда</option>
                              <option>Напитки</option>
                              <option>Товары</option>
@@ -197,16 +194,16 @@ const CreateProductModal: React.FC<{ businessId: string; isOpen: boolean; onClos
                          </select>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500">Описание</label>
-                        <textarea className="w-full border rounded-lg p-2 resize-none" rows={2} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Описание</label>
+                        <textarea className="w-full border rounded-lg p-2 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" rows={2} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                     </div>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
                         {formData.image ? (
                             <img src={formData.image} alt="" className="h-24 mx-auto rounded object-cover" />
                         ) : (
                             <div className="relative cursor-pointer">
-                                <Upload className="w-6 h-6 text-gray-400 mx-auto mb-1" />
-                                <span className="text-xs text-gray-500">{uploading ? "..." : "Фото"}</span>
+                                <Upload className="w-6 h-6 text-gray-400 dark:text-gray-500 mx-auto mb-1" />
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{uploading ? "..." : "Фото"}</span>
                                 <input type="file" className="absolute inset-0 opacity-0" onChange={handleImageUpload} />
                             </div>
                         )}
@@ -241,24 +238,24 @@ const CreateServiceModal: React.FC<{ businessId: string; isOpen: boolean; onClos
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl">
+            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-sm p-6 shadow-2xl">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg">Добавить услугу для записи</h3>
-                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
+                    <h3 className="font-bold text-lg dark:text-white">Добавить услугу для записи</h3>
+                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400 dark:text-gray-400 hover:text-gray-600 dark:hover:text-white" /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="text-xs font-bold text-gray-500">Название услуги</label>
-                        <input className="w-full border rounded-lg p-2" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required placeholder="Например: Стрижка / Аренда" />
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Название услуги</label>
+                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required placeholder="Например: Стрижка / Аренда" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-bold text-gray-500">Цена (₽)</label>
-                            <input type="number" className="w-full border rounded-lg p-2" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Цена (₽)</label>
+                            <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-gray-500">Длительность (мин)</label>
-                            <input type="number" className="w-full border rounded-lg p-2" value={formData.durationMin} onChange={e => setFormData({...formData, durationMin: e.target.value})} required />
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Длительность (мин)</label>
+                            <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.durationMin} onChange={e => setFormData({...formData, durationMin: e.target.value})} required />
                         </div>
                     </div>
                     <Button className="w-full" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Создать'}</Button>
@@ -302,21 +299,21 @@ const BookingModal: React.FC<{ service: Service | null; isOpen: boolean; onClose
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl">
+            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl">
                 <div className="flex justify-between items-start mb-4">
                     <div>
-                        <h3 className="font-bold text-lg">Запись онлайн</h3>
-                        <p className="text-blue-600 font-medium">{service.title}</p>
+                        <h3 className="font-bold text-lg dark:text-white">Запись онлайн</h3>
+                        <p className="text-blue-600 dark:text-blue-400 font-medium">{service.title}</p>
                     </div>
-                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
+                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400 dark:text-gray-400 hover:text-gray-600 dark:hover:text-white" /></button>
                 </div>
 
                 <div className="space-y-4">
                     <div>
-                        <label className="text-xs font-bold text-gray-500 mb-1 block">Дата</label>
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 block">Дата</label>
                         <input 
                             type="date" 
-                            className="w-full border rounded-lg p-2" 
+                            className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
                             min={new Date().toISOString().split('T')[0]}
                             value={selectedDate}
                             onChange={e => setSelectedDate(e.target.value)}
@@ -325,13 +322,13 @@ const BookingModal: React.FC<{ service: Service | null; isOpen: boolean; onClose
                     
                     {selectedDate && (
                         <div>
-                            <label className="text-xs font-bold text-gray-500 mb-2 block">Свободное время</label>
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 block">Свободное время</label>
                             <div className="grid grid-cols-4 gap-2">
                                 {slots.map(time => (
                                     <button
                                         key={time}
                                         onClick={() => setSelectedTime(time)}
-                                        className={`py-2 text-sm rounded-lg border transition-colors ${selectedTime === time ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-blue-50 border-gray-200'}`}
+                                        className={`py-2 text-sm rounded-lg border transition-colors ${selectedTime === time ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-blue-50 dark:hover:bg-blue-900/30 border-gray-200 dark:border-gray-600 dark:text-gray-200'}`}
                                     >
                                         {time}
                                     </button>
@@ -340,10 +337,10 @@ const BookingModal: React.FC<{ service: Service | null; isOpen: boolean; onClose
                         </div>
                     )}
 
-                    <div className="pt-4 border-t flex justify-between items-center">
+                    <div className="pt-4 border-t dark:border-gray-700 flex justify-between items-center">
                         <div>
                             <div className="text-xs text-gray-400">Стоимость</div>
-                            <div className="font-bold text-lg">{service.price} ₽</div>
+                            <div className="font-bold text-lg dark:text-white">{service.price} ₽</div>
                         </div>
                         <Button onClick={handleBook} disabled={loading || !selectedTime}>
                             {loading ? <Loader2 className="animate-spin" /> : 'Подтвердить запись'}
@@ -533,7 +530,7 @@ export const BusinessDetail: React.FC = () => {
                         <div className="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
                             <div className="flex items-center"><MapPin className="w-4 h-4 mr-2" /> {business.address}</div>
                             <div className="flex items-center"><Clock className="w-4 h-4 mr-2" /> {business.workHours}</div>
-                            <a href={`tel:${business.phone}`} className="flex items-center text-blue-600 hover:underline font-bold bg-blue-50 px-3 py-1 rounded-lg">
+                            <a href={`tel:${business.phone}`} className="flex items-center text-blue-600 hover:underline font-bold bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-lg">
                                 <Phone className="w-4 h-4 mr-2" /> {business.phone}
                             </a>
                         </div>

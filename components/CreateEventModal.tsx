@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X, Loader2, Upload, Calendar } from 'lucide-react';
 import { Button } from './ui/Common';
@@ -65,20 +66,20 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ isOpen, onCl
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden h-[90vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 sticky top-0 z-10">
-          <h3 className="text-lg font-bold text-gray-900">Добавить событие в афишу</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 dark:border-gray-700 sticky top-0 z-10">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Добавить событие в афишу</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
             <X className="w-5 h-5" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Название события</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Название события</label>
             <input 
               required
               type="text" 
-              className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               placeholder="Например: День города"
               value={formData.title}
               onChange={e => setFormData({...formData, title: e.target.value})}
@@ -86,20 +87,20 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ isOpen, onCl
           </div>
           <div className="grid grid-cols-2 gap-4">
              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Дата</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Дата</label>
                 <input 
                   required
                   type="text" 
-                  className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   placeholder="20 Июля, 18:00"
                   value={formData.date}
                   onChange={e => setFormData({...formData, date: e.target.value})}
                 />
              </div>
              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Категория</label>
                 <select 
-                   className="w-full px-3 py-2 border rounded-lg outline-none bg-white"
+                   className="w-full px-3 py-2 border rounded-lg outline-none bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                    value={formData.category}
                    onChange={e => setFormData({...formData, category: e.target.value})}
                 >
@@ -107,15 +108,18 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ isOpen, onCl
                     <option>Концерт</option>
                     <option>Спорт</option>
                     <option>Культура</option>
+                    <option>Выставки</option>
+                    <option>Премьеры</option>
+                    <option>Кино</option>
                 </select>
              </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Место проведения</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Место проведения</label>
             <input 
               required
               type="text" 
-              className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               placeholder="Парк культуры"
               value={formData.location}
               onChange={e => setFormData({...formData, location: e.target.value})}
@@ -123,8 +127,8 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ isOpen, onCl
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Изображение</label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-500 text-sm bg-gray-50 hover:bg-gray-100 transition-colors relative">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Изображение</label>
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center text-gray-500 dark:text-gray-400 text-sm bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
                 {formData.image ? (
                     <div className="relative group">
                         <img src={formData.image} alt="Preview" className="h-32 mx-auto rounded object-cover" />
@@ -143,7 +147,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ isOpen, onCl
                         {isUploading ? (
                             <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-2" />
                         ) : (
-                            <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                            <Upload className="w-8 h-8 text-gray-400 dark:text-gray-500 mb-2" />
                         )}
                         <p>{isUploading ? "Загрузка..." : "Нажмите для загрузки фото"}</p>
                         <input 
