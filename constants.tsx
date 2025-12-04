@@ -279,6 +279,7 @@ export const SERVICES_MENU = [
       { title: 'Попутчики', path: '/rides', icon: 'Car' },
       { title: 'Прокат вещей', path: '/rentals', icon: 'Repeat' },
       { title: 'Бюро находок', path: '/lost-found', icon: 'HelpCircle' },
+      { title: 'Погода', path: '/weather', icon: 'Cloud' },
     ]
   },
   {

@@ -51,6 +51,8 @@ export interface Ad {
   image: string;
   date: string;
   authorId: string;
+  authorName?: string; // New field for UI
+  authorAvatar?: string; // New field for UI
   description: string;
   location: string;
   isVip?: boolean;

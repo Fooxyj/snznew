@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -28,6 +29,7 @@ import { CartPage } from './pages/Cart';
 import { CharityPage } from './pages/Charity';
 import { BusinessCRM } from './pages/BusinessCRM';
 import { RentalsPage } from './pages/Rentals';
+import { Weather } from './pages/Weather';
 import { ThemeProvider } from './components/ThemeProvider';
 import { CartProvider } from './components/CartProvider';
 import { SplashScreen } from './components/SplashScreen';
@@ -37,6 +39,11 @@ const App: React.FC = () => {
   const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
+    // FORCE APP TO START AT HOME PAGE
+    if (window.location.hash !== '#/' && window.location.hash !== '') {
+        window.location.hash = '/';
+    }
+
     const initApp = async () => {
       try {
         // Pre-fetch critical data (e.g. User) while showing Splash
@@ -79,6 +86,7 @@ const App: React.FC = () => {
               <Route path="/rides" element={<RidesPage />} />
               <Route path="/jobs" element={<JobsPage />} />
               <Route path="/bonus-shop" element={<BonusShop />} />
+              <Route path="/weather" element={<Weather />} />
               <Route path="/category/transport" element={<TransportPage />} />
               <Route path="/category/emergency" element={<EmergencyPage />} />
 

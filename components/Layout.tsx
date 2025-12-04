@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, Link, useNavigate } from 'react-router-dom';
 import { 
@@ -405,13 +406,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
              {/* Right Actions */}
              <div className="flex items-center space-x-5 ml-6">
-                <Link to="/classifieds">
-                    <Button variant="primary" size="sm" className="flex items-center gap-2 shadow-lg shadow-blue-500/20 rounded-xl px-5">
-                        <PlusCircle className="w-4 h-4" />
-                        <span>Подать</span>
-                    </Button>
-                </Link>
-
                 <div className="flex items-center space-x-2 relative">
                     <Link to="/cart" className="relative p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-blue-600 transition-colors">
                         <ShoppingCart className="w-6 h-6" />

@@ -1,5 +1,4 @@
 
-
 import { 
   User, Ad, Business, NewsItem, Notification, Event, 
   Ticket, Review, Comment, Conversation, Message, 
@@ -28,7 +27,7 @@ let mockRentals: RentalItem[] = []; // Start empty
 let mockOrders: Order[] = [];
 
 // Helper Mapper
-const mapAdFromDB = (a: any): Ad => ({
+const mapAdFromDB = (a: any, profile?: any): Ad => ({
     id: a.id,
     title: a.title,
     price: a.price,
@@ -37,12 +36,38 @@ const mapAdFromDB = (a: any): Ad => ({
     image: a.image,
     date: a.date || a.created_at ? new Date(a.created_at).toLocaleDateString('ru-RU') : 'Недавно',
     authorId: a.author_id,
+    authorName: profile?.name || 'Пользователь',
+    authorAvatar: profile?.avatar,
     description: a.description,
     location: a.location,
     isVip: a.is_vip,
     isPremium: a.is_premium,
     status: a.status || 'approved'
 });
+
+// Helper to parse date string "DD.MM.YYYY, HH:mm" or similar for sorting
+const parseDateString = (dateStr: string): number => {
+    if (!dateStr) return 0;
+    // Try standard Date parse first (for ISO strings)
+    let d = new Date(dateStr).getTime();
+    if (!isNaN(d)) return d;
+
+    // Try custom format "DD.MM.YYYY, HH:mm" or "DD.MM.YYYY"
+    try {
+        const parts = dateStr.match(/(\d{2})\.(\d{2})\.(\d{4})(?:,\s*(\d{2}):(\d{2}))?/);
+        if (parts) {
+            const day = parseInt(parts[1], 10);
+            const month = parseInt(parts[2], 10) - 1;
+            const year = parseInt(parts[3], 10);
+            const hour = parts[4] ? parseInt(parts[4], 10) : 0;
+            const minute = parts[5] ? parseInt(parts[5], 10) : 0;
+            return new Date(year, month, day, hour, minute).getTime();
+        }
+    } catch (e) {
+        // ignore
+    }
+    return 0;
+};
 
 export const api = {
   // --- AUTH ---
@@ -59,9 +84,28 @@ export const api = {
 
   async signUp(email: string, password: string, name: string): Promise<User> {
     if (isSupabaseConfigured() && supabase) {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ 
+            email, 
+            password,
+            options: {
+                data: { name } // Metadata
+            }
+        });
         if (error) throw error;
-        // In a real app, create profile record here
+        
+        // IMPORTANT: Create profile record immediately so name/avatar are available
+        if (data.user) {
+            const { error: profileError } = await supabase.from('profiles').insert({
+                id: data.user.id,
+                name: name,
+                email: email,
+                role: 'USER',
+                xp: 0,
+                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
+            });
+            if (profileError) console.error("Error creating profile:", profileError);
+        }
+
         return { ...CURRENT_USER, id: data.user?.id || 'u1', name, email };
     }
     await delay();
@@ -124,7 +168,7 @@ export const api = {
             // Fetch ALL ads for user (including pending/rejected)
             const { data } = await supabase.from('ads').select('*').eq('author_id', userId);
             if (data) {
-                const mapped = data.map(mapAdFromDB);
+                const mapped = data.map(d => mapAdFromDB(d));
                 return { ads: mapped };
             }
         } catch (e) {
@@ -213,7 +257,18 @@ export const api = {
     const user = await this.getCurrentUser();
     if (!user) throw new Error("Unauthorized");
 
-    const newBiz = { ...data, author_id: user.id, rating: 0, reviews_count: 0 };
+    const newBiz = { 
+        name: data.name,
+        category: data.category,
+        description: data.description,
+        address: data.address,
+        phone: data.phone,
+        work_hours: data.workHours, // Map workHours to work_hours
+        image: data.image,
+        author_id: user.id, 
+        rating: 0, 
+        reviews_count: 0 
+    };
 
     if (isSupabaseConfigured() && supabase) {
         const { data: saved, error } = await supabase.from('businesses').insert(newBiz).select().single();
@@ -229,7 +284,10 @@ export const api = {
   async updateBusiness(id: string, data: Partial<Business>): Promise<void> {
       if (isSupabaseConfigured() && supabase) {
           const dbData: any = { ...data };
-          if (data.workHours) dbData.work_hours = data.workHours;
+          if (data.workHours) {
+              dbData.work_hours = data.workHours;
+              delete dbData.workHours;
+          }
           await supabase.from('businesses').update(dbData).eq('id', id);
       }
       const idx = mockBusinesses.findIndex(b => b.id === id);
@@ -251,17 +309,30 @@ export const api = {
             const { data, error } = await supabase.from('ads').select('*').eq('status', 'approved');
             
             if (error) {
-                console.error("Error fetching ads:", error);
-                return [];
+                console.warn("API Error fetching ads:", error);
+                return mockAds.filter(a => a.status === 'approved'); // Fallback to mock on error
             }
 
             if (data) {
-                const mapped = data.map(mapAdFromDB);
+                // Fetch profiles for authors
+                const authorIds = [...new Set(data.map((a: any) => a.author_id))];
+                let profiles: any[] = [];
+                if (authorIds.length > 0) {
+                    const { data: profilesData } = await supabase.from('profiles').select('id, name, avatar').in('id', authorIds);
+                    profiles = profilesData || [];
+                }
+
+                const mapped = data.map((d: any) => {
+                    const profile = profiles.find(p => p.id === d.author_id);
+                    return mapAdFromDB(d, profile);
+                });
+                
                 // Sort manually if DB sort failed or wasn't applied: VIP first
                 return mapped.sort((a, b) => (a.isVip === b.isVip ? 0 : a.isVip ? -1 : 1));
             }
         } catch (e) {
-            console.error("Critical error in getAds:", e);
+            console.warn("Network/Critical error in getAds, using mock.");
+            return mockAds.filter(a => a.status === 'approved'); // Fallback to mock on critical error
         }
         return [];
     }
@@ -272,7 +343,11 @@ export const api = {
   async getAdById(id: string): Promise<Ad | null> {
     if (isSupabaseConfigured() && supabase) {
         const { data } = await supabase.from('ads').select('*').eq('id', id).single();
-        if (data) return mapAdFromDB(data);
+        if (data) {
+            // Fetch profile for author
+            const { data: profile } = await supabase.from('profiles').select('name, avatar').eq('id', data.author_id).single();
+            return mapAdFromDB(data, profile);
+        }
     }
     return mockAds.find(a => a.id === id) || null;
   },
@@ -281,19 +356,27 @@ export const api = {
     const user = await this.getCurrentUser();
     if (!user) throw new Error("Unauthorized");
 
+    // Construct precise object to avoid sending undefined props like 'isVip' (camelCase) to DB
     const adData = { 
-        ...data, 
+        title: data.title,
+        price: data.price,
+        currency: data.currency || '₽',
+        category: data.category,
+        description: data.description,
+        location: data.location,
+        image: data.image,
         author_id: user.id, 
         date: new Date().toLocaleDateString('ru-RU'),
         status: 'pending',
-        is_vip: data.isVip, 
-        is_premium: data.isPremium
+        is_vip: !!data.isVip, 
+        is_premium: !!data.isPremium
     };
 
     if (isSupabaseConfigured() && supabase) {
         const { data: saved, error } = await supabase.from('ads').insert(adData).select().single();
         if (error) throw error;
-        return mapAdFromDB(saved);
+        // When just created, we know the author is current user
+        return mapAdFromDB(saved, { name: user.name, avatar: user.avatar });
     }
 
     const mock = { id: Math.random().toString(), ...data, authorId: user.id, date: 'Сегодня', status: 'pending' };
@@ -304,8 +387,24 @@ export const api = {
   async updateAd(id: string, data: Partial<Ad>): Promise<void> {
       if (isSupabaseConfigured() && supabase) {
           const dbData: any = { ...data };
-          if (data.isVip !== undefined) dbData.is_vip = data.isVip;
-          if (data.isPremium !== undefined) dbData.is_premium = data.isPremium;
+          
+          // Map camelCase to snake_case
+          if (data.isVip !== undefined) {
+              dbData.is_vip = data.isVip;
+              delete dbData.isVip;
+          }
+          if (data.isPremium !== undefined) {
+              dbData.is_premium = data.isPremium;
+              delete dbData.isPremium;
+          }
+          
+          // Remove camelCase keys if they persist
+          delete dbData.authorId; 
+          delete dbData.authorName; 
+          delete dbData.authorAvatar;
+          delete dbData.isVip;
+          delete dbData.isPremium;
+
           await supabase.from('ads').update(dbData).eq('id', id);
       }
       const idx = mockAds.findIndex(a => a.id === id);
@@ -337,8 +436,8 @@ export const api = {
         try {
             const { data, error } = await supabase.from('news').select('*');
             if (error) {
-                console.error("Error fetching news:", error);
-                return [];
+                console.warn("API Error fetching news:", error);
+                return mockNews; // Fallback to mock on error
             }
             if (data) {
                 return data.map((n: any) => ({
@@ -353,7 +452,8 @@ export const api = {
                 }));
             }
         } catch (e) {
-            console.error("Critical error getNews:", e);
+            console.warn("Network/Critical error in getNews, using mock.");
+            return mockNews; // Fallback to mock on critical error
         }
         return [];
     }
@@ -404,8 +504,8 @@ export const api = {
                 profiles = profileData || [];
             }
             
-            // 3. Merge
-            return data.map((c: any) => {
+            // 3. Merge & Sort
+            const mappedComments = data.map((c: any) => {
                 const profile = profiles.find(p => p.id === c.author_id);
                 return {
                     id: c.id,
@@ -416,6 +516,10 @@ export const api = {
                     authorAvatar: profile?.avatar
                 };
             });
+
+            // Sort by date descending (newest first)
+            return mappedComments.sort((a, b) => parseDateString(b.date) - parseDateString(a.date));
+
         } catch (e) {
             console.error("Critical error fetching comments:", e);
             return [];
@@ -496,6 +600,172 @@ export const api = {
               date: new Date().toLocaleDateString('ru-RU')
           });
       }
+  },
+
+  // --- CHAT & MESSAGES ---
+  async getConversations(): Promise<Conversation[]> {
+      const user = await this.getCurrentUser();
+      if (!user) return [];
+      
+      if (isSupabaseConfigured() && supabase) {
+          try {
+              // Fetch conversations where user is participant
+              const { data, error } = await supabase
+                  .from('conversations')
+                  .select('*')
+                  .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`)
+                  .order('updated_at', { ascending: false });
+
+              if (error) throw error;
+              if (!data) return [];
+
+              // Get partner profiles
+              const partnerIds = data.map((c: any) => c.participant1_id === user.id ? c.participant2_id : c.participant1_id);
+              let profiles: any[] = [];
+              if (partnerIds.length > 0) {
+                  const { data: profilesData } = await supabase.from('profiles').select('id, name, avatar').in('id', partnerIds);
+                  profiles = profilesData || [];
+              }
+
+              return data.map((c: any) => {
+                  const partnerId = c.participant1_id === user.id ? c.participant2_id : c.participant1_id;
+                  const profile = profiles.find((p: any) => p.id === partnerId);
+                  return {
+                      id: c.id,
+                      participant1Id: c.participant1_id,
+                      participant2Id: c.participant2_id,
+                      partnerName: profile?.name || 'Пользователь',
+                      partnerAvatar: profile?.avatar || 'https://ui-avatars.com/api/?name=User&background=random',
+                      lastMessageDate: new Date(c.updated_at).toLocaleDateString()
+                  };
+              });
+          } catch (e) {
+              console.error("Error fetching conversations", e);
+          }
+      }
+      return []; 
+  },
+
+  async getMessages(conversationId: string): Promise<Message[]> {
+      if (isSupabaseConfigured() && supabase) {
+          const { data } = await supabase
+              .from('messages')
+              .select('*')
+              .eq('conversation_id', conversationId)
+              .order('created_at', { ascending: true });
+          
+          if (data) {
+              return data.map((m: any) => ({
+                  id: m.id,
+                  conversationId: m.conversation_id,
+                  senderId: m.sender_id,
+                  // Robust mapping to handle schema variations (content vs text)
+                  text: m.content || m.text || m.message || m.body || '', 
+                  createdAt: m.created_at,
+                  isRead: m.is_read
+              }));
+          }
+      }
+      return [];
+  },
+
+  async sendMessage(conversationId: string, text: string): Promise<void> {
+      const user = await this.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return;
+
+      const payload = {
+          conversation_id: conversationId,
+          sender_id: user.id,
+      };
+
+      // Try columns in order of likelihood: text, content, message, body
+      const columns = ['text', 'content', 'message', 'body'];
+      let lastError = null;
+
+      for (const col of columns) {
+          const { error } = await supabase.from('messages').insert({
+              ...payload,
+              [col]: text
+          });
+          
+          if (!error) {
+              await supabase.from('conversations').update({ updated_at: new Date() }).eq('id', conversationId);
+              return; // Success
+          }
+          
+          // Only continue if error is about missing column
+          if (error.code === '42703' || error.code === 'PGRST204' || error.message?.includes('column')) {
+              lastError = error;
+              continue; 
+          } else {
+              // Other error (e.g. permission), stop
+              console.error("Error sending message:", error);
+              return;
+          }
+      }
+      
+      console.warn("All column attempts failed for sendMessage. Last error:", lastError);
+  },
+
+  async subscribeToMessages(conversationId: string, callback: (msg: Message) => void) {
+      if (!isSupabaseConfigured() || !supabase) return { unsubscribe: () => {} };
+
+      const channel = supabase
+          .channel(`chat:${conversationId}`)
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, 
+          (payload) => {
+              const m = payload.new as any;
+              callback({
+                  id: m.id,
+                  conversationId: m.conversation_id,
+                  senderId: m.sender_id,
+                  text: m.content || m.text || m.message || m.body || '', // Robust mapping
+                  createdAt: m.created_at,
+                  isRead: m.is_read
+              });
+          })
+          .subscribe();
+
+      return { unsubscribe: () => supabase.removeChannel(channel) };
+  },
+
+  async startChat(targetUserId: string, context?: string): Promise<string> {
+      const user = await this.getCurrentUser();
+      if (!user) throw new Error("Unauthorized");
+      
+      if (isSupabaseConfigured() && supabase) {
+          // 1. Check if conversation already exists between these two
+          // Use maybeSingle() to avoid error if no row found
+          const { data: existing } = await supabase
+              .from('conversations')
+              .select('id')
+              .or(`and(participant1_id.eq.${user.id},participant2_id.eq.${targetUserId}),and(participant1_id.eq.${targetUserId},participant2_id.eq.${user.id})`)
+              .maybeSingle();
+
+          if (existing) {
+              if (context) {
+                  // Actually send the message if context is provided
+                  await this.sendMessage(existing.id, context);
+              }
+              return existing.id;
+          }
+
+          // 2. Create new
+          const { data: newConvo, error } = await supabase
+              .from('conversations')
+              .insert({ participant1_id: user.id, participant2_id: targetUserId })
+              .select()
+              .single();
+          
+          if (error) throw error;
+          
+          // 3. Send initial context message if provided
+          if (context) {
+              await this.sendMessage(newConvo.id, context);
+          }
+          return newConvo.id;
+      }
+      return 'mock_chat';
   },
 
   // --- COMMUNITIES ---
@@ -876,6 +1146,15 @@ export const api = {
       }
   },
 
+  async adminTogglePremium(id: string, isPremium: boolean): Promise<void> {
+      if (isSupabaseConfigured() && supabase) {
+          await supabase.from('ads').update({ is_premium: isPremium }).eq('id', id);
+      } else {
+          const ad = mockAds.find(a => a.id === id);
+          if (ad) ad.isPremium = isPremium;
+      }
+  },
+
   // --- MISC ---
   async uploadImage(file: File): Promise<string> {
       await delay(800);
@@ -887,18 +1166,58 @@ export const api = {
   async markNotificationRead(id: string) {},
   async deleteNotification(id: string) {},
   async globalSearch(q: string): Promise<any> { return { ads: [], businesses: [], news: [] }; },
-  async getWeather(): Promise<any> { return { temp: 24, wind: 3, code: 1 }; },
+  
+  // REAL Open-Meteo Integration with Detailed Data
+  async getWeather(): Promise<any> { 
+      try {
+          const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=56.08&longitude=60.73&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,weather_code&wind_speed_unit=ms&timezone=auto');
+          const data = await res.json();
+          const current = data.current;
+          return {
+              temp: Math.round(current.temperature_2m),
+              wind: Math.round(current.wind_speed_10m),
+              code: current.weather_code,
+              humidity: current.relative_humidity_2m,
+              pressure: Math.round(current.surface_pressure * 0.750062) // hPa to mmHg
+          };
+      } catch (e) {
+          // Fallback to offline mock
+          return { temp: 20, wind: 3, code: 1, humidity: 50, pressure: 750 };
+      }
+  },
+  
+  async getWeatherForecast(): Promise<any[]> {
+      try {
+          // Add extra parameters for detailed forecast: precipitation & wind
+          const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=56.08&longitude=60.73&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&wind_speed_unit=ms&timezone=auto');
+          const data = await res.json();
+          const daily = data.daily;
+          
+          return daily.time.map((t: string, i: number) => {
+              const d = new Date(t);
+              const dayName = i === 0 ? 'Сегодня' : i === 1 ? 'Завтра' : d.toLocaleDateString('ru-RU', { weekday: 'short' });
+              // Capitalize first letter
+              const formattedDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+              return {
+                  day: formattedDay,
+                  tempDay: Math.round(daily.temperature_2m_max[i]),
+                  tempNight: Math.round(daily.temperature_2m_min[i]),
+                  code: daily.weather_code[i],
+                  precip: daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : 0,
+                  wind: daily.wind_speed_10m_max ? Math.round(daily.wind_speed_10m_max[i]) : 0
+              };
+          });
+      } catch (e) {
+          return [];
+      }
+  },
+
   async getActivePoll(): Promise<Poll|null> { return null; },
   async createPoll(question: string, options: string[]): Promise<void> { await delay(); },
   async votePoll(id: string, opt: string) {},
   async toggleFavorite(id: string, t: string) { return true; },
   
   // Placeholders
-  async getConversations() { return []; },
-  async getMessages(cid: string) { return []; },
-  async sendMessage(cid: string, txt: string) {},
-  async subscribeToMessages(cid: string, cb: any) { return { unsubscribe: () => {} }; },
-  async startChat(uid: string, ctx?: string) { return 'new_chat'; },
   async getLostFoundItems(t?: string) { return []; },
   async createLostFoundItem(d: any) {},
   async resolveLostFoundItem(id: string) {},

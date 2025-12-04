@@ -33,8 +33,17 @@ export const AdDetail: React.FC = () => {
         if (!ad) return;
         if (!currentUser) return navigate('/auth');
         try {
-            // Pass context string to API
-            const chatId = await api.startChat(ad.authorId, `Объявление: ${ad.title}`);
+            // Create a structured payload for the chat
+            const payload = JSON.stringify({
+                type: 'ad_inquiry',
+                adId: ad.id,
+                title: ad.title,
+                price: `${ad.price.toLocaleString()} ${ad.currency}`,
+                image: ad.image,
+                text: "Здравствуйте! Меня интересует это объявление."
+            });
+            
+            const chatId = await api.startChat(ad.authorId, payload);
             navigate(`/chat?id=${chatId}`);
         } catch (e: any) {
             alert(e.message);
@@ -114,7 +123,7 @@ export const AdDetail: React.FC = () => {
 
                     <div className="mt-auto">
                         {currentUser?.id !== ad.authorId ? (
-                            <Button className="w-full py-4 text-lg shadow-lg shadow-blue-200 dark:shadow-none" onClick={handleWrite}>
+                            <Button className="w-full py-4 text-lg shadow-lg shadow-blue-200 dark:shadow-none bg-blue-600 hover:bg-blue-700 text-white" onClick={handleWrite}>
                                 <MessageCircle className="w-5 h-5 mr-2" /> Написать продавцу
                             </Button>
                         ) : (
@@ -131,12 +140,16 @@ export const AdDetail: React.FC = () => {
 
             <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                        <UserIcon className="w-6 h-6 text-gray-500" />
-                    </div>
+                    {ad.authorAvatar ? (
+                        <img src={ad.authorAvatar} alt="" className="w-12 h-12 rounded-full object-cover" />
+                    ) : (
+                        <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                            <UserIcon className="w-6 h-6 text-gray-500" />
+                        </div>
+                    )}
                     <div>
                         <div className="text-sm text-gray-500">Продавец</div>
-                        <div className="font-bold dark:text-white">Пользователь #{ad.authorId.slice(0, 5)}</div>
+                        <div className="font-bold dark:text-white text-lg">{ad.authorName}</div>
                     </div>
                 </div>
             </div>

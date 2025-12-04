@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Badge, Button, LocationBadge } from '../components/ui/Common';
-import { Filter, Search, Grid, List, Heart, MessageCircle, Loader2, Sparkles, CreditCard, ShoppingBag, Crown, Star } from 'lucide-react';
+import { Filter, Search, Grid, List, Heart, MessageCircle, Loader2, Sparkles, CreditCard, ShoppingBag, Crown, Star, User as UserIcon } from 'lucide-react';
 import { Ad, UserRole } from '../types';
 import { api } from '../services/api';
 import { CreateAdModal } from '../components/CreateAdModal';
@@ -140,6 +140,26 @@ export const Classifieds: React.FC = () => {
       }
   };
 
+  const handleWrite = async (ad: Ad, e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!currentUserId) return navigate('/auth');
+      try {
+          const payload = JSON.stringify({
+                type: 'ad_inquiry',
+                adId: ad.id,
+                title: ad.title,
+                price: `${ad.price.toLocaleString()} ${ad.currency}`,
+                image: ad.image,
+                text: "Здравствуйте! Меня интересует это объявление."
+          });
+          const chatId = await api.startChat(ad.authorId, payload);
+          navigate(`/chat?id=${chatId}`);
+      } catch (e: any) {
+          alert(e.message);
+      }
+  };
+
   const handlePromoteConfirm = async (level: 'vip' | 'premium') => {
       if (promoteId) {
           try {
@@ -265,6 +285,7 @@ export const Classifieds: React.FC = () => {
                     onPromote={() => setPromoteId(ad.id)}
                     onAdminToggleVip={() => handleAdminToggleVip(ad)}
                     onClick={() => navigate(`/ad/${ad.id}`)}
+                    onWrite={(e) => handleWrite(ad, e)}
                 />
                 ))
             ) : (
@@ -288,9 +309,10 @@ interface AdCardProps {
     onPromote: () => void;
     onAdminToggleVip: () => void;
     onClick: () => void;
+    onWrite: (e: any) => void;
 }
 
-const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onToggleFav, onPromote, onAdminToggleVip, onClick }) => {
+const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onToggleFav, onPromote, onAdminToggleVip, onClick, onWrite }) => {
   // 3-Tier Visual Logic
   let containerClass = "bg-white dark:bg-gray-800 border dark:border-gray-700";
   let badge = null;
@@ -351,17 +373,35 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
             <div className="flex items-center space-x-4">
               <Badge color={ad.isVip ? "orange" : ad.isPremium ? "blue" : "gray"}>{ad.category}</Badge>
               <LocationBadge location={ad.location} />
-              <span className="text-xs text-gray-400">{ad.date}</span>
+              <div className="flex items-center text-xs text-gray-400 gap-1">
+                  {ad.authorAvatar ? (
+                      <img src={ad.authorAvatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+                  ) : (
+                      <UserIcon className="w-3 h-3" />
+                  )}
+                  {ad.authorName}
+              </div>
             </div>
-            {isMine && !ad.isVip && (
-                 <Button 
-                    size="sm" 
-                    className="bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600 h-8 text-xs px-3 dark:bg-gray-700 dark:text-gray-300" 
-                    onClick={(e) => { e.stopPropagation(); onPromote(); }}
-                 >
-                     <Sparkles className="w-3 h-3 mr-1" /> Продвинуть
-                 </Button>
-            )}
+            <div className="flex gap-2">
+                {!isMine && (
+                    <Button 
+                        size="sm" 
+                        className="h-8 text-xs px-3 bg-blue-600 hover:bg-blue-700 text-white" 
+                        onClick={onWrite}
+                    >
+                        <MessageCircle className="w-3 h-3 mr-1" /> Написать
+                    </Button>
+                )}
+                {isMine && !ad.isVip && (
+                    <Button 
+                        size="sm" 
+                        className="bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600 h-8 text-xs px-3 dark:bg-gray-700 dark:text-gray-300" 
+                        onClick={(e) => { e.stopPropagation(); onPromote(); }}
+                    >
+                        <Sparkles className="w-3 h-3 mr-1" /> Продвинуть
+                    </Button>
+                )}
+            </div>
           </div>
         </div>
       </div>
@@ -408,7 +448,10 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
           </div>
         </div>
         <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-600 flex items-center justify-between">
-          <span className="text-[10px] text-gray-400">{ad.date}</span>
+          <div className="flex items-center gap-1 text-[10px] text-gray-400">
+             {ad.authorAvatar && <img src={ad.authorAvatar} className="w-4 h-4 rounded-full" />}
+             <span className="truncate max-w-[60px]">{ad.authorName}</span>
+          </div>
           
           {isMine && !ad.isVip && (
                <Button 
