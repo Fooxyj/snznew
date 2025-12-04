@@ -1,14 +1,16 @@
+
 import React, { useState, useEffect } from 'react';
 import { Badge, Button, LocationBadge } from '../components/ui/Common';
-import { Filter, Search, Grid, List, Heart, MessageCircle, Loader2, Sparkles, CreditCard, ShoppingBag, Crown } from 'lucide-react';
+import { Filter, Search, Grid, List, Heart, MessageCircle, Loader2, Sparkles, CreditCard, ShoppingBag, Crown, Star } from 'lucide-react';
 import { Ad, UserRole } from '../types';
 import { api } from '../services/api';
 import { CreateAdModal } from '../components/CreateAdModal';
 import { useNavigate } from 'react-router-dom';
 
-// Fake Payment Modal
-const PromoteModal: React.FC<{ isOpen: boolean; onClose: () => void; onConfirm: () => void }> = ({ isOpen, onClose, onConfirm }) => {
+// New Payment Modal with Selection
+const PromoteModal: React.FC<{ isOpen: boolean; onClose: () => void; onConfirm: (level: 'vip' | 'premium') => void }> = ({ isOpen, onClose, onConfirm }) => {
     const [loading, setLoading] = useState(false);
+    const [selectedLevel, setSelectedLevel] = useState<'vip' | 'premium'>('premium');
 
     if (!isOpen) return null;
 
@@ -16,37 +18,60 @@ const PromoteModal: React.FC<{ isOpen: boolean; onClose: () => void; onConfirm: 
         setLoading(true);
         setTimeout(() => {
             setLoading(false);
-            onConfirm();
+            onConfirm(selectedLevel);
             onClose();
-            alert("Оплата прошла успешно! Объявление теперь VIP.");
+            alert(selectedLevel === 'vip' ? "Оплата успешна! VIP активирован." : "Оплата успешна! Premium активирован.");
         }, 1500);
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center animate-in zoom-in duration-200">
-                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Sparkles className="w-8 h-8 text-orange-500" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in duration-200">
+                <div className="text-center mb-6">
+                    <h3 className="text-2xl font-bold dark:text-white">Ускорить продажу</h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Выберите способ продвижения</p>
                 </div>
-                <h3 className="text-xl font-bold mb-2">Продвижение в VIP</h3>
-                <p className="text-gray-500 mb-6 text-sm">
-                    Ваше объявление будет закреплено вверху списка и выделено золотой рамкой.
-                </p>
-                
-                <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="font-medium">Стоимость:</span>
-                        <span className="font-bold text-lg">99 ₽</span>
+
+                <div className="space-y-4 mb-6">
+                    {/* VIP Option */}
+                    <div 
+                        onClick={() => setSelectedLevel('vip')}
+                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${selectedLevel === 'vip' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-orange-300'}`}
+                    >
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${selectedLevel === 'vip' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                            <Crown className="w-6 h-6 fill-current" />
+                        </div>
+                        <div className="flex-1 text-left">
+                            <div className="flex justify-between items-center">
+                                <span className="font-bold text-gray-900 dark:text-white">VIP Статус</span>
+                                <span className="font-bold text-orange-600 dark:text-orange-400">99 ₽</span>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Закрепление вверху, золотая рамка, значок короны.</p>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                        <CreditCard className="w-3 h-3" /> Оплата картой (тест)
+
+                    {/* Premium Option */}
+                    <div 
+                        onClick={() => setSelectedLevel('premium')}
+                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${selectedLevel === 'premium' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'}`}
+                    >
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${selectedLevel === 'premium' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                            <Sparkles className="w-6 h-6 fill-current" />
+                        </div>
+                        <div className="flex-1 text-left">
+                            <div className="flex justify-between items-center">
+                                <span className="font-bold text-gray-900 dark:text-white">Premium</span>
+                                <span className="font-bold text-blue-600 dark:text-blue-400">49 ₽</span>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Синяя рамка, выделение в ленте, значок.</p>
+                        </div>
                     </div>
                 </div>
 
-                <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1" onClick={onClose} disabled={loading}>Отмена</Button>
-                    <Button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" onClick={handlePay} disabled={loading}>
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Оплатить'}
+                <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1 dark:border-gray-600 dark:text-gray-300" onClick={onClose} disabled={loading}>Отмена</Button>
+                    <Button className="flex-[2] bg-gray-900 dark:bg-white dark:text-black text-white hover:bg-gray-800" onClick={handlePay} disabled={loading}>
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Оплатить картой'}
                     </Button>
                 </div>
             </div>
@@ -66,7 +91,6 @@ export const Classifieds: React.FC = () => {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Promotion State
   const [promoteId, setPromoteId] = useState<string | null>(null);
 
   const navigate = useNavigate();
@@ -116,12 +140,12 @@ export const Classifieds: React.FC = () => {
       }
   };
 
-  const handlePromoteConfirm = async () => {
+  const handlePromoteConfirm = async (level: 'vip' | 'premium') => {
       if (promoteId) {
           try {
-            await api.promoteAd(promoteId);
+            await api.promoteAd(promoteId, level);
             setPromoteId(null);
-            fetchAds(); // Reload to see VIP status
+            fetchAds(); 
           } catch (e: any) {
             alert(e.message || "Ошибка оплаты");
           }
@@ -267,17 +291,36 @@ interface AdCardProps {
 }
 
 const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onToggleFav, onPromote, onAdminToggleVip, onClick }) => {
-  const vipClass = ad.isVip ? "border-2 border-orange-300 ring-2 ring-orange-100 dark:ring-orange-900" : "border dark:border-gray-700";
+  // 3-Tier Visual Logic
+  let containerClass = "bg-white dark:bg-gray-800 border dark:border-gray-700";
+  let badge = null;
 
+  if (ad.isVip) {
+      containerClass = "bg-orange-50/30 dark:bg-orange-900/10 border-2 border-orange-400 dark:border-orange-500 shadow-md ring-2 ring-orange-100 dark:ring-orange-900/20";
+      badge = (
+        <div className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-yellow-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm z-10 flex items-center gap-1">
+            <Crown className="w-3 h-3 fill-current" /> VIP
+        </div>
+      );
+  } else if (ad.isPremium) {
+      containerClass = "bg-blue-50/30 dark:bg-blue-900/10 border-2 border-blue-400 dark:border-blue-500 shadow-sm";
+      badge = (
+        <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm z-10 flex items-center gap-1">
+            <Sparkles className="w-3 h-3 fill-current" /> PREMIUM
+        </div>
+      );
+  }
+
+  // LIST VIEW
   if (mode === 'list') {
     return (
       <div 
         onClick={onClick}
-        className={`bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm flex gap-4 hover:shadow-md transition-shadow group cursor-pointer ${vipClass}`}
+        className={`p-4 rounded-xl shadow-sm flex gap-4 hover:shadow-md transition-all group cursor-pointer ${containerClass}`}
       >
         <div className="w-48 h-32 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden shrink-0 relative">
           <img src={ad.image} alt={ad.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-          {ad.isVip && <div className="absolute top-2 left-2 bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">VIP</div>}
+          {badge}
           <div className="absolute top-2 right-2 flex flex-col gap-1">
             <button 
                 onClick={onToggleFav}
@@ -299,21 +342,21 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate pr-4">{ad.title}</h3>
+              <h3 className={`text-lg font-bold truncate pr-4 ${ad.isVip ? 'text-orange-900 dark:text-orange-100' : 'text-gray-900 dark:text-white'}`}>{ad.title}</h3>
               <p className="text-lg font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">{ad.price.toLocaleString()} {ad.currency}</p>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{ad.description}</p>
           </div>
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center space-x-4">
-              <Badge color={ad.isVip ? "orange" : "gray"}>{ad.category}</Badge>
+              <Badge color={ad.isVip ? "orange" : ad.isPremium ? "blue" : "gray"}>{ad.category}</Badge>
               <LocationBadge location={ad.location} />
               <span className="text-xs text-gray-400">{ad.date}</span>
             </div>
             {isMine && !ad.isVip && (
                  <Button 
                     size="sm" 
-                    className="bg-orange-500 hover:bg-orange-600 text-white" 
+                    className="bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600 h-8 text-xs px-3 dark:bg-gray-700 dark:text-gray-300" 
                     onClick={(e) => { e.stopPropagation(); onPromote(); }}
                  >
                      <Sparkles className="w-3 h-3 mr-1" /> Продвинуть
@@ -325,15 +368,16 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
     );
   }
 
+  // GRID VIEW
   return (
     <div 
         onClick={onClick}
-        className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow group flex flex-col cursor-pointer ${vipClass}`}
+        className={`rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition-all group flex flex-col cursor-pointer relative ${containerClass}`}
     >
-      {/* Square Aspect Ratio */}
       <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
         <img src={ad.image} alt={ad.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-        {ad.isVip && <div className="absolute top-2 left-2 bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10">VIP</div>}
+        {badge}
+        
         <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
             <button 
                 onClick={onToggleFav}
@@ -352,27 +396,27 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
             )}
         </div>
         <div className="absolute bottom-2 left-2">
-           <Badge color={ad.isVip ? "orange" : "gray"}>{ad.category}</Badge>
+           <Badge color={ad.isVip ? "orange" : ad.isPremium ? "blue" : "gray"}>{ad.category}</Badge>
         </div>
       </div>
       <div className="p-3 flex-1 flex flex-col">
         <div className="flex-1">
-          <h3 className="font-medium text-gray-900 dark:text-white line-clamp-1 mb-1 text-sm">{ad.title}</h3>
+          <h3 className={`font-bold line-clamp-1 mb-1 text-sm ${ad.isVip ? 'text-orange-900 dark:text-orange-100' : 'text-gray-900 dark:text-white'}`}>{ad.title}</h3>
           <p className="text-base font-bold text-blue-600 dark:text-blue-400 mb-1">{ad.price.toLocaleString()} {ad.currency}</p>
           <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
              <span className="truncate">{ad.location}</span>
           </div>
         </div>
-        <div className="mt-2 pt-2 border-t dark:border-gray-700 flex items-center justify-between">
+        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-600 flex items-center justify-between">
           <span className="text-[10px] text-gray-400">{ad.date}</span>
           
           {isMine && !ad.isVip && (
                <Button 
                 size="sm" 
-                className="bg-orange-100 text-orange-700 hover:bg-orange-200 h-6 text-[10px] px-2" 
+                className="bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-700 h-6 text-[10px] px-2 dark:bg-gray-700 dark:text-gray-300" 
                 onClick={(e) => { e.stopPropagation(); onPromote(); }}
                >
-                   VIP
+                   <Sparkles className="w-3 h-3 mr-1" /> Продвинуть
                </Button>
           )}
         </div>

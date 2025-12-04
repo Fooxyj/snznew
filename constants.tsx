@@ -1,4 +1,5 @@
 
+
 import { Ad, Business, NewsItem, User, UserRole, Event } from './types';
 
 export const CURRENT_USER: User = {
@@ -84,6 +85,7 @@ export const ADS_DATA: Ad[] = [
     authorId: 'u4',
     description: 'Подготовка к ЕГЭ и ОГЭ. Опыт 10 лет.',
     location: 'Онлайн',
+    isPremium: true,
     status: 'approved'
   },
   {
@@ -97,6 +99,7 @@ export const ADS_DATA: Ad[] = [
     authorId: 'u5',
     description: 'Мощный игровой ноутбук. RTX 3060, Ryzen 7.',
     location: 'ул. Дзержинского',
+    isPremium: true,
     status: 'approved'
   },
   {
@@ -230,7 +233,7 @@ export const CATALOG_MENU = [
   },
   {
     id: 'services_section',
-    title: 'Услуги для жизни',
+    title: 'Услуги',
     icon: 'ShoppingBag',
     submenu: [
       { title: 'Кафе и рестораны', path: '/category/cafe' },
@@ -261,7 +264,6 @@ export const CATALOG_MENU = [
       { title: 'Городской транспорт', path: '/category/transport' },
       { title: 'Междугородний транспорт', path: '/category/transport' },
       { title: 'Такси', path: '/category/taxi' },
-      { title: 'Грузоперевозки', path: '/category/cargo' },
     ]
   }
 ];

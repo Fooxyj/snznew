@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../services/api';
 import { Conversation, Message, User } from '../types';
@@ -50,7 +51,7 @@ export const ChatPage: React.FC = () => {
         loadMessages();
         
         // Subscribe to real-time messages
-        const sub = api.subscribeToMessages(activeChat, (msg) => {
+        const subPromise = api.subscribeToMessages(activeChat, (msg) => {
             // Only add if not already in list (dedupe)
             setMessages(prev => {
                 if (prev.find(m => m.id === msg.id)) return prev;
@@ -59,7 +60,9 @@ export const ChatPage: React.FC = () => {
             setTimeout(scrollToBottom, 100);
         });
 
-        return () => sub.unsubscribe();
+        return () => {
+            subPromise.then(sub => sub.unsubscribe());
+        };
     }, [activeChat]);
 
     const scrollToBottom = () => {

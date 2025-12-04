@@ -54,6 +54,7 @@ export interface Ad {
   description: string;
   location: string;
   isVip?: boolean;
+  isPremium?: boolean; // Tier 2 status
   status?: 'pending' | 'approved' | 'rejected'; // Moderation status
 }
 

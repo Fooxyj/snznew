@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Ride } from '../types';
+import { Ride, User } from '../types';
 import { Button } from '../components/ui/Common';
-import { Car, MapPin, Calendar, Clock, Loader2, Plus, Users, Search, ArrowRight, User as UserIcon } from 'lucide-react';
+import { Car, MapPin, Calendar, Clock, Loader2, Plus, Users, Search, ArrowRight, User as UserIcon, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
@@ -41,44 +41,46 @@ const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucces
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
-                <h2 className="text-xl font-bold mb-4 dark:text-white">Создать поездку</h2>
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold dark:text-white">Создать поездку</h2>
+                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Откуда</label>
+                            <label className="text-xs font-bold text-gray-500">Откуда</label>
                             <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.fromCity} onChange={e => setFormData({...formData, fromCity: e.target.value})} required />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Куда</label>
+                            <label className="text-xs font-bold text-gray-500">Куда</label>
                             <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.toCity} onChange={e => setFormData({...formData, toCity: e.target.value})} required />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Дата</label>
+                            <label className="text-xs font-bold text-gray-500">Дата</label>
                             <input type="date" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} required />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Время</label>
+                            <label className="text-xs font-bold text-gray-500">Время</label>
                             <input type="time" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} required />
                         </div>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Автомобиль</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Toyota Camry" value={formData.carModel} onChange={e => setFormData({...formData, carModel: e.target.value})} required />
+                        <label className="text-xs font-bold text-gray-500">Автомобиль</label>
+                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.carModel} onChange={e => setFormData({...formData, carModel: e.target.value})} placeholder="Toyota Camry, Белая" required />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Цена (₽)</label>
+                            <label className="text-xs font-bold text-gray-500">Цена (₽)</label>
                             <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Мест</label>
+                            <label className="text-xs font-bold text-gray-500">Мест</label>
                             <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.seats} onChange={e => setFormData({...formData, seats: e.target.value})} required />
                         </div>
                     </div>
                     <Button className="w-full" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Опубликовать'}</Button>
-                    <Button variant="outline" className="w-full dark:border-gray-600 dark:text-gray-300" onClick={onClose} type="button">Отмена</Button>
                 </form>
             </div>
         </div>
@@ -95,7 +97,7 @@ export const RidesPage: React.FC = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const data = await api.getRides(search.from, search.to);
+            const data = await api.getRides();
             setRides(data);
         } catch (e) {
             console.error(e);
@@ -110,24 +112,24 @@ export const RidesPage: React.FC = () => {
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        loadData();
+        // Client side filtering for mockup
+        // Real app would pass search params to API
     };
 
-    const handleBook = async (rideId: string) => {
-        if (confirm("Бронируем место?")) {
-            try {
-                await api.bookRide(rideId);
-                alert("Место забронировано!");
-                loadData();
-            } catch (e: any) {
-                alert("Ошибка: " + e.message);
-            }
+    const handleBook = async (id: string) => {
+        if (!confirm("Забронировать место?")) return;
+        try {
+            await api.bookRide(id);
+            alert("Место забронировано!");
+            loadData();
+        } catch (e: any) {
+            alert(e.message);
         }
     };
 
-    const handleContact = async (driverId: string) => {
+    const handleContact = async (driverId: string, context?: string) => {
         try {
-            const chatId = await api.startChat(driverId);
+            const chatId = await api.startChat(driverId, context);
             navigate(`/chat?id=${chatId}`);
         } catch (e: any) {
             alert(e.message);
@@ -205,7 +207,10 @@ export const RidesPage: React.FC = () => {
                             </div>
 
                             <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t dark:border-gray-700 md:border-t-0 pt-3 md:pt-0">
-                                <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleContact(ride.driverId)}>
+                                <div 
+                                    className="flex items-center gap-2 cursor-pointer" 
+                                    onClick={() => handleContact(ride.driverId, `Поездка: ${ride.fromCity} -> ${ride.toCity} (${ride.date})`)}
+                                >
                                     <img src={ride.driverAvatar} alt="" className="w-10 h-10 rounded-full bg-gray-100 object-cover" />
                                     <div className="text-left hidden md:block">
                                         <div className="text-sm font-bold dark:text-white">{ride.driverName}</div>

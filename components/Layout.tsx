@@ -38,6 +38,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let subPromise: Promise<{ unsubscribe: () => void }> | null = null;
+
     // Initial Load
     const load = async () => {
         const u = await api.getCurrentUser();
@@ -50,15 +52,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             api.getNotifications().then(setNotifications);
             
             // Subscribe to real-time notifications
-            const sub = api.subscribeToNotifications(u.id, (n) => {
+            subPromise = api.subscribeToNotifications(u.id, (n) => {
                 setNotifications(prev => [n, ...prev]);
                 showToast(n.text);
             });
-
-            return () => sub.unsubscribe();
         }
     };
     load();
+
+    return () => {
+        if (subPromise) {
+            subPromise.then(sub => sub.unsubscribe());
+        }
+    };
   }, []);
 
   // Scroll listener attached to the main container

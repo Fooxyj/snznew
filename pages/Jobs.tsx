@@ -1,22 +1,13 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Vacancy, Resume } from '../types';
 import { Button } from '../components/ui/Common';
-import { Briefcase, MapPin, User, Search, Plus, Phone, Loader2, X, FileText } from 'lucide-react';
+import { Loader2, Briefcase, User as UserIcon, Phone, Plus, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const CreateVacancyModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({
-        title: '',
-        companyName: '',
-        salaryMin: '',
-        salaryMax: '',
-        description: '',
-        contactPhone: '',
-        schedule: 'full'
-    });
+    const [formData, setFormData] = useState({ title: '', companyName: '', description: '', contactPhone: '', salaryMin: '', salaryMax: '', schedule: 'full' });
     const [loading, setLoading] = useState(false);
 
     if (!isOpen) return null;
@@ -27,9 +18,9 @@ const CreateVacancyModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuc
         try {
             await api.createVacancy({
                 ...formData,
-                salaryMin: formData.salaryMin ? Number(formData.salaryMin) : undefined,
-                salaryMax: formData.salaryMax ? Number(formData.salaryMax) : undefined,
-                schedule: formData.schedule as any
+                salaryMin: Number(formData.salaryMin),
+                salaryMax: Number(formData.salaryMax),
+                schedule: formData.schedule as 'full' | 'shift' | 'remote'
             });
             onSuccess();
             onClose();
@@ -42,45 +33,45 @@ const CreateVacancyModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuc
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg p-6 shadow-2xl h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold dark:text-white">Разместить вакансию</h2>
                     <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Должность</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Продавец-консультант" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                        <label className="text-xs font-bold text-gray-500">Должность</label>
+                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Компания</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="ООО Ромашка" value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} />
+                        <label className="text-xs font-bold text-gray-500">Компания</label>
+                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} required />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Зарплата от</label>
+                            <label className="text-xs font-bold text-gray-500">Мин. ЗП</label>
                             <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.salaryMin} onChange={e => setFormData({...formData, salaryMin: e.target.value})} />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Зарплата до</label>
+                            <label className="text-xs font-bold text-gray-500">Макс. ЗП</label>
                             <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.salaryMax} onChange={e => setFormData({...formData, salaryMax: e.target.value})} />
                         </div>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">График</label>
-                        <select className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.schedule} onChange={e => setFormData({...formData, schedule: e.target.value})}>
+                        <label className="text-xs font-bold text-gray-500">График</label>
+                        <select className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.schedule} onChange={e => setFormData({...formData, schedule: e.target.value})}>
                             <option value="full">Полный день</option>
                             <option value="shift">Сменный</option>
-                            <option value="remote">Удаленка</option>
+                            <option value="remote">Удаленно</option>
                         </select>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Описание</label>
-                        <textarea rows={4} className="w-full border rounded-lg p-2 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required />
+                        <label className="text-xs font-bold text-gray-500">Телефон</label>
+                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.contactPhone} onChange={e => setFormData({...formData, contactPhone: e.target.value})} required />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Телефон для связи</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.contactPhone} onChange={e => setFormData({...formData, contactPhone: e.target.value})} required />
+                        <label className="text-xs font-bold text-gray-500">Описание</label>
+                        <textarea className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none" rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required />
                     </div>
                     <Button className="w-full" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Разместить'}</Button>
                 </form>
@@ -90,14 +81,7 @@ const CreateVacancyModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuc
 };
 
 const CreateResumeModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({
-        name: '',
-        profession: '',
-        salaryExpectation: '',
-        experience: '',
-        about: '',
-        phone: ''
-    });
+    const [formData, setFormData] = useState({ name: '', profession: '', experience: '', salaryExpectation: '', about: '', phone: '' });
     const [loading, setLoading] = useState(false);
 
     if (!isOpen) return null;
@@ -108,7 +92,7 @@ const CreateResumeModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucc
         try {
             await api.createResume({
                 ...formData,
-                salaryExpectation: formData.salaryExpectation ? Number(formData.salaryExpectation) : undefined,
+                salaryExpectation: Number(formData.salaryExpectation)
             });
             onSuccess();
             onClose();
@@ -121,37 +105,39 @@ const CreateResumeModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucc
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg p-6 shadow-2xl h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold dark:text-white">Создать резюме</h2>
                     <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Желаемая должность</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Водитель" value={formData.profession} onChange={e => setFormData({...formData, profession: e.target.value})} required />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Ваше имя</label>
+                        <label className="text-xs font-bold text-gray-500">Имя</label>
                         <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Ожидаемая зарплата</label>
-                        <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.salaryExpectation} onChange={e => setFormData({...formData, salaryExpectation: e.target.value})} />
+                        <label className="text-xs font-bold text-gray-500">Профессия</label>
+                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.profession} onChange={e => setFormData({...formData, profession: e.target.value})} required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs font-bold text-gray-500">Опыт</label>
+                            <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})} placeholder="3 года" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-gray-500">Ожидаемая ЗП</label>
+                            <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.salaryExpectation} onChange={e => setFormData({...formData, salaryExpectation: e.target.value})} />
+                        </div>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Опыт работы</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="5 лет, работал в такси" value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})} />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">О себе (навыки)</label>
-                        <textarea rows={4} className="w-full border rounded-lg p-2 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.about} onChange={e => setFormData({...formData, about: e.target.value})} required />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Телефон</label>
+                        <label className="text-xs font-bold text-gray-500">Телефон</label>
                         <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required />
                     </div>
-                    <Button className="w-full" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Опубликовать'}</Button>
+                    <div>
+                        <label className="text-xs font-bold text-gray-500">О себе</label>
+                        <textarea className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none" rows={4} value={formData.about} onChange={e => setFormData({...formData, about: e.target.value})} required />
+                    </div>
+                    <Button className="w-full" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Создать'}</Button>
                 </form>
             </div>
         </div>
@@ -185,9 +171,9 @@ export const JobsPage: React.FC = () => {
         loadData();
     }, []);
 
-    const handleChat = async (userId: string) => {
+    const handleChat = async (userId: string, context: string) => {
         try {
-            const chatId = await api.startChat(userId);
+            const chatId = await api.startChat(userId, context);
             navigate(`/chat?id=${chatId}`);
         } catch (e: any) {
             alert(e.message);
@@ -220,7 +206,7 @@ export const JobsPage: React.FC = () => {
                     onClick={() => setActiveTab('resumes')}
                     className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'resumes' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
-                    <User className="w-4 h-4" /> Резюме
+                    <UserIcon className="w-4 h-4" /> Резюме
                 </button>
             </div>
 
@@ -255,7 +241,14 @@ export const JobsPage: React.FC = () => {
                                         <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
                                             <Phone className="w-4 h-4" /> {v.contactPhone}
                                         </div>
-                                        <Button size="sm" variant="outline" className="dark:border-gray-600 dark:text-gray-300" onClick={() => handleChat(v.authorId)}>Написать</Button>
+                                        <Button 
+                                            size="sm" 
+                                            variant="outline" 
+                                            className="dark:border-gray-600 dark:text-gray-300" 
+                                            onClick={() => handleChat(v.authorId, `Вакансия: ${v.title} в ${v.companyName}`)}
+                                        >
+                                            Написать
+                                        </Button>
                                     </div>
                                 </div>
                             ))
@@ -287,7 +280,14 @@ export const JobsPage: React.FC = () => {
                                         <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
                                             <Phone className="w-4 h-4" /> {r.phone}
                                         </div>
-                                        <Button size="sm" variant="outline" className="dark:border-gray-600 dark:text-gray-300" onClick={() => handleChat(r.authorId)}>Написать</Button>
+                                        <Button 
+                                            size="sm" 
+                                            variant="outline" 
+                                            className="dark:border-gray-600 dark:text-gray-300" 
+                                            onClick={() => handleChat(r.authorId, `Резюме: ${r.profession} (${r.name})`)}
+                                        >
+                                            Написать
+                                        </Button>
                                     </div>
                                 </div>
                             ))

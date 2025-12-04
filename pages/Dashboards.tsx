@@ -1,18 +1,18 @@
+
+
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
-import { User, Ad, Business, Booking, RentalBooking, UserRole } from '../types';
-import { Button, Badge, XPBar } from '../components/ui/Common';
+import { User, Ad, Business, UserRole } from '../types';
+import { Button, XPBar, Badge } from '../components/ui/Common';
 import { 
     User as UserIcon, Settings, LogOut, Loader2, Plus, 
-    Briefcase, Calendar, ShoppingBag, PieChart, Check, X, 
-    Trophy, MapPin, Building2, Clock, CreditCard,
-    Repeat, Upload, Pencil, Star, Shield, Zap, Crown,
+    Briefcase, ShoppingBag, PieChart, Check, X, 
+    Trophy, MapPin, Building2, Crown,
     LayoutDashboard, FileText, BarChart3, Users,
-    MoreVertical, Eye, Edit3, Trash2, ChevronDown, List
+    Edit3, Trash2, ChevronDown, List, Upload, Pencil, Star, Shield, Zap
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { EditAdModal } from '../components/EditAdModal';
-import { EditBusinessModal } from '../components/EditBusinessModal';
 
 // Helper for Badges
 const BadgeIcon: React.FC<{ name: string }> = ({ name }) => {
@@ -460,7 +460,7 @@ export const Profile: React.FC = () => {
 export const AdminDashboard: React.FC = () => {
     const [stats, setStats] = useState({ users: 0, ads: 0, businesses: 0, news: 0 });
     const [pendingAds, setPendingAds] = useState<Ad[]>([]);
-    const [allAds, setAllAds] = useState<Ad[]>([]); // New state for all ads
+    const [allAds, setAllAds] = useState<Ad[]>([]); 
     const [activeTab, setActiveTab] = useState<'overview' | 'moderation' | 'content' | 'ads'>('overview');
     
     // Poll State
@@ -851,6 +851,10 @@ export const ConnectBusiness: React.FC = () => {
                             <option>Услуги</option>
                             <option>Красота</option>
                             <option>Спорт</option>
+                            <option>Грузоперевозки</option>
+                            <option>Аренда</option>
+                            <option>Туризм</option>
+                            <option>Медицина</option>
                             <option>Авто</option>
                             <option>Кино</option>
                             <option>Развлечения</option>

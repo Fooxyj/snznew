@@ -2,63 +2,48 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { Ad, User, UserRole } from '../types';
-import { Button, Badge } from '../components/ui/Common';
-import { ChevronLeft, MapPin, Calendar, User as UserIcon, MessageCircle, Heart, Share2, Loader2, Sparkles, AlertCircle, Trash2, Crown } from 'lucide-react';
-import { YandexMap } from '../components/YandexMap';
+import { Ad, User } from '../types';
+import { Button, Badge, LocationBadge } from '../components/ui/Common';
+import { Loader2, ChevronLeft, Heart, MessageCircle, Share2, MapPin, Calendar, User as UserIcon } from 'lucide-react';
 
 export const AdDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [ad, setAd] = useState<Ad | null>(null);
-    const [seller, setSeller] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-    const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
     const [isFav, setIsFav] = useState(false);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
 
     useEffect(() => {
         const load = async () => {
             if (!id) return;
-            try {
-                const data = await api.getAdById(id);
-                setAd(data);
-                
-                const user = await api.getCurrentUser();
-                if (user) {
-                    setCurrentUserId(user.id);
-                    setCurrentUserRole(user.role);
-                    const content = await api.getUserContent(user.id);
-                    if (content.favorites && content.favorites.find(f => f.id === id)) {
-                        setIsFav(true);
-                    }
-                }
-
-                if (data && data.authorId) {
-                    const sellerProfile = await api.getUserById(data.authorId);
-                    setSeller(sellerProfile);
-                }
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setLoading(false);
-            }
+            const data = await api.getAdById(id);
+            setAd(data);
+            
+            const user = await api.getCurrentUser();
+            setCurrentUser(user);
+            if (user && user.favorites.includes(id)) setIsFav(true);
+            
+            setLoading(false);
         };
         load();
     }, [id]);
 
     const handleWrite = async () => {
         if (!ad) return;
+        if (!currentUser) return navigate('/auth');
         try {
-            const chatId = await api.startChat(ad.authorId);
+            // Pass context string to API
+            const chatId = await api.startChat(ad.authorId, `Объявление: ${ad.title}`);
             navigate(`/chat?id=${chatId}`);
         } catch (e: any) {
             alert(e.message);
         }
     };
 
-    const handleFav = async () => {
+    const toggleFav = async () => {
         if (!ad) return;
+        if (!currentUser) return navigate('/auth');
         try {
             await api.toggleFavorite(ad.id, 'ad');
             setIsFav(!isFav);
@@ -67,152 +52,91 @@ export const AdDetail: React.FC = () => {
         }
     };
 
-    const handleAdminDelete = async () => {
-        if (!ad) return;
-        if (confirm('АДМИН: Удалить это объявление навсегда?')) {
-            try {
-                await api.deleteAd(ad.id);
-                alert("Объявление удалено");
-                navigate('/classifieds');
-            } catch (e: any) {
-                alert(e.message);
-            }
-        }
-    };
-
-    const handleAdminToggleVip = async () => {
-        if (!ad) return;
-        const action = ad.isVip ? 'Снять' : 'Назначить';
-        if (confirm(`АДМИН: ${action} VIP статус для этого объявления?`)) {
-            try {
-                await api.adminToggleVip(ad.id, !!ad.isVip);
-                setAd({ ...ad, isVip: !ad.isVip });
-            } catch (e: any) {
-                alert(e.message);
-            }
+    const handleShare = () => {
+        if (navigator.share && ad) {
+            navigator.share({
+                title: ad.title,
+                text: `Посмотри это объявление: ${ad.title}`,
+                url: window.location.href
+            }).catch(console.error);
+        } else {
+            navigator.clipboard.writeText(window.location.href);
+            alert("Ссылка скопирована!");
         }
     };
 
     if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
-    if (!ad) return <div className="p-10 text-center">Объявление не найдено</div>;
-
-    const isMine = currentUserId === ad.authorId;
-    const isAdmin = currentUserRole === UserRole.ADMIN;
-
-    // Date formatting
-    const formatDate = (dateString?: string) => {
-        if (!dateString) return "На сайте с 2024";
-        const date = new Date(dateString);
-        return `На сайте с ${date.toLocaleString('ru', { month: 'long', year: 'numeric' })}`;
-    };
+    if (!ad) return <div className="p-10 text-center text-gray-500">Объявление не найдено</div>;
 
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8 pb-24">
-            <button onClick={() => navigate(-1)} className="flex items-center text-gray-500 hover:text-blue-600 mb-4 transition-colors">
+            <button onClick={() => navigate(-1)} className="flex items-center text-gray-500 hover:text-blue-600 transition-colors mb-4">
                 <ChevronLeft className="w-4 h-4 mr-1" /> Назад
             </button>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Image Section */}
-                <div className="space-y-4">
-                    <div className="aspect-square bg-gray-100 rounded-2xl overflow-hidden relative border dark:border-gray-700 shadow-sm">
-                        <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
-                        {ad.isVip && (
-                            <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md flex items-center gap-1.5 backdrop-blur-sm bg-opacity-90">
-                                <Sparkles className="w-3.5 h-3.5" /> VIP Объявление
-                            </div>
-                        )}
-                        {isAdmin && (
-                            <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
-                                <button 
-                                    onClick={handleAdminToggleVip} 
-                                    className="bg-white text-orange-500 p-2 rounded-full shadow-lg hover:bg-gray-100 transition-colors"
-                                    title={ad.isVip ? "Снять VIP" : "Сделать VIP"}
-                                >
-                                    <Crown className="w-5 h-5" />
-                                </button>
-                                <button 
-                                    onClick={handleAdminDelete} 
-                                    className="bg-red-600 text-white p-2 rounded-full shadow-lg hover:bg-red-700 transition-colors"
-                                    title="Админ: Удалить объявление"
-                                >
-                                    <Trash2 className="w-5 h-5" />
-                                </button>
-                            </div>
+                {/* Image Gallery (Single Image for now) */}
+                <div className="rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border dark:border-gray-700 h-[300px] md:h-[400px] relative group">
+                    <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
+                    {ad.isVip && (
+                        <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1 rounded-lg shadow-lg font-bold text-sm">
+                            VIP
+                        </div>
+                    )}
+                </div>
+
+                {/* Info */}
+                <div className="flex flex-col">
+                    <div className="flex justify-between items-start mb-2">
+                        <div className="text-gray-500 text-sm">{ad.date}</div>
+                        <div className="flex gap-2">
+                            <button onClick={toggleFav} className={`p-2 rounded-full transition-colors ${isFav ? 'bg-red-50 text-red-500' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                                <Heart className={`w-5 h-5 ${isFav ? 'fill-current' : ''}`} />
+                            </button>
+                            <button onClick={handleShare} className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">
+                                <Share2 className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-4 leading-tight">{ad.title}</h1>
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-6">{ad.price.toLocaleString()} {ad.currency}</div>
+
+                    <div className="flex flex-col gap-3 mb-8">
+                        <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-3 rounded-xl">
+                            <MapPin className="w-5 h-5 text-gray-400" />
+                            <span>{ad.location}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-3 rounded-xl">
+                            <Badge color="gray">{ad.category}</Badge>
+                        </div>
+                    </div>
+
+                    <div className="mt-auto">
+                        {currentUser?.id !== ad.authorId ? (
+                            <Button className="w-full py-4 text-lg shadow-lg shadow-blue-200 dark:shadow-none" onClick={handleWrite}>
+                                <MessageCircle className="w-5 h-5 mr-2" /> Написать продавцу
+                            </Button>
+                        ) : (
+                            <div className="text-center text-gray-500 bg-gray-50 p-4 rounded-xl">Это ваше объявление</div>
                         )}
                     </div>
                 </div>
+            </div>
 
-                {/* Info Section */}
-                <div className="space-y-6">
+            <div className="mt-10 bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-6 lg:p-8 shadow-sm">
+                <h3 className="text-xl font-bold mb-4 dark:text-white">Описание</h3>
+                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{ad.description}</p>
+            </div>
+
+            <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                        <UserIcon className="w-6 h-6 text-gray-500" />
+                    </div>
                     <div>
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">{ad.date}</span>
-                            <Badge color="gray">{ad.category}</Badge>
-                        </div>
-                        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-3 leading-tight">{ad.title}</h1>
-                        <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{ad.price.toLocaleString()} {ad.currency}</div>
-                    </div>
-
-                    {/* Seller Card */}
-                    <div className="flex items-center gap-4 p-4 border dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                        <img 
-                            src={seller?.avatar || 'https://ui-avatars.com/api/?name=User'} 
-                            className="w-14 h-14 rounded-full object-cover bg-gray-200 border-2 border-white dark:border-gray-600 shadow-sm" 
-                            alt="" 
-                        />
-                        <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 uppercase tracking-wide font-semibold">Продавец</div>
-                            <div className="font-bold text-gray-900 dark:text-white text-lg leading-none mb-1">
-                                {seller?.name || `Пользователь #${ad.authorId.slice(0, 5)}`}
-                            </div>
-                            {isMine ? (
-                                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-medium">Это вы</span>
-                            ) : (
-                                <div className="text-xs text-gray-400">{formatDate(seller?.createdAt)}</div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                        {!isMine ? (
-                            <Button size="lg" className="w-full flex items-center justify-center gap-2 py-3.5 shadow-lg shadow-blue-100 dark:shadow-none" onClick={handleWrite}>
-                                <MessageCircle className="w-5 h-5" /> Написать продавцу
-                            </Button>
-                        ) : (
-                            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-xl text-center font-medium flex items-center justify-center gap-2 border border-blue-100 dark:border-blue-900">
-                                <AlertCircle className="w-5 h-5" /> Вы автор этого объявления
-                            </div>
-                        )}
-                        
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={handleFav}
-                                className={`flex-1 py-3 rounded-xl border flex items-center justify-center gap-2 transition-all ${isFav ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                            >
-                                <Heart className={`w-5 h-5 ${isFav ? 'fill-current' : ''}`} /> {isFav ? 'В избранном' : 'В избранное'}
-                            </button>
-                            <button className="flex-1 py-3 rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2 transition-all">
-                                <Share2 className="w-5 h-5" /> Поделиться
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm">
-                        <h3 className="font-bold text-lg mb-4 dark:text-white border-b dark:border-gray-700 pb-2">Описание</h3>
-                        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed text-base">{ad.description}</p>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm">
-                        <h3 className="font-bold text-lg mb-4 dark:text-white border-b dark:border-gray-700 pb-2">Местоположение</h3>
-                        <div className="flex items-center text-gray-700 dark:text-gray-300 mb-4 font-medium">
-                            <MapPin className="w-5 h-5 mr-2 text-red-500" />
-                            {ad.location}
-                        </div>
-                        {/* Interactive Yandex Map */}
-                        <div className="h-48 bg-gray-100 dark:bg-gray-700 rounded-xl w-full flex items-center justify-center text-gray-400 text-sm border dark:border-gray-600 relative overflow-hidden">
-                            <YandexMap center={[56.08, 60.73]} zoom={14} />
-                        </div>
+                        <div className="text-sm text-gray-500">Продавец</div>
+                        <div className="font-bold dark:text-white">Пользователь #{ad.authorId.slice(0, 5)}</div>
                     </div>
                 </div>
             </div>

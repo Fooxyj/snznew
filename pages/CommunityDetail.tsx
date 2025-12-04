@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
@@ -21,10 +20,9 @@ export const CommunityDetail: React.FC = () => {
     const loadData = async () => {
         if (!id) return;
         try {
-            // Need to fetch community details from list (mock/real mix)
-            const allComms = await api.getCommunities();
-            const comm = allComms.find(c => c.id === id);
-            setCommunity(comm || null);
+            // Fetch single community by ID directly from DB
+            const comm = await api.getCommunityById(id);
+            setCommunity(comm);
             
             if (comm) {
                 const p = await api.getCommunityPosts(id);

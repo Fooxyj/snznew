@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
 import { Badge, Button } from '../components/ui/Common';
-import { Calendar, ChevronRight, MapPin, CloudSun, Wind, Droplets, ExternalLink, Flame, Bus, Loader2, Plus, PenSquare, Sun, CloudRain, Snowflake, Cloud, PieChart, Check, Gauge, X, Crown, Heart } from 'lucide-react';
+import { Calendar, ChevronRight, MapPin, CloudSun, Wind, Droplets, ExternalLink, Flame, Bus, Loader2, Plus, PenSquare, Sun, CloudRain, Snowflake, Cloud, PieChart, Check, Gauge, X, Crown, Heart, Sparkles } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Ad, Event, NewsItem, Poll, UserRole } from '../types';
 import { api } from '../services/api';
@@ -113,9 +114,8 @@ export const EventsPage: React.FC = () => {
 // Modified Home Component
 export const Home: React.FC = () => {
   const [news, setNews] = useState<NewsItem[]>([]);
-  // Events removed from main view
   const [vipAds, setVipAds] = useState<Ad[]>([]);
-  const [regularAds, setRegularAds] = useState<Ad[]>([]);
+  const [feedAds, setFeedAds] = useState<Ad[]>([]); // Combined Premium + Standard
   const [poll, setPoll] = useState<Poll | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isNewsModalOpen, setNewsModalOpen] = useState(false);
@@ -131,15 +131,22 @@ export const Home: React.FC = () => {
       try {
         const [newsData, adsData, currentUser, weatherData, pollData] = await Promise.all([
           api.getNews(),
-          api.getAds(),
+          api.getAds(), // Now returns sorted VIP -> Premium -> Standard
           api.getCurrentUser(),
           api.getWeather(),
           api.getActivePoll()
         ]);
 
         setNews(newsData);
-        setVipAds(adsData.filter(ad => ad.isVip));
-        setRegularAds(adsData.filter(ad => !ad.isVip));
+        
+        // Strict logic: VIP are ads with isVip=true (max 5)
+        const vips = adsData.filter(ad => ad.isVip).slice(0, 5);
+        // Feed ads are the rest (Premium + Standard), already sorted by API
+        const others = adsData.filter(ad => !ad.isVip);
+        
+        setVipAds(vips);
+        setFeedAds(others);
+
         setUser(currentUser);
         if (currentUser) {
             setUserFavs(currentUser.favorites || []);
@@ -183,8 +190,8 @@ export const Home: React.FC = () => {
           await api.adminToggleVip(ad.id, !!ad.isVip);
           // Reload ads locally
           const updatedAds = await api.getAds();
-          setVipAds(updatedAds.filter(a => a.isVip));
-          setRegularAds(updatedAds.filter(a => !a.isVip));
+          setVipAds(updatedAds.filter(a => a.isVip).slice(0, 5));
+          setFeedAds(updatedAds.filter(a => !a.isVip));
       } catch (e: any) {
           alert(e.message);
       }
@@ -255,13 +262,13 @@ export const Home: React.FC = () => {
         {/* Left Column: Ads */}
         <div className="lg:col-span-2 space-y-12">
           
-          {/* VIP Section */}
+          {/* VIP Section (Limit 5) */}
           <div className="space-y-6">
              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-full text-orange-600 dark:text-orange-400">
-                    <Flame className="w-5 h-5 fill-current" />
+                <div className="p-2 bg-gradient-to-br from-orange-400 to-yellow-500 rounded-full text-white shadow-md">
+                    <Crown className="w-5 h-5 fill-current" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Рекомендуем</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">VIP Объявления</h2>
              </div>
              
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -276,20 +283,24 @@ export const Home: React.FC = () => {
                     onToggleFav={(e) => handleToggleFav(ad.id, e)}
                   />
                 )) : (
-                   <div className="col-span-2 text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-2xl">Нет VIP объявлений</div>
+                   <div className="col-span-2 text-center py-8 text-gray-400 text-sm bg-gray-50 dark:bg-gray-800 rounded-2xl border border-dashed dark:border-gray-700">
+                       Здесь могут быть ваши VIP объявления
+                   </div>
                 )}
              </div>
           </div>
 
-          {/* Regular Feed Grid */}
+          {/* Regular Feed Grid (Premium + Standard) */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Свежее</h2>
+               <div className="flex items-center gap-3">
+                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Свежее</h2>
+               </div>
                <Link to="/classifieds" className="text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors">Смотреть всё</Link>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
-               {regularAds.slice(0, 9).map(ad => (
+               {feedAds.slice(0, 9).map(ad => (
                  <GridAdCard 
                     key={ad.id} 
                     ad={ad} 
@@ -476,14 +487,14 @@ export const Home: React.FC = () => {
   );
 };
 
-// Component for VIP Ads
-const VipAdCard: React.FC<{ ad: Ad, onClick: () => void, isAdmin?: boolean, onToggleVip?: (e: any) => void, isFav?: boolean, onToggleFav?: (e: any) => void }> = ({ ad, onClick, isAdmin, onToggleVip, isFav, onToggleFav }) => (
-    <div onClick={onClick} className="bg-white dark:bg-gray-800 rounded-2xl shadow-md hover:shadow-xl transition-all relative group cursor-pointer overflow-hidden border border-orange-100 dark:border-orange-900/30">
+// ... (VipAdCard update visual)
+const VipAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, onToggleFav }) => (
+    <div onClick={onClick} className="bg-gradient-to-br from-white to-orange-50 dark:from-gray-800 dark:to-gray-800/80 rounded-2xl shadow-lg hover:shadow-xl transition-all relative group cursor-pointer overflow-hidden border-2 border-orange-300 dark:border-orange-500/50">
         <div className="flex h-36">
             <div className="w-2/5 relative overflow-hidden">
                 <img src={ad.image} alt={ad.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                <div className="absolute top-2 left-2 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm z-10 uppercase tracking-wider">
-                    VIP
+                <div className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-yellow-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm z-10 uppercase tracking-wider flex items-center gap-1">
+                    <Crown className="w-3 h-3 fill-current" /> VIP
                 </div>
             </div>
             <div className="w-3/5 p-4 flex flex-col justify-between">
@@ -513,9 +524,6 @@ const VipAdCard: React.FC<{ ad: Ad, onClick: () => void, isAdmin?: boolean, onTo
                                 <Crown className="w-4 h-4" />
                             </button>
                         )}
-                        <div className="w-8 h-8 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-orange-500">
-                            <Flame className="w-4 h-4 fill-current" />
-                        </div>
                     </div>
                 </div>
             </div>
@@ -523,51 +531,74 @@ const VipAdCard: React.FC<{ ad: Ad, onClick: () => void, isAdmin?: boolean, onTo
     </div>
 );
 
-// Component for Regular Ads in Grid format
-const GridAdCard: React.FC<{ ad: Ad, onClick: () => void, isAdmin?: boolean, onToggleVip?: (e: any) => void, isFav?: boolean, onToggleFav?: (e: any) => void }> = ({ ad, onClick, isAdmin, onToggleVip, isFav, onToggleFav }) => (
-    <div 
-        onClick={onClick}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-lg transition-all group flex flex-col cursor-pointer overflow-hidden relative"
-    >
-      <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
-        <img src={ad.image} alt={ad.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-        <div className="absolute top-2 left-2 bg-white/90 dark:bg-black/50 backdrop-blur text-xs px-2 py-1 rounded-lg font-medium text-gray-700 dark:text-gray-200">
-           {ad.category}
+// ... (GridAdCard update visual for Premium)
+const GridAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, onToggleFav }) => {
+    // Determine styling based on tier
+    let borderClass = "border dark:border-gray-700";
+    let bgClass = "bg-white dark:bg-gray-800";
+    let badge = null;
+
+    if (ad.isPremium) {
+        borderClass = "border-2 border-blue-400 dark:border-blue-500 shadow-md";
+        bgClass = "bg-blue-50/20 dark:bg-blue-900/10";
+        badge = (
+            <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 fill-current" /> PRO
+            </div>
+        );
+    } else {
+        badge = (
+            <div className="absolute top-2 left-2 bg-white/90 dark:bg-black/50 backdrop-blur text-xs px-2 py-1 rounded-lg font-medium text-gray-700 dark:text-gray-200">
+               {ad.category}
+            </div>
+        );
+    }
+
+    return (
+        <div 
+            onClick={onClick}
+            className={`${bgClass} rounded-2xl shadow-sm hover:shadow-lg transition-all group flex flex-col cursor-pointer overflow-hidden relative ${borderClass}`}
+        >
+          {/* ... (image container) */}
+            <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+                <img src={ad.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                {badge}
+                <div className="absolute top-2 right-2 flex flex-col gap-2 z-20">
+                    {onToggleFav && (
+                        <button
+                            onClick={onToggleFav}
+                            className={`p-1.5 rounded-full backdrop-blur shadow-sm transition-all ${isFav ? 'bg-white text-red-500' : 'bg-white/70 text-gray-500 hover:text-red-500'}`}
+                        >
+                            <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
+                        </button>
+                    )}
+                    {isAdmin && onToggleVip && (
+                        <button 
+                            onClick={onToggleVip} 
+                            className="p-1.5 rounded-full bg-white/70 backdrop-blur text-gray-500 hover:text-orange-500 dark:text-gray-300 transition-colors"
+                            title="Сделать VIP"
+                        >
+                            <Crown className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+            </div>
+          {/* ... (content) */}
+            <div className="p-4 flex-1 flex flex-col">
+                <div className="flex-1">
+                <div className="flex justify-between items-start mb-1">
+                    <p className="text-lg font-extrabold text-gray-900 dark:text-white">{ad.price.toLocaleString()} {ad.currency}</p>
+                </div>
+                <h3 className="font-medium text-gray-700 dark:text-gray-300 line-clamp-2 text-sm leading-snug mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{ad.title}</h3>
+                </div>
+                <div className="pt-3 border-t border-gray-50 dark:border-gray-700 flex items-center justify-between text-xs text-gray-400">
+                <span className="truncate max-w-[60%]">{ad.location}</span>
+                <span>{ad.date}</span>
+                </div>
+            </div>
         </div>
-        <div className="absolute top-2 right-2 flex flex-col gap-2 z-20">
-            {onToggleFav && (
-                <button
-                    onClick={onToggleFav}
-                    className={`p-1.5 rounded-full backdrop-blur shadow-sm transition-all ${isFav ? 'bg-white text-red-500' : 'bg-white/70 text-gray-500 hover:text-red-500'}`}
-                >
-                    <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
-                </button>
-            )}
-            {isAdmin && onToggleVip && (
-                <button 
-                    onClick={onToggleVip} 
-                    className="p-1.5 rounded-full bg-white/70 backdrop-blur text-gray-500 hover:text-orange-500 dark:text-gray-300 transition-colors"
-                    title="Сделать VIP"
-                >
-                    <Crown className="w-4 h-4" />
-                </button>
-            )}
-        </div>
-      </div>
-      <div className="p-4 flex-1 flex flex-col">
-        <div className="flex-1">
-          <div className="flex justify-between items-start mb-1">
-             <p className="text-lg font-extrabold text-gray-900 dark:text-white">{ad.price.toLocaleString()} {ad.currency}</p>
-          </div>
-          <h3 className="font-medium text-gray-700 dark:text-gray-300 line-clamp-2 text-sm leading-snug mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{ad.title}</h3>
-        </div>
-        <div className="pt-3 border-t border-gray-50 dark:border-gray-700 flex items-center justify-between text-xs text-gray-400">
-          <span className="truncate max-w-[60%]">{ad.location}</span>
-          <span>{ad.date}</span>
-        </div>
-      </div>
-    </div>
-);
+    );
+};
 
 const PhoneIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>

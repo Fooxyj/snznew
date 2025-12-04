@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { X, Loader2, Upload, Check } from 'lucide-react';
+import { X, Loader2, Upload, Check, Sparkles, Crown } from 'lucide-react';
 import { Button } from './ui/Common';
 import { api } from '../services/api';
 import { Ad } from '../types';
@@ -23,6 +22,7 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
     location: '',
     image: '' 
   });
+  const [promotion, setPromotion] = useState<'none' | 'premium' | 'vip'>('none');
 
   if (!isOpen) return null;
 
@@ -55,7 +55,9 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
         category: formData.category,
         description: formData.description,
         location: formData.location || 'Снежинск',
-        image: formData.image || 'https://picsum.photos/seed/new/400/300'
+        image: formData.image || 'https://picsum.photos/seed/new/400/300',
+        isVip: promotion === 'vip',
+        isPremium: promotion === 'premium'
       });
 
       if (newAd) {
@@ -70,6 +72,7 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
             location: '',
             image: ''
         });
+        setPromotion('none');
       }
     } catch (error: any) {
       console.error(error);
@@ -197,9 +200,43 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
             </div>
           </div>
 
+          {/* Promotion Selection */}
+          <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border dark:border-gray-700">
+              <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">Продвижение (по желанию)</label>
+              <div className="grid grid-cols-3 gap-2">
+                  <div 
+                    onClick={() => setPromotion('none')}
+                    className={`cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${promotion === 'none' ? 'border-gray-400 bg-white dark:bg-gray-600' : 'border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+                  >
+                      <div className="text-sm font-bold dark:text-white">Обычное</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Бесплатно</div>
+                  </div>
+
+                  <div 
+                    onClick={() => setPromotion('premium')}
+                    className={`cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${promotion === 'premium' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-transparent hover:bg-blue-50 dark:hover:bg-blue-900/10'}`}
+                  >
+                      <div className="flex justify-center mb-1 text-blue-600 dark:text-blue-400"><Sparkles className="w-4 h-4" /></div>
+                      <div className="text-sm font-bold text-blue-900 dark:text-blue-100">Premium</div>
+                      <div className="text-xs text-blue-600 dark:text-blue-400 font-bold">49 ₽</div>
+                  </div>
+
+                  <div 
+                    onClick={() => setPromotion('vip')}
+                    className={`cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${promotion === 'vip' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30' : 'border-transparent hover:bg-orange-50 dark:hover:bg-orange-900/10'}`}
+                  >
+                      <div className="flex justify-center mb-1 text-orange-600 dark:text-orange-400"><Crown className="w-4 h-4" /></div>
+                      <div className="text-sm font-bold text-orange-900 dark:text-orange-100">VIP</div>
+                      <div className="text-xs text-orange-600 dark:text-orange-400 font-bold">99 ₽</div>
+                  </div>
+              </div>
+          </div>
+
           <div className="pt-2">
             <Button disabled={isLoading || isUploading} className="w-full py-2.5">
-              {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Публикация...</> : 'Опубликовать'}
+              {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Публикация...</> : (
+                  promotion === 'none' ? 'Опубликовать бесплатно' : `Оплатить и опубликовать (${promotion === 'vip' ? '99' : '49'} ₽)`
+              )}
             </Button>
           </div>
 
