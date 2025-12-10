@@ -49,6 +49,7 @@ export interface Ad {
   currency: string;
   category: string;
   image: string;
+  images?: string[]; // Multiple photos
   date: string;
   authorId: string;
   authorName?: string; // New field for UI
@@ -67,7 +68,8 @@ export interface Business {
   rating: number;
   reviewsCount: number;
   address: string;
-  image: string;
+  image: string; // Logo
+  coverImage?: string; // Header/Cover
   description: string;
   lat: number;
   lng: number;
@@ -169,6 +171,7 @@ export interface Message {
   text: string;
   createdAt: string;
   isRead: boolean;
+  status?: 'sent' | 'delivered' | 'read';
 }
 
 export interface Notification {
@@ -278,15 +281,57 @@ export interface UserCoupon {
   isUsed: boolean;
 }
 
+// --- STORY TYPES ---
+
+export interface StoryElement {
+  id: string;
+  type: 'text' | 'link';
+  x: number; // percentage 0-100
+  y: number; // percentage 0-100
+  content: string; // Text content or Link Label
+  url?: string; // Only for link
+  color?: string;
+  bg?: string;
+  scale?: number;
+}
+
+export interface StoryConfig {
+  transform: { x: number; y: number; scale: number }; // Background image transform
+  elements: StoryElement[];
+}
+
 export interface Story {
   id: string;
   authorId: string;
   media: string;
-  caption: string;
+  caption: string; // Fallback / Alt text
+  contentConfig?: StoryConfig; // JSON configuration for layers
   createdAt: string;
   authorName?: string;
   authorAvatar?: string;
-  viewers?: { name: string; avatar: string }[]; // New field for viewers
+  viewers?: { name: string; avatar: string }[]; 
+}
+
+export interface Suggestion {
+  id: string;
+  userId?: string;
+  userName?: string;
+  userAvatar?: string;
+  text: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
+export interface Report {
+  id: string;
+  userId: string;
+  userName?: string;
+  userAvatar?: string;
+  targetId: string;
+  targetType: string;
+  reason: string;
+  status: 'new' | 'resolved' | 'dismissed';
+  createdAt: string;
 }
 
 export interface Community {
@@ -404,4 +449,43 @@ export interface SmartDevice {
   location: string;
   isPrivate: boolean;
   status: 'online' | 'offline';
+}
+
+export interface TransportSchedule {
+  id: string;
+  type: 'city' | 'intercity';
+  routeNumber?: string;
+  title: string;
+  schedule: string;
+  workHours?: string;
+  price?: number;
+}
+
+// --- CRM EXTENSIONS ---
+
+export interface Employee {
+  id: string;
+  businessId: string;
+  name: string;
+  role: 'manager' | 'staff';
+  avatar: string;
+  email?: string;
+  joinedAt: string;
+}
+
+export interface AnalyticsData {
+  date: string;
+  revenue: number;
+  visitors: number;
+}
+
+export interface Table {
+  id: string;
+  businessId: string;
+  name: string;
+  seats: number;
+  x: number; // percentage 0-100
+  y: number; // percentage 0-100
+  status: 'free' | 'reserved' | 'occupied';
+  shape: 'circle' | 'rect';
 }

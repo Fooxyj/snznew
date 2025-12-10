@@ -1,6 +1,6 @@
 
-
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge, Button } from '../components/ui/Common';
 import { Calendar, ChevronRight, MapPin, CloudSun, Wind, Droplets, ExternalLink, Flame, Bus, Loader2, Plus, PenSquare, Sun, CloudRain, Snowflake, Cloud, PieChart, Check, Gauge, X, Crown, Heart, Sparkles } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -12,26 +12,24 @@ import { StoriesRail } from '../components/StoriesRail';
 
 // NEW: Events Page Component
 export const EventsPage: React.FC = () => {
-    const [events, setEvents] = useState<Event[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isEventModalOpen, setEventModalOpen] = useState(false);
-    const [user, setUser] = useState<any>(null);
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const queryClient = useQueryClient();
     
     const categoryFilter = searchParams.get('cat');
 
-    useEffect(() => {
-        const load = async () => {
-            const [e, u] = await Promise.all([api.getEvents(), api.getCurrentUser()]);
-            setEvents(e);
-            setUser(u);
-            setLoading(false);
-        };
-        load();
-    }, []);
+    const { data: events = [], isLoading } = useQuery({
+        queryKey: ['events'],
+        queryFn: api.getEvents
+    });
 
-    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600 w-8 h-8" /></div>;
+    const { data: user } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
+
+    if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600 w-8 h-8" /></div>;
 
     const filteredEvents = categoryFilter 
         ? events.filter(e => e.category === categoryFilter)
@@ -42,7 +40,9 @@ export const EventsPage: React.FC = () => {
             <CreateEventModal 
                 isOpen={isEventModalOpen}
                 onClose={() => setEventModalOpen(false)}
-                onSuccess={(evt) => setEvents([evt, ...events])}
+                onSuccess={(evt) => {
+                    queryClient.invalidateQueries({ queryKey: ['events'] });
+                }}
             />
 
             <div className="flex justify-between items-center mb-4">
@@ -114,48 +114,31 @@ export const EventsPage: React.FC = () => {
 
 // Modified Home Component
 export const Home: React.FC = () => {
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [vipAds, setVipAds] = useState<Ad[]>([]);
-  const [feedAds, setFeedAds] = useState<Ad[]>([]); // Combined Premium + Standard
-  const [isLoading, setIsLoading] = useState(true);
   const [isNewsModalOpen, setNewsModalOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [userFavs, setUserFavs] = useState<string[]>([]);
-  
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [newsData, adsData, currentUser] = await Promise.all([
-          api.getNews(),
-          api.getAds(), // Now returns sorted VIP -> Premium -> Standard
-          api.getCurrentUser()
-        ]);
+  // Queries
+  const { data: news = [] } = useQuery({
+    queryKey: ['news'],
+    queryFn: api.getNews
+  });
 
-        setNews(newsData);
-        
-        // Strict logic: VIP are ads with isVip=true (max 5)
-        const vips = adsData.filter(ad => ad.isVip).slice(0, 5);
-        // Feed ads are the rest (Premium + Standard), already sorted by API
-        const others = adsData.filter(ad => !ad.isVip);
-        
-        setVipAds(vips);
-        setFeedAds(others);
+  const { data: ads = [], isLoading: adsLoading } = useQuery({
+    queryKey: ['ads'],
+    queryFn: api.getAds
+  });
 
-        setUser(currentUser);
-        if (currentUser) {
-            setUserFavs(currentUser.favorites || []);
-        }
-      } catch (error) {
-        console.error("Ошибка загрузки данных:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const { data: user } = useQuery({
+    queryKey: ['user'],
+    queryFn: api.getCurrentUser
+  });
 
-    loadData();
-  }, []);
+  // Local state for optimistic updates if needed, but here we rely on React Query cache
+  // For favorites, we might want local state to avoid refetching everything or use optimistic updates
+  // For simplicity in this step, we'll fetch user to get latest favs
+  
+  const userFavs = user?.favorites || [];
 
   const handleAdminToggleVip = async (ad: Ad, e: React.MouseEvent) => {
       e.preventDefault();
@@ -167,10 +150,7 @@ export const Home: React.FC = () => {
 
       try {
           await api.adminToggleVip(ad.id, !!ad.isVip);
-          // Reload ads locally
-          const updatedAds = await api.getAds();
-          setVipAds(updatedAds.filter(a => a.isVip).slice(0, 5));
-          setFeedAds(updatedAds.filter(a => !a.isVip));
+          queryClient.invalidateQueries({ queryKey: ['ads'] });
       } catch (e: any) {
           alert(e.message);
       }
@@ -180,18 +160,14 @@ export const Home: React.FC = () => {
         e.preventDefault();
         e.stopPropagation();
         try {
-            const isNowFav = await api.toggleFavorite(id, 'ad');
-            if (isNowFav) {
-                setUserFavs(prev => [...prev, id]);
-            } else {
-                setUserFavs(prev => prev.filter(fid => fid !== id));
-            }
+            await api.toggleFavorite(id, 'ad');
+            queryClient.invalidateQueries({ queryKey: ['user'] });
         } catch (err: any) {
             alert(err.message || "Ошибка");
         }
   };
 
-  if (isLoading) {
+  if (adsLoading) {
     return (
       <div className="flex h-[calc(100vh-64px)] items-center justify-center">
         <div className="text-center">
@@ -202,6 +178,11 @@ export const Home: React.FC = () => {
     );
   }
 
+  // Split ads into buckets
+  const vipAds = ads.filter(ad => ad.isVip).slice(0, 5);
+  const premiumAds = ads.filter(ad => !ad.isVip && ad.isPremium).slice(0, 8);
+  const regularAds = ads.filter(ad => !ad.isVip && !ad.isPremium);
+
   const isAdmin = user?.role === UserRole.ADMIN;
 
   return (
@@ -210,7 +191,9 @@ export const Home: React.FC = () => {
       <CreateNewsModal 
         isOpen={isNewsModalOpen}
         onClose={() => setNewsModalOpen(false)}
-        onSuccess={(newItem) => setNews([newItem, ...news])}
+        onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['news'] });
+        }}
       />
 
       {/* Stories Rail */}
@@ -222,46 +205,71 @@ export const Home: React.FC = () => {
       <div className="space-y-12">
         
         {/* VIP Section (Limit 5) */}
-        <div className="space-y-6">
-            <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-orange-400 to-yellow-500 rounded-full text-white shadow-md">
-                    <Crown className="w-5 h-5 fill-current" />
+        {vipAds.length > 0 && (
+            <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-orange-400 to-yellow-500 rounded-full text-white shadow-md">
+                        <Crown className="w-5 h-5 fill-current" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">VIP Объявления</h2>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">VIP Объявления</h2>
-            </div>
-            
-            {/* VIP Grid - 1 Col Mobile, 2 Col Tablet, 3 Col Desktop */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {vipAds.length > 0 ? vipAds.map(ad => (
-                <VipAdCard 
-                    key={ad.id} 
-                    ad={ad} 
-                    onClick={() => navigate(`/ad/${ad.id}`)} 
-                    isAdmin={isAdmin}
-                    onToggleVip={(e) => handleAdminToggleVip(ad, e)}
-                    isFav={userFavs.includes(ad.id)}
-                    onToggleFav={(e) => handleToggleFav(ad.id, e)}
-                />
-                )) : (
-                <div className="col-span-full text-center py-8 text-gray-400 text-sm bg-gray-50 dark:bg-gray-800 rounded-2xl border border-dashed dark:border-gray-700">
-                    Здесь могут быть ваши VIP объявления
+                
+                {/* VIP Grid - 1 Col Mobile, 2 Col Tablet, 3 Col Desktop */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {vipAds.map(ad => (
+                    <VipAdCard 
+                        key={ad.id} 
+                        ad={ad} 
+                        onClick={() => navigate(`/ad/${ad.id}`)} 
+                        isAdmin={isAdmin}
+                        onToggleVip={(e) => handleAdminToggleVip(ad, e)}
+                        isFav={userFavs.includes(ad.id)}
+                        onToggleFav={(e) => handleToggleFav(ad.id, e)}
+                    />
+                    ))}
                 </div>
-                )}
             </div>
-        </div>
+        )}
 
-        {/* Regular Feed Grid (Premium + Standard) */}
+        {/* PRO / Premium Section */}
+        {premiumAds.length > 0 && (
+            <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-600 rounded-full text-white shadow-md">
+                        <Sparkles className="w-5 h-5 fill-current" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">PRO Объявления</h2>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {premiumAds.map(ad => (
+                    <GridAdCard 
+                        key={ad.id} 
+                        ad={ad} 
+                        onClick={() => navigate(`/ad/${ad.id}`)} 
+                        isAdmin={isAdmin}
+                        onToggleVip={(e) => handleAdminToggleVip(ad, e)}
+                        isFav={userFavs.includes(ad.id)}
+                        onToggleFav={(e) => handleToggleFav(ad.id, e)}
+                    />
+                    ))}
+                </div>
+            </div>
+        )}
+
+        {/* Regular Feed Grid */}
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Бесплатные объявления</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Свежие объявления</h2>
+                    <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs px-2 py-1 rounded-full">{regularAds.length}</span>
                 </div>
                 <Link to="/classifieds" className="text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors">Смотреть всё</Link>
             </div>
             
-            {/* Feed Grid - 2 Col Mobile, 3 Col Tablet, 4 Col Desktop */}
+            {/* Feed Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {feedAds.slice(0, 12).map(ad => (
+                {regularAds.length > 0 ? regularAds.slice(0, 12).map(ad => (
                 <GridAdCard 
                     key={ad.id} 
                     ad={ad} 
@@ -271,7 +279,11 @@ export const Home: React.FC = () => {
                     isFav={userFavs.includes(ad.id)}
                     onToggleFav={(e) => handleToggleFav(ad.id, e)}
                 />
-                ))}
+                )) : (
+                    <div className="col-span-full text-center py-10 text-gray-400">
+                        Нет свежих объявлений.
+                    </div>
+                )}
             </div>
             <Link to="/classifieds" className="block mt-6">
                 <Button variant="secondary" className="w-full py-4 text-gray-500 hover:text-blue-600 rounded-2xl shadow-sm border-transparent bg-white hover:bg-white hover:shadow-md transition-all dark:bg-gray-800 dark:text-gray-400 dark:hover:text-white">
@@ -345,7 +357,7 @@ const VipAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, on
     </div>
 );
 
-// ... (GridAdCard update visual for Premium)
+// Grid Ad Card
 const GridAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, onToggleFav }) => {
     // Determine styling based on tier
     let borderClass = "border dark:border-gray-700";
@@ -354,9 +366,9 @@ const GridAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, o
 
     if (ad.isPremium) {
         borderClass = "border-2 border-blue-400 dark:border-blue-500 shadow-md";
-        bgClass = "bg-blue-50/20 dark:bg-blue-900/10";
+        bgClass = "bg-blue-50/10 dark:bg-blue-900/10";
         badge = (
-            <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10 flex items-center gap-1">
+            <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm z-10 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 fill-current" /> PRO
             </div>
         );
@@ -373,7 +385,7 @@ const GridAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, o
             onClick={onClick}
             className={`${bgClass} rounded-2xl shadow-sm hover:shadow-lg transition-all group flex flex-col cursor-pointer overflow-hidden relative ${borderClass}`}
         >
-          {/* ... (image container) */}
+          {/* Image */}
             <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
                 <img src={ad.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 {badge}
@@ -397,7 +409,7 @@ const GridAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, o
                     )}
                 </div>
             </div>
-          {/* ... (content) */}
+          {/* Content */}
             <div className="p-4 flex-1 flex flex-col">
                 <div className="flex-1">
                 <div className="flex justify-between items-start mb-1">
@@ -413,7 +425,3 @@ const GridAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, o
         </div>
     );
 };
-
-const PhoneIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-);

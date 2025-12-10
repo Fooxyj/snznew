@@ -1,5 +1,7 @@
 {
   "name": "Снежинск Онлайн",
   "description": "Единый городской портал: новости, объявления, бизнес-каталог и социальное взаимодействие.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "geolocation"
+  ]
 }

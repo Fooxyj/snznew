@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Vacancy, Resume } from '../types';
+import { Vacancy, Resume, User } from '../types';
 import { Button } from '../components/ui/Common';
-import { Loader2, Briefcase, User as UserIcon, Phone, Plus, X } from 'lucide-react';
+import { Loader2, Briefcase, User as UserIcon, Phone, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { PhoneInput } from '../components/ui/PhoneInput';
 
 const CreateVacancyModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({ title: '', companyName: '', description: '', contactPhone: '', salaryMin: '', salaryMax: '', schedule: 'full' });
@@ -67,7 +68,11 @@ const CreateVacancyModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuc
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500">Телефон</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.contactPhone} onChange={e => setFormData({...formData, contactPhone: e.target.value})} required />
+                        <PhoneInput 
+                            value={formData.contactPhone}
+                            onChangeText={val => setFormData({...formData, contactPhone: val})}
+                            required
+                        />
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500">Описание</label>
@@ -131,7 +136,11 @@ const CreateResumeModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucc
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500">Телефон</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required />
+                        <PhoneInput 
+                            value={formData.phone}
+                            onChangeText={val => setFormData({...formData, phone: val})}
+                            required
+                        />
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500">О себе</label>
@@ -149,6 +158,7 @@ export const JobsPage: React.FC = () => {
     const [vacancies, setVacancies] = useState<Vacancy[]>([]);
     const [resumes, setResumes] = useState<Resume[]>([]);
     const [loading, setLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isVacancyModalOpen, setIsVacancyModalOpen] = useState(false);
     const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
     
@@ -157,9 +167,10 @@ export const JobsPage: React.FC = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [v, r] = await Promise.all([api.getVacancies(), api.getResumes()]);
+            const [v, r, u] = await Promise.all([api.getVacancies(), api.getResumes(), api.getCurrentUser()]);
             setVacancies(v);
             setResumes(r);
+            setCurrentUser(u);
         } catch (e) {
             console.error(e);
         } finally {
@@ -171,7 +182,23 @@ export const JobsPage: React.FC = () => {
         loadData();
     }, []);
 
+    const checkAuth = (action: () => void) => {
+        if (currentUser) {
+            action();
+        } else {
+            if (confirm("Для этого действия необходимо войти в систему. Перейти ко входу?")) {
+                navigate('/auth');
+            }
+        }
+    };
+
     const handleChat = async (userId: string, context: string) => {
+        if (!currentUser) {
+            if (confirm("Чтобы написать, необходимо войти. Перейти ко входу?")) {
+                navigate('/auth');
+            }
+            return;
+        }
         try {
             const chatId = await api.startChat(userId, context);
             navigate(`/chat?id=${chatId}`);
@@ -190,8 +217,8 @@ export const JobsPage: React.FC = () => {
                     <Briefcase className="text-blue-600" /> Работа и Карьера
                 </h1>
                 <div className="flex gap-2">
-                    <Button variant="outline" className="dark:border-gray-600 dark:text-gray-300" onClick={() => setIsResumeModalOpen(true)}>Создать резюме</Button>
-                    <Button onClick={() => setIsVacancyModalOpen(true)}>Разместить вакансию</Button>
+                    <Button variant="outline" className="dark:border-gray-600 dark:text-gray-300" onClick={() => checkAuth(() => setIsResumeModalOpen(true))}>Создать резюме</Button>
+                    <Button onClick={() => checkAuth(() => setIsVacancyModalOpen(true))}>Разместить вакансию</Button>
                 </div>
             </div>
 

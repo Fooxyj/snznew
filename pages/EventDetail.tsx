@@ -1,76 +1,93 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Event, UserRole } from '../types';
+import { UserRole } from '../types';
 import { Button } from '../components/ui/Common';
-import { Calendar, MapPin, ChevronLeft, Loader2, CreditCard, Ticket, Edit, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, ChevronLeft, Loader2, CreditCard, Edit, Trash2 } from 'lucide-react';
 import { EditEventModal } from '../components/EditEventModal';
 import { SeatPicker } from '../components/ui/SeatPicker';
+import { NotFound } from './NotFound';
 
 export const EventDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [event, setEvent] = useState<Event | null>(null);
-    const [bookedSeats, setBookedSeats] = useState<{row: number, col: number}[]>([]);
+    const queryClient = useQueryClient();
+    
     const [selectedSeat, setSelectedSeat] = useState<{row: number, col: number} | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [buying, setBuying] = useState(false);
     const [showSeats, setShowSeats] = useState(false);
-    const [userRole, setUserRole] = useState<UserRole | null>(null);
     const [isEditOpen, setIsEditOpen] = useState(false);
 
-    const loadData = async () => {
-        if (!id) return;
-        const evt = await api.getEventById(id);
-        setEvent(evt);
-        if (evt) {
-            const booked = await api.getBookedSeats(evt.id);
-            setBookedSeats(booked);
-        }
-        const user = await api.getCurrentUser();
-        if (user) setUserRole(user.role);
-        setLoading(false);
-    };
+    // Queries
+    const { data: event, isLoading: eventLoading } = useQuery({
+        queryKey: ['event', id],
+        queryFn: () => api.getEventById(id!),
+        enabled: !!id
+    });
 
-    useEffect(() => {
-        loadData();
-    }, [id]);
+    const { data: bookedSeats = [] } = useQuery({
+        queryKey: ['bookedSeats', id],
+        queryFn: () => api.getBookedSeats(id!),
+        enabled: !!id
+    });
 
-    const handleBuy = async () => {
-        if (!selectedSeat || !event) return;
-        setBuying(true);
-        try {
+    const { data: user } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
+
+    // Mutations
+    const buyTicketMutation = useMutation({
+        mutationFn: async () => {
+            if (!event || !selectedSeat) return;
             await api.buyTicket(event.id, selectedSeat.row, selectedSeat.col, event.price || 350);
+        },
+        onSuccess: () => {
             alert("Билет успешно куплен! QR-код в профиле.");
             navigate('/profile');
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setBuying(false);
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    const deleteEventMutation = useMutation({
+        mutationFn: (eventId: string) => api.deleteEvent(eventId),
+        onSuccess: () => {
+            navigate('/');
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    const handleBuy = () => {
+        if (!user) {
+            if (confirm("Необходимо войти в систему для покупки билета. Перейти?")) {
+                navigate('/auth');
+            }
+            return;
         }
+        buyTicketMutation.mutate();
     };
 
-    const handleDelete = async () => {
+    const handleDelete = () => {
         if (!event) return;
         if (confirm("Вы уверены, что хотите удалить это событие?")) {
-            try {
-                await api.deleteEvent(event.id);
-                navigate('/');
-            } catch (e: any) {
-                alert(e.message);
-            }
+            deleteEventMutation.mutate(event.id);
         }
     };
 
-    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
-    if (!event) return <div className="p-10 text-center">Событие не найдено</div>;
+    if (eventLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (!event) return <NotFound />;
 
-    const isAdmin = userRole === UserRole.ADMIN;
+    const isAdmin = user?.role === UserRole.ADMIN;
 
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8">
-            <EditEventModal event={event} isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} onSuccess={loadData} />
+            <EditEventModal 
+                event={event} 
+                isOpen={isEditOpen} 
+                onClose={() => setIsEditOpen(false)} 
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ['event', id] })} 
+            />
 
             <div className="flex justify-between items-center mb-4">
                 <button onClick={() => navigate('/')} className="flex items-center text-gray-500 hover:text-blue-600 transition-colors">
@@ -152,10 +169,10 @@ export const EventDetail: React.FC = () => {
                         </div>
                         <Button 
                             className="w-full bg-green-600 hover:bg-green-700 text-white" 
-                            disabled={!selectedSeat || buying}
+                            disabled={!selectedSeat || buyTicketMutation.isPending}
                             onClick={handleBuy}
                         >
-                            {buying ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" /> Оплатить</>}
+                            {buyTicketMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" /> Оплатить</>}
                         </Button>
                     </div>
                 </div>

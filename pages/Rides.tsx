@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Ride, User } from '../types';
+import { Ride } from '../types';
 import { Button } from '../components/ui/Common';
-import { Car, MapPin, Calendar, Clock, Loader2, Plus, Users, Search, ArrowRight, User as UserIcon, X } from 'lucide-react';
+import { Car, MapPin, Calendar, Loader2, Plus, Users, Search, ArrowRight, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
@@ -16,26 +17,22 @@ const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucces
         seats: '3',
         carModel: ''
     });
-    const [loading, setLoading] = useState(false);
+    
+    // Mutation
+    const createMutation = useMutation({
+        mutationFn: (data: any) => api.createRide({ ...data, price: Number(data.price), seats: Number(data.seats) }),
+        onSuccess: () => {
+            onSuccess();
+            onClose();
+        },
+        onError: (err: any) => alert(err.message)
+    });
 
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        try {
-            await api.createRide({
-                ...formData,
-                price: Number(formData.price),
-                seats: Number(formData.seats)
-            });
-            onSuccess();
-            onClose();
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
+        createMutation.mutate(formData);
     };
 
     return (
@@ -80,7 +77,9 @@ const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucces
                             <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.seats} onChange={e => setFormData({...formData, seats: e.target.value})} required />
                         </div>
                     </div>
-                    <Button className="w-full" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Опубликовать'}</Button>
+                    <Button className="w-full" disabled={createMutation.isPending}>
+                        {createMutation.isPending ? <Loader2 className="animate-spin" /> : 'Опубликовать'}
+                    </Button>
                 </form>
             </div>
         </div>
@@ -88,46 +87,60 @@ const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucces
 };
 
 export const RidesPage: React.FC = () => {
-    const [rides, setRides] = useState<Ride[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [search, setSearch] = useState({ from: '', to: '' });
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const data = await api.getRides();
-            setRides(data);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { data: rides = [], isLoading } = useQuery({
+        queryKey: ['rides'],
+        queryFn: api.getRides
+    });
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { data: currentUser } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
+
+    // Mutations
+    const bookMutation = useMutation({
+        mutationFn: api.bookRide,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['rides'] });
+            alert("Место забронировано!");
+        },
+        onError: (e: any) => alert(e.message)
+    });
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        // Client side filtering for mockup
-        // Real app would pass search params to API
+        // Client side filtering for mockup, in real app update query params
     };
 
-    const handleBook = async (id: string) => {
-        if (!confirm("Забронировать место?")) return;
-        try {
-            await api.bookRide(id);
-            alert("Место забронировано!");
-            loadData();
-        } catch (e: any) {
-            alert(e.message);
+    const checkAuth = (action: () => void) => {
+        if (currentUser) {
+            action();
+        } else {
+            if (confirm("Для этого действия необходимо войти в систему. Перейти ко входу?")) {
+                navigate('/auth');
+            }
         }
     };
 
+    const handleBook = async (id: string) => {
+        if (!currentUser) {
+            if (confirm("Чтобы забронировать место, нужно войти. Перейти?")) navigate('/auth');
+            return;
+        }
+        if (!confirm("Забронировать место?")) return;
+        bookMutation.mutate(id);
+    };
+
     const handleContact = async (driverId: string, context?: string) => {
+        if (!currentUser) {
+            if (confirm("Чтобы написать водителю, нужно войти. Перейти?")) navigate('/auth');
+            return;
+        }
         try {
             const chatId = await api.startChat(driverId, context);
             navigate(`/chat?id=${chatId}`);
@@ -136,9 +149,18 @@ export const RidesPage: React.FC = () => {
         }
     };
 
+    const filteredRides = rides.filter(r => 
+        (search.from === '' || r.fromCity.toLowerCase().includes(search.from.toLowerCase())) &&
+        (search.to === '' || r.toCity.toLowerCase().includes(search.to.toLowerCase()))
+    );
+
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8">
-            <CreateRideModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={loadData} />
+            <CreateRideModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ['rides'] })} 
+            />
             
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <div>
@@ -147,7 +169,7 @@ export const RidesPage: React.FC = () => {
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400">Находите выгодные поездки или подвозите попутчиков</p>
                 </div>
-                <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
+                <Button onClick={() => checkAuth(() => setIsModalOpen(true))} className="flex items-center gap-2">
                     <Plus className="w-4 h-4" /> Предложить поездку
                 </Button>
             </div>
@@ -179,13 +201,13 @@ export const RidesPage: React.FC = () => {
                 </form>
             </div>
 
-            {loading ? (
+            {isLoading ? (
                 <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600" /></div>
-            ) : rides.length === 0 ? (
+            ) : filteredRides.length === 0 ? (
                 <div className="text-center py-20 text-gray-400">Поездок не найдено. Станьте первым водителем!</div>
             ) : (
                 <div className="space-y-4">
-                    {rides.map(ride => (
+                    {filteredRides.map(ride => (
                         <div key={ride.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 hover:shadow-md transition-shadow flex flex-col md:flex-row gap-4 items-center">
                             <div className="flex flex-col items-center md:items-start min-w-[120px]">
                                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{ride.time}</div>
@@ -211,16 +233,18 @@ export const RidesPage: React.FC = () => {
                                     className="flex items-center gap-2 cursor-pointer" 
                                     onClick={() => handleContact(ride.driverId, `Поездка: ${ride.fromCity} -> ${ride.toCity} (${ride.date})`)}
                                 >
-                                    <img src={ride.driverAvatar} alt="" className="w-10 h-10 rounded-full bg-gray-100 object-cover" />
+                                    <img src={ride.driverAvatar || 'https://ui-avatars.com/api/?name=Driver'} alt="" className="w-10 h-10 rounded-full bg-gray-100 object-cover" />
                                     <div className="text-left hidden md:block">
-                                        <div className="text-sm font-bold dark:text-white">{ride.driverName}</div>
+                                        <div className="text-sm font-bold dark:text-white">{ride.driverName || 'Водитель'}</div>
                                         <div className="text-xs text-blue-600 dark:text-blue-400">Водитель</div>
                                     </div>
                                 </div>
                                 <div className="text-right ml-4">
                                     <div className="text-xl font-bold text-blue-600 dark:text-blue-400 mb-1">{ride.price} ₽</div>
                                     {ride.seats > 0 ? (
-                                        <Button size="sm" onClick={() => handleBook(ride.id)}>Бронь</Button>
+                                        <Button size="sm" onClick={() => handleBook(ride.id)} disabled={bookMutation.isPending}>
+                                            {bookMutation.isPending ? '...' : 'Бронь'}
+                                        </Button>
                                     ) : (
                                         <span className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded">Мест нет</span>
                                     )}

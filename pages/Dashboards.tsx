@@ -1,18 +1,25 @@
 
-
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
-import { User, Ad, Business, UserRole } from '../types';
+import { User, Ad, Business, UserRole, Story, Suggestion, TransportSchedule } from '../types';
 import { Button, XPBar, Badge } from '../components/ui/Common';
 import { 
     User as UserIcon, Settings, LogOut, Loader2, Plus, 
-    Briefcase, ShoppingBag, PieChart, Check, X, 
+    Briefcase, ShoppingBag, Check, X, 
     Trophy, MapPin, Building2, Crown,
     LayoutDashboard, FileText, BarChart3, Users,
-    Edit3, Trash2, ChevronDown, List, Upload, Pencil, Star, Shield, Zap
+    Edit3, Trash2, ChevronDown, List, Upload, Pencil, Star, Shield, Zap, TrendingUp, PieChart as PieChartIcon, Film, Lightbulb, MessageSquare, AlertTriangle, ExternalLink, Bus
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { EditAdModal } from '../components/EditAdModal';
+import { WORK_SCHEDULES } from '../constants';
+import { 
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, 
+    PieChart, Pie, Cell 
+} from 'recharts';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { SuggestIdeaModal } from '../components/SuggestIdeaModal';
+import { PhoneInput } from '../components/ui/PhoneInput';
 
 // Helper for Badges
 const BadgeIcon: React.FC<{ name: string }> = ({ name }) => {
@@ -63,7 +70,7 @@ const EditProfileModal: React.FC<{ user: User; isOpen: boolean; onClose: () => v
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-sm p-6 shadow-2xl transition-colors duration-200">
+            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-sm p-6 shadow-2xl transition-colors duration-200 overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-lg text-gray-900 dark:text-white">Редактировать профиль</h3>
                     <button onClick={onClose}><X className="w-5 h-5 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors" /></button>
@@ -84,7 +91,10 @@ const EditProfileModal: React.FC<{ user: User; isOpen: boolean; onClose: () => v
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Телефон</label>
-                        <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="+7" />
+                        <PhoneInput 
+                            value={formData.phone}
+                            onChangeText={val => setFormData({...formData, phone: val})}
+                        />
                     </div>
                     <Button className="w-full" disabled={loading || uploading}>
                         {loading ? <Loader2 className="animate-spin" /> : 'Сохранить'}
@@ -103,24 +113,31 @@ const EditBusinessModal: React.FC<{ business: Business; isOpen: boolean; onClose
         address: business.address,
         phone: business.phone,
         workHours: business.workHours,
-        image: business.image
+        image: business.image,
+        coverImage: business.coverImage
     });
     const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const [uploadingCover, setUploadingCover] = useState(false);
+    const [isCustomSchedule, setIsCustomSchedule] = useState(!WORK_SCHEDULES.includes(business.workHours));
 
     if (!isOpen) return null;
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'image' | 'coverImage') => {
         const file = e.target.files?.[0];
         if (!file) return;
-        setUploading(true);
+        
+        if (field === 'image') setUploadingImage(true);
+        else setUploadingCover(true);
+
         try {
             const url = await api.uploadImage(file);
-            setFormData(prev => ({ ...prev, image: url }));
+            setFormData(prev => ({ ...prev, [field]: url }));
         } catch (e: any) {
             alert(e.message);
         } finally {
-            setUploading(false);
+            if (field === 'image') setUploadingImage(false);
+            else setUploadingCover(false);
         }
     };
 
@@ -153,32 +170,76 @@ const EditBusinessModal: React.FC<{ business: Business; isOpen: boolean; onClose
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Телефон</label>
-                            <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required />
+                            <PhoneInput 
+                                value={formData.phone}
+                                onChangeText={val => setFormData({...formData, phone: val})}
+                                required
+                            />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Часы работы</label>
-                            <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.workHours} onChange={e => setFormData({...formData, workHours: e.target.value})} required />
+                            <select 
+                                className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                value={isCustomSchedule ? 'custom' : formData.workHours}
+                                onChange={e => {
+                                    if(e.target.value === 'custom') {
+                                        setIsCustomSchedule(true);
+                                        setFormData(prev => ({...prev, workHours: ''}));
+                                    } else {
+                                        setIsCustomSchedule(false);
+                                        setFormData(prev => ({...prev, workHours: e.target.value}));
+                                    }
+                                }}
+                            >
+                                {WORK_SCHEDULES.map(s => <option key={s} value={s}>{s}</option>)}
+                                <option value="custom">Другое...</option>
+                            </select>
                         </div>
                     </div>
+                    {isCustomSchedule && (
+                        <div>
+                            <input 
+                                className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                value={formData.workHours} 
+                                onChange={e => setFormData({...formData, workHours: e.target.value})} 
+                                placeholder="Введите свой график"
+                                required 
+                            />
+                        </div>
+                    )}
                     <div>
                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Адрес</label>
-                        <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required />
+                        <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required placeholder="ул. Ленина, 15" />
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Описание</label>
                         <textarea className="w-full border rounded-lg p-2 resize-none bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                     </div>
-                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center bg-gray-50 dark:bg-gray-700/50">
-                        <div className="relative cursor-pointer">
-                            {formData.image && <img src={formData.image} alt="" className="h-20 w-full object-cover rounded mb-2" />}
-                            <div className="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
-                                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                                <span className="text-xs">{uploading ? "Загрузка..." : "Изменить фото"}</span>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center bg-gray-50 dark:bg-gray-700/50">
+                            <div className="relative cursor-pointer">
+                                {formData.image && <img src={formData.image} alt="" className="h-20 w-full object-cover rounded mb-2" />}
+                                <div className="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
+                                    {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                    <span className="text-xs">{uploadingImage ? "..." : "Логотип"}</span>
+                                </div>
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleImageUpload(e, 'image')} />
                             </div>
-                            <input type="file" className="absolute inset-0 opacity-0" onChange={handleImageUpload} />
+                        </div>
+                        <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center bg-gray-50 dark:bg-gray-700/50">
+                            <div className="relative cursor-pointer">
+                                {formData.coverImage && <img src={formData.coverImage} alt="" className="h-20 w-full object-cover rounded mb-2" />}
+                                <div className="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
+                                    {uploadingCover ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                    <span className="text-xs">{uploadingCover ? "..." : "Обложка"}</span>
+                                </div>
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleImageUpload(e, 'coverImage')} />
+                            </div>
                         </div>
                     </div>
-                    <Button className="w-full" disabled={loading || uploading}>
+
+                    <Button className="w-full" disabled={loading || uploadingImage || uploadingCover}>
                         {loading ? <Loader2 className="animate-spin" /> : 'Сохранить изменения'}
                     </Button>
                 </form>
@@ -197,6 +258,7 @@ export const Profile: React.FC = () => {
     const [editingAd, setEditingAd] = useState<Ad | null>(null);
     const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
     const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+    const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
 
     const loadData = async () => {
         try {
@@ -250,6 +312,7 @@ export const Profile: React.FC = () => {
 
     return (
         <div className="max-w-6xl mx-auto p-4 lg:p-8 pb-24">
+            <SuggestIdeaModal isOpen={isIdeaModalOpen} onClose={() => setIsIdeaModalOpen(false)} />
             {editingAd && (
                 <EditAdModal 
                     ad={editingAd} 
@@ -291,9 +354,9 @@ export const Profile: React.FC = () => {
                     </button>
                 </div>
                 
-                <div className="flex-1 text-center md:text-left z-10">
-                    <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">{user.name}</h1>
+                <div className="flex-1 text-center md:text-left z-10 w-full">
+                    <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-2 md:gap-3 mb-2">
+                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">{user.name}</h1>
                         <div className="flex gap-1">
                             {user.badges?.map(b => <BadgeIcon key={b} name={b} />)}
                         </div>
@@ -310,7 +373,10 @@ export const Profile: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-3 min-w-[140px] z-10">
+                <div className="flex flex-col gap-3 w-full md:w-auto min-w-[140px] z-10">
+                    <button onClick={() => setIsIdeaModalOpen(true)} className="flex items-center justify-center w-full px-4 py-2.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors border border-blue-200 dark:border-blue-800">
+                        <Lightbulb className="w-4 h-4 mr-2" /> Предложить идею
+                    </button>
                     <Link to="/settings">
                         <Button variant="secondary" className="w-full bg-white dark:bg-gray-700 dark:text-white border-none shadow-sm">
                             <Settings className="w-4 h-4 mr-2" /> Настройки
@@ -419,7 +485,7 @@ export const Profile: React.FC = () => {
                             {myBusinesses.map(biz => (
                                 <div key={biz.id} className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col group">
                                     <div className="h-32 bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
-                                        <img src={biz.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
+                                        <img src={biz.coverImage || biz.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                                         <div className="absolute bottom-3 left-4 text-white">
                                             <h3 className="font-bold text-lg leading-tight">{biz.name}</h3>
@@ -458,25 +524,94 @@ export const Profile: React.FC = () => {
 
 // Admin Dashboard
 export const AdminDashboard: React.FC = () => {
-    const [stats, setStats] = useState({ users: 0, ads: 0, businesses: 0, news: 0 });
+    const [stats, setStats] = useState({ users: 0, ads: 0, businesses: 0, news: 0, stories: 0 });
+    const [analytics, setAnalytics] = useState<any>({ activity: [], distribution: [] });
     const [pendingAds, setPendingAds] = useState<Ad[]>([]);
     const [allAds, setAllAds] = useState<Ad[]>([]); 
-    const [activeTab, setActiveTab] = useState<'overview' | 'moderation' | 'content' | 'ads'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'moderation' | 'content' | 'ads' | 'stories' | 'feedback' | 'transport'>('overview');
     
     // Poll State
     const [pollQuestion, setPollQuestion] = useState('');
     const [pollOptions, setPollOptions] = useState(['', '']);
     
+    // Transport State
+    const [newTransport, setNewTransport] = useState({ type: 'city', routeNumber: '', title: '', schedule: '', workHours: '', price: '' });
+
+    const queryClient = useQueryClient();
+
+    // Use React Query for Stories, Transport, Feedback
+    const { data: allStories = [] } = useQuery({
+        queryKey: ['stories'],
+        queryFn: api.getStories,
+        staleTime: 0,
+    });
+
+    const { data: transportSchedules = [] } = useQuery({
+        queryKey: ['transport'],
+        queryFn: api.getTransportSchedules
+    });
+
+    const { data: suggestions = [] } = useQuery({
+        queryKey: ['suggestions'],
+        queryFn: api.getSuggestions,
+        staleTime: 0
+    });
+
+    const { data: reports = [] } = useQuery({
+        queryKey: ['reports'],
+        queryFn: api.getReports,
+        staleTime: 0
+    });
+
     const loadAllData = async () => {
-        const [s, p, all] = await Promise.all([
-            api.getSystemStats(), 
-            api.getPendingAds(),
-            api.getAllAdsForAdmin()
-        ]);
-        setStats(s);
-        setPendingAds(p);
-        setAllAds(all);
+        try {
+            const [s, p, all, anal] = await Promise.all([
+                api.getSystemStats(), 
+                api.getPendingAds(),
+                api.getAllAdsForAdmin(),
+                api.getAdminAnalytics()
+            ]);
+            setStats(s);
+            setPendingAds(p);
+            setAllAds(all);
+            setAnalytics(anal);
+        } catch (e) {
+            console.error("Failed to load admin data", e);
+        }
     };
+
+    // Mutations
+    const deleteStoryMutation = useMutation({
+        mutationFn: api.deleteStory,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stories'] }),
+        onError: (e: any) => alert(e.message)
+    });
+
+    const deleteSuggestionMutation = useMutation({
+        mutationFn: api.deleteSuggestion,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['suggestions'] }),
+        onError: (e: any) => alert(e.message)
+    });
+
+    const deleteReportMutation = useMutation({
+        mutationFn: api.deleteReport,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reports'] }),
+        onError: (e: any) => alert(e.message)
+    });
+
+    const addTransportMutation = useMutation({
+        mutationFn: (data: any) => api.addTransportSchedule({ ...data, price: data.price ? Number(data.price) : undefined }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['transport'] });
+            setNewTransport({ type: 'city', routeNumber: '', title: '', schedule: '', workHours: '', price: '' });
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    const deleteTransportMutation = useMutation({
+        mutationFn: api.deleteTransportSchedule,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transport'] })
+    });
 
     useEffect(() => {
         loadAllData();
@@ -504,14 +639,22 @@ export const AdminDashboard: React.FC = () => {
     };
 
     const approveAd = async (id: string) => {
-        await api.approveAd(id);
-        loadAllData();
+        try {
+            await api.approveAd(id);
+            loadAllData();
+        } catch (e: any) {
+            alert("Ошибка одобрения: " + e.message);
+        }
     };
 
     const rejectAd = async (id: string) => {
         if(confirm("Отклонить объявление?")) {
-            await api.rejectAd(id);
-            loadAllData();
+            try {
+                await api.rejectAd(id);
+                loadAllData();
+            } catch (e: any) {
+                alert("Ошибка отклонения: " + e.message);
+            }
         }
     };
 
@@ -535,79 +678,303 @@ export const AdminDashboard: React.FC = () => {
         }
     };
 
+    const handleDeleteStory = (id: string) => {
+        if (confirm("Удалить эту историю навсегда?")) {
+            deleteStoryMutation.mutate(id);
+        }
+    };
+
+    const handleDeleteSuggestion = (id: string) => {
+        if (confirm("Удалить это сообщение?")) {
+            deleteSuggestionMutation.mutate(id);
+        }
+    };
+
+    const handleDeleteReport = (id: string) => {
+        if (confirm("Удалить жалобу?")) {
+            deleteReportMutation.mutate(id);
+        }
+    };
+
+    const handleAddTransport = (e: React.FormEvent) => {
+        e.preventDefault();
+        addTransportMutation.mutate(newTransport);
+    };
+
+    const handleDeleteTransport = (id: string) => {
+        if(confirm("Удалить этот рейс?")) deleteTransportMutation.mutate(id);
+    };
+
+    const COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B'];
+
+    // Helper for displaying reports nicely
+    const getTargetLabel = (type: string) => {
+        const map: Record<string, string> = {
+            app: 'Приложение',
+            ad: 'Объявление',
+            user: 'Пользователь',
+            comment: 'Комментарий',
+            business: 'Бизнес',
+            post: 'Пост'
+        };
+        return map[type] || type.toUpperCase();
+    };
+
     return (
-        <div className="max-w-6xl mx-auto p-4 lg:p-8">
-            <h1 className="text-3xl font-bold mb-8 dark:text-white flex items-center gap-3">
+        <div className="max-w-6xl mx-auto p-4 lg:p-8 pb-24">
+            <h1 className="text-2xl lg:text-3xl font-bold mb-6 lg:mb-8 dark:text-white flex items-center gap-3">
                 <LayoutDashboard className="w-8 h-8 text-blue-600" /> Администрирование
             </h1>
 
             {/* Tabs */}
             <div className="flex border-b dark:border-gray-700 mb-8 overflow-x-auto">
-                <button 
-                    onClick={() => setActiveTab('overview')}
-                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'overview' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                >
-                    <BarChart3 className="w-4 h-4" /> Обзор
-                </button>
-                <button 
-                    onClick={() => setActiveTab('moderation')}
-                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'moderation' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                >
-                    <Shield className="w-4 h-4" /> Модерация {pendingAds.length > 0 && <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">{pendingAds.length}</span>}
-                </button>
-                <button 
-                    onClick={() => setActiveTab('ads')}
-                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'ads' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                >
-                    <List className="w-4 h-4" /> Объявления
-                </button>
-                <button 
-                    onClick={() => setActiveTab('content')}
-                    className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'content' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                >
-                    <FileText className="w-4 h-4" /> Контент
-                </button>
+                {['overview', 'moderation', 'ads', 'content', 'stories', 'feedback', 'transport'].map(tab => (
+                    <button 
+                        key={tab}
+                        onClick={() => setActiveTab(tab as any)}
+                        className={`px-4 lg:px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap text-sm lg:text-base capitalize ${activeTab === tab ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                    >
+                        {tab === 'overview' && <><BarChart3 className="w-4 h-4" /> Обзор</>}
+                        {tab === 'moderation' && <><Shield className="w-4 h-4" /> Модерация {pendingAds.length > 0 && <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">{pendingAds.length}</span>}</>}
+                        {tab === 'ads' && <><List className="w-4 h-4" /> Объявления</>}
+                        {tab === 'content' && <><FileText className="w-4 h-4" /> Контент</>}
+                        {tab === 'stories' && <><Film className="w-4 h-4" /> Истории</>}
+                        {tab === 'feedback' && <><MessageSquare className="w-4 h-4" /> Идеи/Жалобы</>}
+                        {tab === 'transport' && <><Bus className="w-4 h-4" /> Транспорт</>}
+                    </button>
+                ))}
             </div>
 
+            {/* Overview Tab - RESTORED */}
             {activeTab === 'overview' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in">
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
-                        <div className="relative z-10">
-                            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wider">Пользователи</p>
-                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.users}</h3>
+                <div className="space-y-8 animate-in fade-in">
+                    {/* Stat Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-6">
+                        {/* Users */}
+                        <div className="bg-white dark:bg-gray-800 p-4 lg:p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-28 lg:h-32 relative overflow-hidden">
+                            <div className="relative z-10">
+                                <p className="text-gray-500 dark:text-gray-400 text-xs lg:text-sm font-medium uppercase tracking-wider">Пользователи</p>
+                                <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.users}</h3>
+                            </div>
+                            <div className="absolute right-3 bottom-3 text-blue-100 dark:text-blue-900/20">
+                                <Users className="w-12 h-12 lg:w-16 lg:h-16" />
+                            </div>
                         </div>
-                        <div className="absolute right-4 bottom-4 text-blue-100 dark:text-blue-900/20">
-                            <Users className="w-16 h-16" />
+                        
+                        {/* Ads */}
+                        <div className="bg-white dark:bg-gray-800 p-4 lg:p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-28 lg:h-32 relative overflow-hidden">
+                            <div className="relative z-10">
+                                <p className="text-gray-500 dark:text-gray-400 text-xs lg:text-sm font-medium uppercase tracking-wider">Объявления</p>
+                                <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.ads}</h3>
+                            </div>
+                            <div className="absolute right-3 bottom-3 text-green-100 dark:text-green-900/20">
+                                <ShoppingBag className="w-12 h-12 lg:w-16 lg:h-16" />
+                            </div>
+                        </div>
+
+                        {/* Businesses */}
+                        <div className="bg-white dark:bg-gray-800 p-4 lg:p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-28 lg:h-32 relative overflow-hidden">
+                            <div className="relative z-10">
+                                <p className="text-gray-500 dark:text-gray-400 text-xs lg:text-sm font-medium uppercase tracking-wider">Бизнес</p>
+                                <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.businesses}</h3>
+                            </div>
+                            <div className="absolute right-3 bottom-3 text-purple-100 dark:text-purple-900/20">
+                                <Briefcase className="w-12 h-12 lg:w-16 lg:h-16" />
+                            </div>
+                        </div>
+
+                        {/* News */}
+                        <div className="bg-white dark:bg-gray-800 p-4 lg:p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-28 lg:h-32 relative overflow-hidden">
+                            <div className="relative z-10">
+                                <p className="text-gray-500 dark:text-gray-400 text-xs lg:text-sm font-medium uppercase tracking-wider">Новости</p>
+                                <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.news}</h3>
+                            </div>
+                            <div className="absolute right-3 bottom-3 text-orange-100 dark:text-orange-900/20">
+                                <FileText className="w-12 h-12 lg:w-16 lg:h-16" />
+                            </div>
+                        </div>
+
+                        {/* Stories */}
+                        <div className="bg-white dark:bg-gray-800 p-4 lg:p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-28 lg:h-32 relative overflow-hidden">
+                            <div className="relative z-10">
+                                <p className="text-gray-500 dark:text-gray-400 text-xs lg:text-sm font-medium uppercase tracking-wider">Истории</p>
+                                <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.stories}</h3>
+                            </div>
+                            <div className="absolute right-3 bottom-3 text-pink-100 dark:text-pink-900/20">
+                                <Film className="w-12 h-12 lg:w-16 lg:h-16" />
+                            </div>
                         </div>
                     </div>
+
+                    {/* Charts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm h-80">
+                            <h3 className="font-bold mb-4 dark:text-white">Активность за неделю</h3>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={analytics.activity}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.2} />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} stroke="#6b7280" />
+                                    <YAxis axisLine={false} tickLine={false} stroke="#6b7280" />
+                                    <RechartsTooltip 
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
+                                        cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
+                                    />
+                                    <Bar dataKey="users" name="Пользователи" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="ads" name="Объявления" fill="#10B981" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm h-80">
+                            <h3 className="font-bold mb-4 dark:text-white">Распределение контента</h3>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={analytics.distribution}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {analytics.distribution.map((entry: any, index: number) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <RechartsTooltip />
+                                    <Legend verticalAlign="bottom" height={36} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Transport Tab */}
+            {activeTab === 'transport' && (
+                <div className="animate-in fade-in">
+                    <h2 className="text-xl font-bold mb-6 dark:text-white">Управление транспортом</h2>
                     
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
-                        <div className="relative z-10">
-                            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wider">Объявления</p>
-                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.ads}</h3>
-                        </div>
-                        <div className="absolute right-4 bottom-4 text-green-100 dark:text-green-900/20">
-                            <ShoppingBag className="w-16 h-16" />
-                        </div>
-                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Add Form */}
+                        <div className="lg:col-span-1">
+                            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border dark:border-gray-700 shadow-sm sticky top-24">
+                                <h3 className="font-bold mb-4 dark:text-white">Добавить рейс</h3>
+                                <form onSubmit={handleAddTransport} className="space-y-3">
+                                    <select 
+                                        className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        value={newTransport.type}
+                                        onChange={e => setNewTransport({...newTransport, type: e.target.value})}
+                                    >
+                                        <option value="city">Городской</option>
+                                        <option value="intercity">Междугородний</option>
+                                    </select>
+                                    
+                                    {newTransport.type === 'city' && (
+                                        <input 
+                                            placeholder="Номер маршрута (напр. 7)"
+                                            className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                            value={newTransport.routeNumber}
+                                            onChange={e => setNewTransport({...newTransport, routeNumber: e.target.value})}
+                                        />
+                                    )}
+                                    
+                                    <input 
+                                        placeholder={newTransport.type === 'city' ? "Название маршрута" : "Направление"}
+                                        className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        value={newTransport.title}
+                                        onChange={e => setNewTransport({...newTransport, title: e.target.value})}
+                                        required
+                                    />
+                                    
+                                    <input 
+                                        placeholder={newTransport.type === 'city' ? "Интервал (напр. 10 мин)" : "Время отправления"}
+                                        className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        value={newTransport.schedule}
+                                        onChange={e => setNewTransport({...newTransport, schedule: e.target.value})}
+                                        required
+                                    />
+                                    
+                                    <input 
+                                        placeholder={newTransport.type === 'city' ? "Часы работы" : "Время в пути"}
+                                        className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        value={newTransport.workHours}
+                                        onChange={e => setNewTransport({...newTransport, workHours: e.target.value})}
+                                    />
+                                    
+                                    {newTransport.type === 'intercity' && (
+                                        <input 
+                                            type="number"
+                                            placeholder="Цена (₽)"
+                                            className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                            value={newTransport.price}
+                                            onChange={e => setNewTransport({...newTransport, price: e.target.value})}
+                                        />
+                                    )}
 
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
-                        <div className="relative z-10">
-                            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wider">Компании</p>
-                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.businesses}</h3>
+                                    <Button className="w-full" disabled={addTransportMutation.isPending}>
+                                        {addTransportMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Добавить'}
+                                    </Button>
+                                </form>
+                            </div>
                         </div>
-                        <div className="absolute right-4 bottom-4 text-purple-100 dark:text-purple-900/20">
-                            <Building2 className="w-16 h-16" />
-                        </div>
-                    </div>
 
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden">
-                        <div className="relative z-10">
-                            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wider">Новости</p>
-                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.news}</h3>
-                        </div>
-                        <div className="absolute right-4 bottom-4 text-orange-100 dark:text-orange-900/20">
-                            <FileText className="w-16 h-16" />
+                        {/* List */}
+                        <div className="lg:col-span-2 space-y-6">
+                            <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 font-bold dark:text-white">
+                                    Городские маршруты
+                                </div>
+                                <div className="divide-y dark:divide-gray-700">
+                                    {transportSchedules.filter(t => t.type === 'city').map(t => (
+                                        <div key={t.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                            <div>
+                                                <div className="font-bold text-lg dark:text-white">
+                                                    <span className="text-blue-600 mr-2">#{t.routeNumber}</span> 
+                                                    {t.title}
+                                                </div>
+                                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                    Интервал: {t.schedule} • {t.workHours}
+                                                </div>
+                                            </div>
+                                            <button onClick={() => handleDeleteTransport(t.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {transportSchedules.filter(t => t.type === 'city').length === 0 && (
+                                        <div className="p-4 text-center text-gray-400">Нет маршрутов</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden">
+                                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 font-bold dark:text-white">
+                                    Междугородние рейсы
+                                </div>
+                                <div className="divide-y dark:divide-gray-700">
+                                    {transportSchedules.filter(t => t.type === 'intercity').map(t => (
+                                        <div key={t.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                            <div>
+                                                <div className="font-bold text-lg dark:text-white">{t.title}</div>
+                                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                    Отправление: {t.schedule}
+                                                </div>
+                                                <div className="text-xs text-gray-400">
+                                                    В пути: {t.workHours} • {t.price} ₽
+                                                </div>
+                                            </div>
+                                            <button onClick={() => handleDeleteTransport(t.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {transportSchedules.filter(t => t.type === 'intercity').length === 0 && (
+                                        <div className="p-4 text-center text-gray-400">Нет рейсов</div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -615,6 +982,7 @@ export const AdminDashboard: React.FC = () => {
 
             {activeTab === 'moderation' && (
                 <div className="animate-in fade-in">
+                    {/* ... moderation content ... */}
                     <h2 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2">
                         Ожидают проверки <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm px-2 py-0.5 rounded-full">{pendingAds.length}</span>
                     </h2>
@@ -627,11 +995,11 @@ export const AdminDashboard: React.FC = () => {
                             </div>
                         ) : (
                             pendingAds.map(ad => (
-                                <div key={ad.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col md:flex-row gap-6">
-                                    <img src={ad.image} className="w-full md:w-48 h-32 rounded-xl object-cover bg-gray-100" alt="" />
+                                <div key={ad.id} className="bg-white dark:bg-gray-800 p-4 lg:p-5 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col md:flex-row gap-4 lg:gap-6">
+                                    <img src={ad.image} className="w-full md:w-48 h-48 md:h-32 rounded-xl object-cover bg-gray-100" alt="" />
                                     <div className="flex-1">
                                         <div className="flex justify-between items-start mb-2">
-                                            <h3 className="font-bold text-lg dark:text-white">{ad.title}</h3>
+                                            <h3 className="font-bold text-lg dark:text-white line-clamp-1">{ad.title}</h3>
                                             <span className="font-bold text-blue-600">{ad.price} ₽</span>
                                         </div>
                                         <div className="flex gap-2 mb-3">
@@ -641,79 +1009,196 @@ export const AdminDashboard: React.FC = () => {
                                         <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">{ad.description}</p>
                                         
                                         <div className="flex gap-3">
-                                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white shadow-green-200 dark:shadow-none" onClick={() => approveAd(ad.id)}>
+                                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white shadow-green-200 dark:shadow-none flex-1 md:flex-none" onClick={() => approveAd(ad.id)}>
                                                 <Check className="w-4 h-4 mr-2" /> Одобрить
                                             </Button>
-                                            <Button size="sm" variant="danger" className="bg-red-50 text-red-600 hover:bg-red-100 border-none dark:bg-red-900/20 dark:text-red-400" onClick={() => rejectAd(ad.id)}>
+                                            <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white flex-1 md:flex-none shadow-red-200 dark:shadow-none" onClick={() => rejectAd(ad.id)}>
                                                 <X className="w-4 h-4 mr-2" /> Отклонить
                                             </Button>
                                         </div>
                                     </div>
                                 </div>
                             ))
-                        )}
+                        )
+                    }
                     </div>
                 </div>
             )}
 
+            {/* Other tabs logic remains mostly the same, just keeping the structure */}
             {activeTab === 'ads' && (
                 <div className="animate-in fade-in">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead className="bg-gray-50 dark:bg-gray-700/50 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
-                                    <tr>
-                                        <th className="px-6 py-4">Фото</th>
-                                        <th className="px-6 py-4">Заголовок</th>
-                                        <th className="px-6 py-4">Цена</th>
-                                        <th className="px-6 py-4">Статус</th>
-                                        <th className="px-6 py-4 text-right">Действия</th>
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden overflow-x-auto">
+                        <table className="w-full text-left min-w-[600px]">
+                            <thead className="bg-gray-50 dark:bg-gray-700/50 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
+                                <tr>
+                                    <th className="px-4 lg:px-6 py-4">Фото</th>
+                                    <th className="px-4 lg:px-6 py-4">Заголовок</th>
+                                    <th className="px-4 lg:px-6 py-4">Цена</th>
+                                    <th className="px-4 lg:px-6 py-4">Статус</th>
+                                    <th className="px-4 lg:px-6 py-4 text-right">Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                {allAds.map(ad => (
+                                    <tr key={ad.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                        <td className="px-4 lg:px-6 py-3">
+                                            <img src={ad.image} className="w-12 h-12 rounded-lg object-cover bg-gray-100" alt="" />
+                                        </td>
+                                        <td className="px-4 lg:px-6 py-3">
+                                            <div className="font-medium text-gray-900 dark:text-white line-clamp-1 text-sm lg:text-base">{ad.title}</div>
+                                            <div className="text-xs text-gray-500">{ad.category}</div>
+                                        </td>
+                                        <td className="px-4 lg:px-6 py-3 text-sm font-bold text-gray-900 dark:text-gray-200">
+                                            {ad.price.toLocaleString()} ₽
+                                        </td>
+                                        <td className="px-4 lg:px-6 py-3">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                                ad.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                ad.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                            }`}>
+                                                {ad.status === 'approved' ? 'Активно' : ad.status === 'pending' ? 'Ждет' : 'Отклонено'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 lg:px-6 py-3 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button 
+                                                    onClick={() => toggleVipAd(ad)}
+                                                    className={`p-2 rounded-lg transition-colors ${ad.isVip ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-gray-100 text-gray-400 hover:text-orange-500 dark:bg-gray-700 dark:text-gray-500'}`}
+                                                    title="Toggle VIP"
+                                                >
+                                                    <Crown className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => deleteAdPermanently(ad.id)}
+                                                    className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 transition-colors"
+                                                    title="Удалить"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {allAds.map(ad => (
-                                        <tr key={ad.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <td className="px-6 py-3">
-                                                <img src={ad.image} className="w-12 h-12 rounded-lg object-cover bg-gray-100" alt="" />
-                                            </td>
-                                            <td className="px-6 py-3">
-                                                <div className="font-medium text-gray-900 dark:text-white line-clamp-1">{ad.title}</div>
-                                                <div className="text-xs text-gray-500">{ad.category}</div>
-                                            </td>
-                                            <td className="px-6 py-3 text-sm font-bold text-gray-900 dark:text-gray-200">
-                                                {ad.price.toLocaleString()} ₽
-                                            </td>
-                                            <td className="px-6 py-3">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                                    ad.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                                    ad.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                                }`}>
-                                                    {ad.status === 'approved' ? 'Активно' : ad.status === 'pending' ? 'Ждет' : 'Отклонено'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-3 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button 
-                                                        onClick={() => toggleVipAd(ad)}
-                                                        className={`p-2 rounded-lg transition-colors ${ad.isVip ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-gray-100 text-gray-400 hover:text-orange-500 dark:bg-gray-700 dark:text-gray-500'}`}
-                                                        title="Toggle VIP"
-                                                    >
-                                                        <Crown className="w-4 h-4" />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => deleteAdPermanently(ad.id)}
-                                                        className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 transition-colors"
-                                                        title="Удалить"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'stories' && (
+                <div className="animate-in fade-in">
+                    {/* ... stories content ... */}
+                    <h2 className="text-xl font-bold mb-6 dark:text-white flex items-center gap-2">
+                        Управление историями <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm px-2 py-0.5 rounded-full">{allStories.length}</span>
+                    </h2>
+                    
+                    {allStories.length === 0 ? (
+                        <div className="text-center py-20 text-gray-400 bg-white dark:bg-gray-800 rounded-2xl border border-dashed dark:border-gray-700">
+                            <Film className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                            <p>Историй пока нет.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                            {allStories.map(story => (
+                                <div key={story.id} className="relative aspect-[9/16] bg-gray-200 dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm group">
+                                    <img src={story.media} className="w-full h-full object-cover" alt="" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
+                                    <div className="absolute top-2 left-2 right-2 flex items-center gap-2">
+                                        <img src={story.authorAvatar} className="w-6 h-6 rounded-full border border-white/50" alt="" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[10px] text-white font-bold truncate">{story.authorName}</p>
+                                            <p className="text--[9px] text-gray-300">{new Date(story.createdAt).toLocaleDateString()}</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleDeleteStory(story.id)}
+                                        className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full z-20 shadow-lg hover:bg-red-700 transition-colors"
+                                        title="Удалить историю"
+                                    >
+                                        {deleteStoryMutation.isPending && deleteStoryMutation.variables === story.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {activeTab === 'feedback' && (
+                <div className="animate-in fade-in grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Ideas Section */}
+                    <div>
+                        <h2 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2">
+                            Предложения <span className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-sm px-2 py-0.5 rounded-full">{suggestions.length}</span>
+                        </h2>
+                        <div className="space-y-4">
+                            {suggestions.length === 0 ? (
+                                <p className="text-gray-500 dark:text-gray-400 italic">Предложений пока нет.</p>
+                            ) : (
+                                suggestions.map(s => (
+                                    <div key={s.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm flex gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 flex items-center justify-center shrink-0">
+                                            <Lightbulb className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <div className="font-bold text-gray-900 dark:text-white text-sm">{s.userName || 'Аноним'}</div>
+                                                    <div className="text-xs text-gray-500">{new Date(s.createdAt).toLocaleString()}</div>
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                <button onClick={() => handleDeleteSuggestion(s.id)} className="text-gray-400 hover:text-red-500 p-1">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                            <p className="text-gray-700 dark:text-gray-300 text-sm bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">{s.text}</p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Reports Section */}
+                    <div>
+                        <h2 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2">
+                            Жалобы <span className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-sm px-2 py-0.5 rounded-full">{reports.length}</span>
+                        </h2>
+                        <div className="space-y-4">
+                            {reports.length === 0 ? (
+                                <p className="text-gray-500 dark:text-gray-400 italic">Жалоб пока нет.</p>
+                            ) : (
+                                reports.map(r => (
+                                    <div key={r.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm flex gap-4 border-l-4 border-l-red-500">
+                                        <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center shrink-0">
+                                            <AlertTriangle className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <div className="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                                                        {r.userName || 'Аноним'}
+                                                        <span className="text-xs font-normal text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded border dark:border-gray-600">
+                                                            {getTargetLabel(r.targetType)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">{new Date(r.createdAt).toLocaleString()}</div>
+                                                </div>
+                                                <button onClick={() => handleDeleteReport(r.id)} className="text-gray-400 hover:text-red-500 p-1">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                            <p className="text-gray-800 dark:text-gray-200 text-sm font-medium mb-1">{r.reason}</p>
+                                            {r.targetId && r.targetId !== 'general' && (
+                                                <div className="text-gray-500 dark:text-gray-400 text-xs mt-2 p-1.5 bg-gray-50 dark:bg-gray-700/30 rounded border dark:border-gray-700 font-mono">
+                                                    ID: {r.targetId}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
@@ -724,41 +1209,25 @@ export const AdminDashboard: React.FC = () => {
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm">
                         <div className="flex items-center gap-3 mb-6 border-b dark:border-gray-700 pb-4">
                             <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600">
-                                <PieChart className="w-6 h-6" />
+                                <PieChartIcon className="w-6 h-6" />
                             </div>
                             <h3 className="font-bold text-lg dark:text-white">Создать опрос</h3>
                         </div>
-                        
                         <form onSubmit={handleCreatePoll} className="space-y-4">
+                            {/* ... poll form ... */}
                             <div>
                                 <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Вопрос</label>
-                                <input 
-                                   required
-                                   className="w-full border rounded-xl p-3 mt-1 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-                                   placeholder="Например: Где установить елку?"
-                                   value={pollQuestion}
-                                   onChange={e => setPollQuestion(e.target.value)}
-                                />
+                                <input required className="w-full border rounded-xl p-3 mt-1 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="Например: Где установить елку?" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
                             </div>
                             <div className="space-y-3">
                                 <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Варианты ответов</label>
                                 {pollOptions.map((opt, idx) => (
                                     <div key={idx} className="flex gap-2">
                                         <span className="py-3 px-1 text-gray-400 text-sm font-mono">{idx + 1}.</span>
-                                        <input 
-                                           className="w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                           placeholder={`Вариант ответа`}
-                                           value={opt}
-                                           onChange={e => handleOptionChange(idx, e.target.value)}
-                                           required
-                                        />
+                                        <input className="w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder={`Вариант ответа`} value={opt} onChange={e => handleOptionChange(idx, e.target.value)} required />
                                     </div>
                                 ))}
-                                <button 
-                                   type="button" 
-                                   onClick={() => setPollOptions([...pollOptions, ''])}
-                                   className="text-sm text-blue-600 dark:text-blue-400 font-bold flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-2 rounded-lg transition-colors"
-                                >
+                                <button type="button" onClick={() => setPollOptions([...pollOptions, ''])} className="text-sm text-blue-600 dark:text-blue-400 font-bold flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-2 rounded-lg transition-colors">
                                     <Plus className="w-4 h-4" /> Добавить вариант
                                 </button>
                             </div>
@@ -767,7 +1236,7 @@ export const AdminDashboard: React.FC = () => {
                             </div>
                         </form>
                     </div>
-
+                    {/* ... news banner ... */}
                     <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-8 rounded-2xl shadow-lg relative overflow-hidden flex flex-col justify-center items-center text-center">
                         <div className="relative z-10">
                             <h3 className="text-2xl font-bold mb-2">Управление новостями</h3>
@@ -783,117 +1252,6 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                 </div>
             )}
-        </div>
-    );
-};
-
-// Connect Business Page
-export const ConnectBusiness: React.FC = () => {
-    const [formData, setFormData] = useState({
-        name: '',
-        category: 'Магазины',
-        description: '',
-        address: '',
-        phone: '',
-        workHours: '09:00 - 18:00',
-        image: ''
-    });
-    const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState(false);
-    const navigate = useNavigate();
-
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setUploading(true);
-        try {
-            const url = await api.uploadImage(file);
-            setFormData(prev => ({ ...prev, image: url }));
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            await api.createBusiness(formData);
-            alert("Заявка на подключение бизнеса отправлена!");
-            navigate('/profile');
-            // Force reload to update sidebar state
-            window.location.reload(); 
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="max-w-2xl mx-auto p-4 lg:p-8">
-            <h1 className="text-2xl font-bold mb-6 dark:text-white flex items-center gap-3">
-                <Briefcase className="w-8 h-8 text-blue-600" /> Подключить бизнес
-            </h1>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Название компании</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Категория</label>
-                        <select className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                            <option>Магазины</option>
-                            <option>Кафе и рестораны</option>
-                            <option>Услуги</option>
-                            <option>Красота</option>
-                            <option>Спорт</option>
-                            <option>Грузоперевозки</option>
-                            <option>Аренда</option>
-                            <option>Туризм</option>
-                            <option>Медицина</option>
-                            <option>Авто</option>
-                            <option>Кино</option>
-                            <option>Развлечения</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Адрес</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Телефон</label>
-                            <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Часы работы</label>
-                            <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.workHours} onChange={e => setFormData({...formData, workHours: e.target.value})} required />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Описание</label>
-                        <textarea rows={4} className="w-full border rounded-lg p-2 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required />
-                    </div>
-                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
-                        {formData.image ? (
-                            <img src={formData.image} alt="" className="h-32 mx-auto rounded object-cover" />
-                        ) : (
-                            <div className="relative cursor-pointer">
-                                <Upload className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
-                                <span className="text-sm text-gray-500 dark:text-gray-400">{uploading ? "Загрузка..." : "Загрузить логотип / фото"}</span>
-                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageUpload} />
-                            </div>
-                        )}
-                    </div>
-                    <Button className="w-full" disabled={loading || uploading}>
-                        {loading ? <Loader2 className="animate-spin" /> : 'Подключить'}
-                    </Button>
-                </form>
-            </div>
         </div>
     );
 };

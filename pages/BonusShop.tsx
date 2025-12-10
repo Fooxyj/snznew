@@ -1,57 +1,50 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Coupon, UserCoupon, User } from '../types';
-import { Button, XPBar } from '../components/ui/Common';
+import { Coupon } from '../types';
+import { Button } from '../components/ui/Common';
 import { Gift, Loader2, Coins, Tag, ShoppingBag, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const BonusShop: React.FC = () => {
-    const [coupons, setCoupons] = useState<Coupon[]>([]);
-    const [myCoupons, setMyCoupons] = useState<UserCoupon[]>([]);
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [buyingId, setBuyingId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'shop' | 'inventory'>('shop');
+    const queryClient = useQueryClient();
 
-    const loadData = async () => {
-        try {
-            const [c, u] = await Promise.all([api.getCoupons(), api.getCurrentUser()]);
-            setCoupons(c);
-            setUser(u);
-            if (u) {
-                const mc = await api.getMyCoupons();
-                setMyCoupons(mc);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { data: coupons = [], isLoading: couponsLoading } = useQuery({
+        queryKey: ['coupons'],
+        queryFn: api.getCoupons
+    });
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { data: user } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
 
-    const handleBuy = async (coupon: Coupon) => {
+    const { data: myCoupons = [] } = useQuery({
+        queryKey: ['myCoupons'],
+        queryFn: api.getMyCoupons,
+        enabled: !!user
+    });
+
+    const buyMutation = useMutation({
+        mutationFn: (id: string) => api.buyCoupon(id),
+        onSuccess: () => {
+            alert("Купон успешно куплен! Код доступен во вкладке 'Мои купоны'.");
+            queryClient.invalidateQueries({ queryKey: ['user'] });
+            queryClient.invalidateQueries({ queryKey: ['myCoupons'] });
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    const handleBuy = (coupon: Coupon) => {
         if (!user) return alert("Войдите, чтобы покупать");
         if (confirm(`Купить "${coupon.title}" за ${coupon.price} XP?`)) {
-            setBuyingId(coupon.id);
-            try {
-                await api.buyCoupon(coupon.id);
-                alert("Купон успешно куплен! Код доступен во вкладке 'Мои купоны'.");
-                // Reload data to update XP and Inventory
-                loadData();
-            } catch (e: any) {
-                alert(e.message);
-            } finally {
-                setBuyingId(null);
-            }
+            buyMutation.mutate(coupon.id);
         }
     };
 
-    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (couponsLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
     return (
         <div className="max-w-6xl mx-auto p-4 lg:p-8">
@@ -111,10 +104,10 @@ export const BonusShop: React.FC = () => {
                                 <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 flex-1">{coupon.description}</p>
                                 <Button 
                                     onClick={() => handleBuy(coupon)} 
-                                    disabled={!user || user.xp < coupon.price || buyingId === coupon.id}
+                                    disabled={!user || user.xp < coupon.price || buyMutation.isPending}
                                     className={`w-full ${(!user || user.xp < coupon.price) ? 'opacity-50 cursor-not-allowed bg-gray-300 dark:bg-gray-700 dark:text-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}
                                 >
-                                    {buyingId === coupon.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (!user || user.xp < coupon.price) ? 'Недостаточно XP' : 'Купить за баллы'}
+                                    {buyMutation.isPending && buyMutation.variables === coupon.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (!user || user.xp < coupon.price) ? 'Недостаточно XP' : 'Купить за баллы'}
                                 </Button>
                             </div>
                         </div>

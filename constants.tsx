@@ -1,6 +1,35 @@
 
-
 import { Ad, Business, NewsItem, User, UserRole, Event } from './types';
+
+// Helper for dynamic dates in mock data
+const getPastDate = (days: number, hours: number = 0) => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(d.getHours() - hours);
+  return d.toISOString();
+};
+
+export const WORK_SCHEDULES = [
+  "08:00 - 17:00",
+  "08:00 - 20:00",
+  "08:00 - 21:00",
+  "08:00 - 22:00",
+  "09:00 - 18:00",
+  "09:00 - 19:00",
+  "09:00 - 20:00",
+  "09:00 - 21:00",
+  "09:00 - 22:00",
+  "09:00 - 23:00",
+  "10:00 - 19:00",
+  "10:00 - 20:00",
+  "10:00 - 21:00",
+  "10:00 - 22:00",
+  "10:00 - 23:00",
+  "11:00 - 23:00",
+  "12:00 - 00:00",
+  "Круглосуточно",
+  "Пн-Пт 09:00-18:00, Сб-Вс 10:00-16:00"
+];
 
 export const CURRENT_USER: User = {
   id: 'u1',
@@ -18,7 +47,7 @@ export const NEWS_DATA: NewsItem[] = [
     title: 'Реконструкция набережной озера Синара завершится к осени',
     category: 'Город',
     image: 'https://picsum.photos/seed/news1/600/400',
-    date: '2 часа назад',
+    date: '2024-05-20T10:00:00Z',
     views: 1205,
     commentsCount: 34,
     content: 'В Снежинске продолжаются работы по благоустройству...'
@@ -28,7 +57,7 @@ export const NEWS_DATA: NewsItem[] = [
     title: 'Открытие нового спорткомплекса "Айсберг"',
     category: 'Новости спорта',
     image: 'https://picsum.photos/seed/news2/600/400',
-    date: 'Вчера',
+    date: '2024-05-19T15:30:00Z',
     views: 850,
     commentsCount: 12,
     content: 'Торжественное открытие состоится в субботу...'
@@ -38,7 +67,7 @@ export const NEWS_DATA: NewsItem[] = [
     title: 'График отключения горячей воды на июль',
     category: 'ЖКХ',
     image: 'https://picsum.photos/seed/news3/600/400',
-    date: 'Вчера',
+    date: '2024-05-18T09:00:00Z',
     views: 3400,
     commentsCount: 156,
     content: 'Публикуем полный список адресов...'
@@ -53,7 +82,7 @@ export const ADS_DATA: Ad[] = [
     currency: '₽',
     category: 'Транспорт',
     image: 'https://picsum.photos/seed/bike/400/300',
-    date: 'Сегодня',
+    date: getPastDate(0, 2), // Today, 2 hours ago
     authorId: 'u2',
     description: 'Продам велосипед, катался пару раз. Дисковые тормоза, 27 скоростей.',
     location: 'ул. Ленина',
@@ -67,7 +96,7 @@ export const ADS_DATA: Ad[] = [
     currency: '₽',
     category: 'Недвижимость',
     image: 'https://picsum.photos/seed/flat/400/300',
-    date: 'Вчера',
+    date: getPastDate(1, 5), // Yesterday
     authorId: 'u3',
     description: 'Уютная квартира в центре. Евроремонт.',
     location: 'ул. Васильева',
@@ -81,7 +110,7 @@ export const ADS_DATA: Ad[] = [
     currency: '₽/час',
     category: 'Услуги',
     image: 'https://picsum.photos/seed/math/400/300',
-    date: '3 дня назад',
+    date: getPastDate(3, 0), // 3 days ago
     authorId: 'u4',
     description: 'Подготовка к ЕГЭ и ОГЭ. Опыт 10 лет.',
     location: 'Онлайн',
@@ -95,7 +124,7 @@ export const ADS_DATA: Ad[] = [
     currency: '₽',
     category: 'Электроника',
     image: 'https://picsum.photos/seed/laptop/400/300',
-    date: '1 час назад',
+    date: getPastDate(0, 1), // Today
     authorId: 'u5',
     description: 'Мощный игровой ноутбук. RTX 3060, Ryzen 7.',
     location: 'ул. Дзержинского',
@@ -109,7 +138,7 @@ export const ADS_DATA: Ad[] = [
     currency: '₽',
     category: 'Личные вещи',
     image: 'https://picsum.photos/seed/stroller/400/300',
-    date: 'Сегодня',
+    date: getPastDate(5, 0), // 5 days ago
     authorId: 'u6',
     description: 'В отличном состоянии, после одного ребенка.',
     location: 'ул. Мира',
@@ -126,6 +155,7 @@ export const BUSINESS_DATA: Business[] = [
     reviewsCount: 120,
     address: 'ул. Свердлова, 15',
     image: 'https://picsum.photos/seed/cafe/400/300',
+    coverImage: 'https://picsum.photos/seed/cafecover/800/400',
     description: 'Лучший кофе в городе и свежая выпечка.',
     lat: 50,
     lng: 50,
@@ -140,6 +170,7 @@ export const BUSINESS_DATA: Business[] = [
     reviewsCount: 85,
     address: 'ул. Победы, 10',
     image: 'https://picsum.photos/seed/gym/400/300',
+    coverImage: 'https://picsum.photos/seed/gymcover/800/400',
     description: 'Тренажерный зал, кардио, групповые программы.',
     lat: 60,
     lng: 40,
@@ -154,6 +185,7 @@ export const BUSINESS_DATA: Business[] = [
     reviewsCount: 230,
     address: 'пр. Мира, 5',
     image: 'https://picsum.photos/seed/cinema/400/300',
+    coverImage: 'https://picsum.photos/seed/cinemacover/800/400',
     description: 'Новинки кино в 3D и 2D.',
     lat: 40,
     lng: 60,
@@ -261,8 +293,7 @@ export const CATALOG_MENU = [
     title: 'Транспорт',
     icon: 'Bus',
     submenu: [
-      { title: 'Городской транспорт', path: '/category/transport' },
-      { title: 'Междугородний транспорт', path: '/category/transport' },
+      { title: 'Расписание автобусов', path: '/category/transport' },
       { title: 'Такси', path: '/category/taxi' },
     ]
   }

@@ -1,24 +1,31 @@
 
 import React, { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { useTheme } from '../components/ThemeProvider';
 import { Button } from '../components/ui/Common';
-import { Moon, Sun, Bell, Shield, Lock, Trash2, Smartphone, Mail } from 'lucide-react';
+import { Moon, Sun, Bell, Shield, Lock, Trash2, Smartphone, Mail, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
 
 export const SettingsPage: React.FC = () => {
     const { theme, toggleTheme } = useTheme();
     const [notificationsEmail, setNotificationsEmail] = useState(true);
     const [notificationsPush, setNotificationsPush] = useState(true);
-    const [loading, setLoading] = useState(false);
 
-    const handleSave = async () => {
-        setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            setLoading(false);
+    // Use Mutation for saving settings
+    const saveSettingsMutation = useMutation({
+        mutationFn: async () => {
+            // In a real app, you would call an API method here like api.updateSettings(...)
+            // For now we simulate an async delay
+            await new Promise(resolve => setTimeout(resolve, 800));
+            return true;
+        },
+        onSuccess: () => {
             alert("Настройки сохранены");
-        }, 800);
-    };
+        },
+        onError: () => {
+            alert("Ошибка сохранения");
+        }
+    });
 
     const handleDeleteAccount = () => {
         if(confirm("Вы уверены? Это действие необратимо. Все ваши данные будут удалены.")) {
@@ -130,8 +137,8 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             <div className="mt-8 flex justify-end">
-                <Button size="lg" onClick={handleSave} disabled={loading}>
-                    {loading ? 'Сохранение...' : 'Сохранить изменения'}
+                <Button size="lg" onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
+                    {saveSettingsMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin"/> Сохранение...</> : 'Сохранить изменения'}
                 </Button>
             </div>
         </div>

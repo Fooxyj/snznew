@@ -1,5 +1,6 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Appeal, UserRole } from '../types';
 import { Button } from '../components/ui/Common';
@@ -12,8 +13,18 @@ const CreateAppealModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucc
         location: '',
         image: ''
     });
-    const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+
+    // Mutation
+    const createMutation = useMutation({
+        mutationFn: api.createAppeal,
+        onSuccess: () => {
+            onSuccess();
+            onClose();
+            setFormData({ title: '', description: '', location: '', image: '' });
+        },
+        onError: (e: any) => alert(e.message)
+    });
 
     if (!isOpen) return null;
 
@@ -33,17 +44,7 @@ const CreateAppealModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucc
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        try {
-            await api.createAppeal(formData);
-            onSuccess();
-            onClose();
-            setFormData({ title: '', description: '', location: '', image: '' });
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
+        createMutation.mutate(formData);
     };
 
     return (
@@ -102,8 +103,8 @@ const CreateAppealModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucc
                         </div>
                     </div>
 
-                    <Button className="w-full" disabled={loading || uploading}>
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Отправить жалобу'}
+                    <Button className="w-full" disabled={createMutation.isPending || uploading}>
+                        {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Отправить жалобу'}
                     </Button>
                 </form>
             </div>
@@ -112,9 +113,7 @@ const CreateAppealModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucc
 };
 
 export const CityMonitor: React.FC = () => {
-    const [appeals, setAppeals] = useState<Appeal[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [isAdmin, setIsAdmin] = useState(false);
+    const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     
     // Resolve Logic
@@ -122,23 +121,27 @@ export const CityMonitor: React.FC = () => {
     const [resultImage, setResultImage] = useState('');
     const [uploadingResult, setUploadingResult] = useState(false);
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const data = await api.getAppeals();
-            setAppeals(data);
-            const user = await api.getCurrentUser();
-            setIsAdmin(user?.role === UserRole.ADMIN);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Queries
+    const { data: appeals = [], isLoading } = useQuery({
+        queryKey: ['appeals'],
+        queryFn: api.getAppeals
+    });
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { data: user } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
+
+    // Mutations
+    const resolveMutation = useMutation({
+        mutationFn: ({ id, img }: { id: string, img: string }) => api.resolveAppeal(id, img),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['appeals'] });
+            setResolvingId(null);
+            setResultImage('');
+        },
+        onError: (e: any) => alert(e.message)
+    });
 
     const handleResultUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -154,21 +157,20 @@ export const CityMonitor: React.FC = () => {
         }
     };
 
-    const submitResolve = async () => {
+    const submitResolve = () => {
         if (!resolvingId || !resultImage) return;
-        try {
-            await api.resolveAppeal(resolvingId, resultImage);
-            setResolvingId(null);
-            setResultImage('');
-            loadData();
-        } catch (e: any) {
-            alert(e.message);
-        }
+        resolveMutation.mutate({ id: resolvingId, img: resultImage });
     };
+
+    const isAdmin = user?.role === UserRole.ADMIN;
 
     return (
         <div className="max-w-6xl mx-auto p-4 lg:p-8">
-            <CreateAppealModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={loadData} />
+            <CreateAppealModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ['appeals'] })} 
+            />
             
             {/* Admin Resolve Modal */}
             {resolvingId && (
@@ -191,7 +193,9 @@ export const CityMonitor: React.FC = () => {
 
                         <div className="flex gap-2">
                             <Button variant="outline" className="flex-1 dark:border-gray-600 dark:text-gray-300" onClick={() => { setResolvingId(null); setResultImage(''); }}>Отмена</Button>
-                            <Button className="flex-1" disabled={!resultImage} onClick={submitResolve}>Подтвердить</Button>
+                            <Button className="flex-1" disabled={!resultImage || resolveMutation.isPending} onClick={submitResolve}>
+                                {resolveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Подтвердить'}
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -217,7 +221,7 @@ export const CityMonitor: React.FC = () => {
                  <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full text-sm font-bold">{appeals.length}</span>
             </div>
 
-            {loading ? (
+            {isLoading ? (
                 <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-blue-600 animate-spin" /></div>
             ) : appeals.length === 0 ? (
                 <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-xl border border-dashed dark:border-gray-700 text-gray-400">

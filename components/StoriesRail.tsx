@@ -1,9 +1,10 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../services/api';
-import { Story, User } from '../types';
-import { Plus, X, Upload, Loader2, Eye } from 'lucide-react';
+import { Story, User, UserRole, StoryElement } from '../types';
+import { Plus, X, Upload, Loader2, Eye, ChevronDown, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { StoryEditor } from './StoryEditor';
 
 const ViewersList: React.FC<{ viewers: {name: string, avatar: string}[]; onClose: () => void }> = ({ viewers, onClose }) => {
     return (
@@ -43,7 +44,8 @@ const StoryViewer: React.FC<{
     const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
     const activeStory = stories[currentIndex];
-    const isOwner = currentUser && activeStory.authorId === currentUser.id;
+    // Allow owner if IDs match OR if user is admin (simplified check for admin override viewing)
+    const isOwner = currentUser && (activeStory.authorId === currentUser.id || currentUser.role === UserRole.ADMIN);
 
     // Auto-advance
     useEffect(() => {
@@ -101,6 +103,8 @@ const StoryViewer: React.FC<{
 
     if (!activeStory) return null;
 
+    const config = activeStory.contentConfig;
+
     return (
         <div 
             className="fixed inset-0 z-[100] bg-black flex items-center justify-center"
@@ -129,7 +133,7 @@ const StoryViewer: React.FC<{
                     ))}
                 </div>
 
-                {/* Header - Removed Time */}
+                {/* Header */}
                 <div className="absolute top-8 left-4 flex items-center gap-3 z-30 pointer-events-none">
                     <img src={activeStory.authorAvatar} className="w-8 h-8 rounded-full border border-white/50 bg-gray-600" alt="" />
                     <span className="text-white font-bold text-sm shadow-black drop-shadow-md">{activeStory.authorName}</span>
@@ -139,10 +143,49 @@ const StoryViewer: React.FC<{
                     <X className="w-6 h-6" />
                 </button>
 
-                {/* Content */}
-                <img src={activeStory.media} className="w-full h-full object-cover" alt="" />
+                {/* Content Rendering */}
+                <div className="w-full h-full relative overflow-hidden bg-black">
+                    {/* Background Layer (Responsive to config) */}
+                    <div 
+                        className="w-full h-full origin-center"
+                        style={{
+                            backgroundImage: `url(${activeStory.media})`,
+                            backgroundSize: 'contain',
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'center',
+                            transform: config?.transform 
+                                ? `translate(${config.transform.x}px, ${config.transform.y}px) scale(${config.transform.scale})` 
+                                : 'none'
+                        }}
+                    />
+
+                    {/* Interactive Layers */}
+                    {config?.elements?.map(el => (
+                        <div
+                            key={el.id}
+                            className="absolute transform -translate-x-1/2 -translate-y-1/2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg z-30 flex items-center gap-2 pointer-events-auto cursor-pointer hover:scale-105 transition-transform"
+                            style={{
+                                left: `${el.x}%`,
+                                top: `${el.y}%`,
+                                backgroundColor: el.bg,
+                                color: el.color,
+                                maxWidth: '80%'
+                            }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (el.type === 'link' && el.url) {
+                                    window.open(el.url, '_blank');
+                                }
+                            }}
+                        >
+                            {el.type === 'link' && <ExternalLink className="w-3 h-3" />}
+                            {el.content}
+                        </div>
+                    ))}
+                </div>
                 
-                {activeStory.caption && (
+                {/* Fallback Caption (if no config or legacy) */}
+                {(!config || config.elements.length === 0) && activeStory.caption && (
                     <div className="absolute bottom-20 left-0 right-0 p-4 text-center z-30 pointer-events-none">
                         <div className="inline-block bg-black/50 backdrop-blur-md px-4 py-2 rounded-xl text-white text-sm">
                             {activeStory.caption}
@@ -185,14 +228,29 @@ export const StoriesRail: React.FC = () => {
     
     // Creating State
     const [isCreating, setIsCreating] = useState(false);
-    const [uploading, setUploading] = useState(false);
-    const [newMedia, setNewMedia] = useState('');
-    const [caption, setCaption] = useState('');
+    
+    // Author Selection State
+    const [availableAuthors, setAvailableAuthors] = useState<{id: string, name: string, avatar: string}[]>([]);
+    const [selectedAuthorId, setSelectedAuthorId] = useState<string>(''); // '' means self
 
     const loadData = async () => {
         try {
             const [s, u] = await Promise.all([api.getStories(), api.getCurrentUser()]);
             setCurrentUser(u);
+            
+            if (u) {
+                let authors = [{ id: '', name: 'Мой профиль', avatar: u.avatar }];
+                
+                // If Admin or Business, fetch businesses
+                if (u.role === UserRole.ADMIN) {
+                    const allBiz = await api.getBusinesses();
+                    authors = [...authors, ...allBiz.map(b => ({ id: b.id, name: b.name, avatar: b.image }))];
+                } else if (u.role === UserRole.BUSINESS) {
+                    const myBiz = await api.getMyBusinesses();
+                    authors = [...authors, ...myBiz.map(b => ({ id: b.id, name: b.name, avatar: b.image }))];
+                }
+                setAvailableAuthors(authors);
+            }
             
             // Group stories by author
             const grouped = s.reduce((acc, story) => {
@@ -215,26 +273,12 @@ export const StoriesRail: React.FC = () => {
         loadData();
     }, []);
 
-    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setUploading(true);
+    const submitStory = async (media: string, caption: string, config: any) => {
         try {
-            const url = await api.uploadImage(file);
-            setNewMedia(url);
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    const submitStory = async () => {
-        if (!newMedia) return;
-        try {
-            await api.createStory(newMedia, caption);
-            setNewMedia('');
-            setCaption('');
+            // Pass the selected business ID (if any) or undefined for profile
+            const businessId = selectedAuthorId !== '' ? selectedAuthorId : undefined;
+            await api.createStory(media, caption, businessId, config);
+            
             setIsCreating(false);
             loadData();
         } catch (e: any) {
@@ -245,6 +289,7 @@ export const StoriesRail: React.FC = () => {
     if (loading) return null;
 
     const authorIds = Object.keys(groupedStories);
+    const selectedAuthor = availableAuthors.find(a => a.id === selectedAuthorId) || availableAuthors[0];
 
     return (
         <div className="mb-6">
@@ -258,42 +303,30 @@ export const StoriesRail: React.FC = () => {
                 />
             )}
 
-            {/* Creation Modal */}
+            {/* Creation Modal (Editor) */}
             {isCreating && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl w-full max-w-sm p-4 shadow-2xl relative">
-                        <button onClick={() => setIsCreating(false)} className="absolute top-2 right-2 p-2"><X className="w-5 h-5" /></button>
-                        <h3 className="font-bold text-lg mb-4 text-center">Создать историю</h3>
-                        
-                        <div className="aspect-[9/16] bg-gray-100 rounded-lg mb-4 relative overflow-hidden flex items-center justify-center">
-                            {newMedia ? (
-                                <img src={newMedia} className="w-full h-full object-cover" alt="" />
-                            ) : (
-                                <div className="text-center">
-                                    <div className="relative cursor-pointer bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2">
-                                        {uploading ? <Loader2 className="animate-spin text-blue-500" /> : <Upload className="text-blue-500" />}
-                                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleUpload} />
-                                    </div>
-                                    <p className="text-xs text-gray-500">Загрузить фото</p>
-                                </div>
-                            )}
+                <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-md flex flex-col justify-center items-center">
+                    {/* Author Selector Overlay */}
+                    {availableAuthors.length > 1 && (
+                        <div className="absolute top-4 left-4 z-[125] bg-black/60 rounded-xl p-2 flex items-center gap-2 border border-white/20">
+                            <img src={selectedAuthor.avatar} className="w-8 h-8 rounded-full object-cover" alt="" />
+                            <select 
+                                className="bg-transparent text-white text-sm font-bold appearance-none outline-none pr-6 cursor-pointer"
+                                value={selectedAuthorId}
+                                onChange={(e) => setSelectedAuthorId(e.target.value)}
+                            >
+                                {availableAuthors.map(author => (
+                                    <option key={author.id} value={author.id} className="text-black">{author.name}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="w-4 h-4 text-white absolute right-2 pointer-events-none" />
                         </div>
-                        
-                        <input 
-                            className="w-full border-b p-2 mb-4 text-sm outline-none" 
-                            placeholder="Добавьте подпись..." 
-                            value={caption}
-                            onChange={e => setCaption(e.target.value)}
-                        />
-                        
-                        <button 
-                            onClick={submitStory}
-                            disabled={!newMedia}
-                            className={`w-full py-3 rounded-lg font-bold text-white transition-colors ${!newMedia ? 'bg-gray-300' : 'bg-blue-600 hover:bg-blue-700'}`}
-                        >
-                            Опубликовать
-                        </button>
-                    </div>
+                    )}
+
+                    <StoryEditor 
+                        onSave={submitStory} 
+                        onClose={() => setIsCreating(false)} 
+                    />
                 </div>
             )}
 
@@ -302,13 +335,13 @@ export const StoriesRail: React.FC = () => {
                 {/* Create Button */}
                 {currentUser && (
                     <div className="flex flex-col items-center gap-1 cursor-pointer shrink-0" onClick={() => setIsCreating(true)}>
-                        <div className="w-16 h-16 rounded-full border-2 border-gray-200 p-0.5 relative">
+                        <div className="w-16 h-16 rounded-full border-2 border-gray-200 dark:border-gray-700 p-0.5 relative">
                             <img src={currentUser.avatar} className="w-full h-full rounded-full object-cover opacity-50" alt="" />
-                            <div className="absolute bottom-0 right-0 bg-blue-600 rounded-full p-1 border-2 border-white">
+                            <div className="absolute bottom-0 right-0 bg-blue-600 rounded-full p-1 border-2 border-white dark:border-gray-900">
                                 <Plus className="w-3 h-3 text-white" />
                             </div>
                         </div>
-                        <span className="text-xs font-medium text-gray-600">Вы</span>
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Вы</span>
                     </div>
                 )}
 
@@ -319,11 +352,11 @@ export const StoriesRail: React.FC = () => {
                     return (
                         <div key={aid} className="flex flex-col items-center gap-1 cursor-pointer shrink-0" onClick={() => setActiveAuthorId(aid)}>
                             <div className="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-yellow-400 to-purple-600">
-                                <div className="w-full h-full rounded-full border-2 border-white overflow-hidden bg-gray-200">
+                                <div className="w-full h-full rounded-full border-2 border-white dark:border-gray-900 overflow-hidden bg-gray-200 dark:bg-gray-700">
                                     <img src={firstStory.authorAvatar} className="w-full h-full object-cover" alt="" />
                                 </div>
                             </div>
-                            <span className="text-xs font-medium text-gray-800 w-16 truncate text-center">{firstStory.authorName}</span>
+                            <span className="text-xs font-medium text-gray-800 dark:text-gray-300 w-16 truncate text-center">{firstStory.authorName}</span>
                         </div>
                     );
                 })}

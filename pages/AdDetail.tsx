@@ -3,8 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { Ad, User } from '../types';
-import { Button, Badge, LocationBadge } from '../components/ui/Common';
-import { Loader2, ChevronLeft, Heart, MessageCircle, Share2, MapPin, Calendar, User as UserIcon } from 'lucide-react';
+import { Button, Badge } from '../components/ui/Common';
+import { Img } from '../components/ui/Image';
+import { ImageViewer } from '../components/ImageViewer';
+import { Loader2, ChevronLeft, Heart, MessageCircle, Share2, MapPin, ChevronRight, User as UserIcon, AlertTriangle } from 'lucide-react';
+import { SEO } from '../components/SEO';
+import { NotFound } from './NotFound';
+import { ReportModal } from '../components/ReportModal';
 
 export const AdDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -13,6 +18,13 @@ export const AdDetail: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isFav, setIsFav] = useState(false);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    
+    // Gallery State
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [isViewerOpen, setIsViewerOpen] = useState(false);
+    
+    // Reporting
+    const [isReportOpen, setIsReportOpen] = useState(false);
 
     useEffect(() => {
         const load = async () => {
@@ -33,13 +45,13 @@ export const AdDetail: React.FC = () => {
         if (!ad) return;
         if (!currentUser) return navigate('/auth');
         try {
-            // Create a structured payload for the chat
             const payload = JSON.stringify({
                 type: 'ad_inquiry',
                 adId: ad.id,
                 title: ad.title,
                 price: `${ad.price.toLocaleString()} ${ad.currency}`,
                 image: ad.image,
+                description: ad.description,
                 text: "Здравствуйте! Меня интересует это объявление."
             });
             
@@ -74,21 +86,105 @@ export const AdDetail: React.FC = () => {
         }
     };
 
+    const handleReport = () => {
+        if (!currentUser) {
+            if(confirm("Войдите, чтобы отправить жалобу. Перейти?")) navigate('/auth');
+            return;
+        }
+        setIsReportOpen(true);
+    };
+
+    const nextImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (ad && ad.images && currentImageIndex < ad.images.length - 1) {
+            setCurrentImageIndex(currentImageIndex + 1);
+        }
+    };
+
+    const prevImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (currentImageIndex > 0) {
+            setCurrentImageIndex(currentImageIndex - 1);
+        }
+    };
+
     if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
-    if (!ad) return <div className="p-10 text-center text-gray-500">Объявление не найдено</div>;
+    if (!ad) return <NotFound />;
+
+    const images = ad.images && ad.images.length > 0 ? ad.images : [ad.image];
 
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8 pb-24">
-            <button onClick={() => navigate(-1)} className="flex items-center text-gray-500 hover:text-blue-600 transition-colors mb-4">
-                <ChevronLeft className="w-4 h-4 mr-1" /> Назад
-            </button>
+            <SEO title={ad.title} description={`${ad.title} - ${ad.price} ${ad.currency}. ${ad.description.substring(0, 100)}`} />
+            
+            <ImageViewer 
+                isOpen={isViewerOpen} 
+                onClose={() => setIsViewerOpen(false)} 
+                src={images[currentImageIndex]} 
+                alt={ad.title} 
+            />
+
+            <ReportModal 
+                isOpen={isReportOpen} 
+                onClose={() => setIsReportOpen(false)} 
+                targetId={ad.id} 
+                targetType="ad" 
+            />
+
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={() => navigate(-1)} className="flex items-center text-gray-500 hover:text-blue-600 transition-colors">
+                    <ChevronLeft className="w-4 h-4 mr-1" /> Назад
+                </button>
+                <button onClick={handleReport} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 transition-colors" title="Пожаловаться">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Пожаловаться
+                </button>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Image Gallery (Single Image for now) */}
-                <div className="rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border dark:border-gray-700 h-[300px] md:h-[400px] relative group">
-                    <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
+                {/* Image Gallery */}
+                <div 
+                    className="rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border dark:border-gray-700 h-[350px] md:h-[450px] relative group select-none cursor-zoom-in"
+                    onClick={() => setIsViewerOpen(true)}
+                >
+                    <Img 
+                        src={images[currentImageIndex]} 
+                        alt={ad.title} 
+                        className="w-full h-full object-cover" 
+                        containerClassName="w-full h-full"
+                    />
+                    
+                    {/* Navigation Arrows */}
+                    {images.length > 1 && (
+                        <>
+                            <button 
+                                onClick={prevImage}
+                                disabled={currentImageIndex === 0}
+                                className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/40 transition-all ${currentImageIndex === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                            >
+                                <ChevronLeft className="w-6 h-6" />
+                            </button>
+                            <button 
+                                onClick={nextImage}
+                                disabled={currentImageIndex === images.length - 1}
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/40 transition-all ${currentImageIndex === images.length - 1 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                            >
+                                <ChevronRight className="w-6 h-6" />
+                            </button>
+                            
+                            {/* Pagination Dots */}
+                            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+                                {images.map((_, idx) => (
+                                    <div 
+                                        key={idx}
+                                        className={`w-2 h-2 rounded-full transition-all ${idx === currentImageIndex ? 'bg-white scale-125' : 'bg-white/40'}`}
+                                    />
+                                ))}
+                            </div>
+                        </>
+                    )}
+
                     {ad.isVip && (
-                        <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1 rounded-lg shadow-lg font-bold text-sm">
+                        <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1 rounded-lg shadow-lg font-bold text-sm z-10">
                             VIP
                         </div>
                     )}

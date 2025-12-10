@@ -5,16 +5,29 @@ import { Button } from '../components/ui/Common';
 import { Trash2, ShoppingCart, ArrowLeft, Loader2, CreditCard, Clock } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import { useToast } from '../components/ToastProvider';
 
 export const CartPage: React.FC = () => {
     const { items = [], removeFromCart, clearCart, cartTotal, businessId } = useCart();
     const navigate = useNavigate();
     const [address, setAddress] = useState('');
     const [loading, setLoading] = useState(false);
+    const { success, error: showError } = useToast();
 
     const handleOrder = async () => {
+        const user = await api.getCurrentUser();
+        if (!user) {
+            if (confirm("Для оформления заказа необходимо войти в систему. Перейти к входу?")) {
+                navigate('/auth');
+            }
+            return;
+        }
+
         if (!businessId) return;
-        if (!address.trim()) return alert("Укажите адрес доставки");
+        if (!address.trim()) {
+            showError("Укажите адрес доставки");
+            return;
+        }
         
         setLoading(true);
         try {
@@ -25,10 +38,10 @@ export const CartPage: React.FC = () => {
                 cartTotal
             );
             clearCart();
-            alert("Заказ оформлен! Отслеживайте статус в профиле.");
+            success("Заказ оформлен! Отслеживайте статус в профиле.");
             navigate('/profile');
         } catch (e: any) {
-            alert("Ошибка: " + e.message);
+            showError("Ошибка: " + e.message);
         } finally {
             setLoading(false);
         }

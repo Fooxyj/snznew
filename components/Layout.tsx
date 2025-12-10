@@ -1,74 +1,167 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
-import { NavLink, useLocation, Link, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Menu, X, Home, Newspaper, ShoppingBag, Coffee, Film, Map, 
   Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Briefcase, 
-  User as UserIcon, Bell, Search, PlusCircle, LogIn, LogOut, MessageCircle, HelpCircle, Car, Gift, Users, Flag, Settings, Moon, Sun, Trophy, ShoppingCart, Truck, Heart, Repeat, Key, ChevronLeft, ArrowUp, Calendar, ChevronDown, ChevronRight, Droplets, Wrench, Building2, Trash2
+  User as UserIcon, Bell, Search, PlusCircle, LogIn, LogOut, MessageCircle, HelpCircle, Car, Gift, Users, Flag, Settings, Moon, Sun, Trophy, ShoppingCart, Truck, Heart, Repeat, Key, ChevronLeft, ArrowUp, Calendar, ChevronDown, ChevronRight, Droplets, Wrench, Building2, Trash2, Lightbulb, MessageSquare
 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CATALOG_MENU, SERVICES_MENU } from '../constants';
 import { Button } from './ui/Common';
-import { UserRole, User, Notification } from '../types';
+import { UserRole, Notification } from '../types';
 import { api } from '../services/api';
 import { useTheme } from './ThemeProvider';
 import { useCart } from './CartProvider';
+import { supabase } from '../lib/supabase';
+import { isSupabaseConfigured } from '../config';
+import { SuggestIdeaModal } from './SuggestIdeaModal';
 
 const ICON_MAP: Record<string, React.FC<any>> = {
   Newspaper, ShoppingBag, Coffee, Film, Map, Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Key, Truck, Car, Droplets, Wrench, Building2, HelpCircle, Briefcase, Repeat, Users, Heart, Flag, Trophy, Gift, MessageCircle
 };
 
+interface NavItemProps {
+  to: string;
+  icon: React.ElementType;
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+}
+
+const NavItem: React.FC<NavItemProps> = ({ to, icon: Icon, label, active, onClick }) => (
+  <Link 
+    to={to}
+    onClick={onClick}
+    className={`flex items-center px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all duration-200 mb-1 ${
+      active 
+        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
+        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+    }`}
+  >
+    <Icon className={`w-5 h-5 mr-3 ${active ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`} />
+    {label}
+  </Link>
+);
+
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [hasBusiness, setHasBusiness] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotif, setShowNotif] = useState(false);
   const [toast, setToast] = useState<{msg: string, type: 'info' | 'success'} | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  
-  // State for collapsible menus
   const [openMenus, setOpenMenus] = useState<string[]>([]);
+  const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
   
   const { theme, toggleTheme } = useTheme();
   const { cartCount } = useCart();
   
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const mainRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
+  // --- REACT QUERY STATE ---
+  const { data: user } = useQuery({
+    queryKey: ['user'],
+    queryFn: api.getCurrentUser,
+    staleTime: Infinity // User data is static unless action happens
+  });
+
+  const { data: myBusiness } = useQuery({
+    queryKey: ['myBusiness'],
+    queryFn: api.getMyBusiness,
+    enabled: !!user
+  });
+
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: api.getNotifications,
+    enabled: !!user,
+    initialData: []
+  });
+
+  const { data: chatUnreadCount = 0 } = useQuery({
+    queryKey: ['chatUnread'],
+    queryFn: api.getUnreadChatsCount,
+    enabled: !!user,
+    initialData: 0
+  });
+
+  const hasBusiness = !!myBusiness;
+
+  // --- EFFECTS ---
+
+  // REAL-TIME SUBSCRIPTIONS
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !supabase) return;
+
+    // Listen for global changes to critical tables to trigger instant UI updates
+    const channel = supabase.channel('global-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ads' }, () => {
+        console.log('Realtime: Ads updated');
+        queryClient.invalidateQueries({ queryKey: ['ads'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stories' }, () => {
+        console.log('Realtime: Stories updated');
+        queryClient.invalidateQueries({ queryKey: ['stories'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => {
+        console.log('Realtime: Businesses updated');
+        queryClient.invalidateQueries({ queryKey: ['businesses'] });
+        queryClient.invalidateQueries({ queryKey: ['myBusinesses'] });
+        queryClient.invalidateQueries({ queryKey: ['myBusiness'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['news'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'suggestions' }, () => {
+        console.log('Realtime: Suggestions updated');
+        queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, () => {
+        console.log('Realtime: Reports updated');
+        queryClient.invalidateQueries({ queryKey: ['reports'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_schedules' }, () => {
+        console.log('Realtime: Transport updated');
+        queryClient.invalidateQueries({ queryKey: ['transport'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  // Sync Search with URL
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q) setSearchQuery(q);
+    else if (location.pathname !== '/search') setSearchQuery('');
+  }, [searchParams, location.pathname]);
+
+  // Notifications Subscription
   useEffect(() => {
     let subPromise: Promise<{ unsubscribe: () => void }> | null = null;
 
-    // Initial Load
-    const load = async () => {
-        const u = await api.getCurrentUser();
-        setUser(u);
-        if (u) {
-            // Check if user has business
-            const biz = await api.getMyBusiness();
-            setHasBusiness(!!biz);
-
-            api.getNotifications().then(setNotifications);
-            
-            // Subscribe to real-time notifications
-            subPromise = api.subscribeToNotifications(u.id, (n) => {
-                setNotifications(prev => [n, ...prev]);
-                showToast(n.text);
-            });
-        }
-    };
-    load();
+    if (user) {
+        // Subscribe to real-time notifications
+        subPromise = api.subscribeToNotifications(user.id, (n) => {
+            queryClient.setQueryData(['notifications'], (old: Notification[] = []) => [n, ...old]);
+            showToast(n.text);
+        });
+    }
 
     return () => {
         if (subPromise) {
             subPromise.then(sub => sub.unsubscribe());
         }
     };
-  }, []);
+  }, [user, queryClient]);
 
-  // Scroll listener attached to the main container
+  // Scroll listener
   useEffect(() => {
     const handleScroll = () => {
         if (mainRef.current) {
@@ -87,12 +180,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     return () => el?.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Scroll to top on route change
+  // Scroll to top on route change - INSTANTLY
   useEffect(() => {
       if (mainRef.current) {
-          mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+          mainRef.current.scrollTo({ top: 0, behavior: 'instant' });
       }
   }, [location.pathname]);
+
+  // --- HANDLERS ---
 
   const scrollToTop = () => {
       if (mainRef.current) {
@@ -107,6 +202,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   const handleLogout = async () => {
     await api.signOut();
+    // Invalidate queries to clear user data
+    await queryClient.invalidateQueries({ queryKey: ['user'] });
+    await queryClient.invalidateQueries({ queryKey: ['myBusiness'] });
+    await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    
+    setOpenMenus([]); // Reset menus on logout
     navigate('/auth');
     setIsSidebarOpen(false);
   };
@@ -122,10 +223,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const handleNotifClick = async () => {
       setShowNotif(!showNotif);
       if (!showNotif && user) {
-          // Mark all as read locally for UI
-          const unread = notifications.filter(n => !n.isRead);
-          unread.forEach(n => api.markNotificationRead(n.id));
-          setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+          // Optimistic update for read status
+          const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
+          if (unreadIds.length > 0) {
+              unreadIds.forEach(id => api.markNotificationRead(id));
+              queryClient.setQueryData(['notifications'], (old: Notification[] = []) => 
+                  old.map(n => ({ ...n, isRead: true }))
+              );
+          }
       }
   };
 
@@ -133,17 +238,23 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       e.preventDefault();
       e.stopPropagation();
       await api.deleteNotification(id);
-      setNotifications(prev => prev.filter(n => n.id !== id));
+      queryClient.setQueryData(['notifications'], (old: Notification[] = []) => 
+          old.filter(n => n.id !== id)
+      );
   };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const closeSidebar = () => setIsSidebarOpen(false);
   
+  const resetMenus = () => {
+      setOpenMenus([]);
+      setIsSidebarOpen(false);
+  };
+  
   const isActive = (path: string) => location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadNotifCount = notifications.filter(n => !n.isRead).length;
   const isHome = location.pathname === '/';
 
-  // Exclusive Accordion Logic: Only one menu open at a time
   const toggleMenu = (id: string) => {
       setOpenMenus(prev => prev.includes(id) ? [] : [id]);
   };
@@ -153,15 +264,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           const Icon = ICON_MAP[item.icon as string] || Home;
           const isOpen = openMenus.includes(item.id);
           const isItemActive = item.path ? isActive(item.path) : false;
-          // Check if any child is active to keep expanded
+          // Check if any child is active to highlight parent
           const isChildActive = item.submenu.some((sub: any) => isActive(sub.path));
           
-          useEffect(() => {
-              if (isChildActive && !isOpen) {
-                  setOpenMenus([item.id]); // Open only this one
-              }
-          }, [isChildActive]);
-
           return (
               <div key={item.id} className="mb-1">
                   <div 
@@ -198,7 +303,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       });
   };
 
-  // Helper to render notification list content
   const renderNotificationList = () => (
       <div onClick={(e) => e.stopPropagation()}>
         <div className="p-4 border-b border-gray-50 dark:border-gray-700/50 flex justify-between items-center bg-white dark:bg-gray-800 sticky top-0 z-10">
@@ -235,6 +339,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-gray-900 flex transition-colors duration-200 font-sans">
+      <SuggestIdeaModal isOpen={isIdeaModalOpen} onClose={() => setIsIdeaModalOpen(false)} />
+
       {/* Toast Notification */}
       {toast && (
           <div className="fixed top-24 right-6 z-[100] bg-white dark:bg-gray-800 border-0 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-4 flex items-center gap-4 animate-slide-in max-w-sm">
@@ -284,7 +390,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
              </Link>
              <div className="relative p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl cursor-pointer h-10 w-10 flex items-center justify-center" onClick={handleNotifClick}>
                 <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-                {unreadCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>}
+                {unreadNotifCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>}
             </div>
 
             {/* Mobile Notification Dropdown */}
@@ -311,7 +417,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         flex flex-col h-full
       `}>
         <div className="p-6 flex items-center justify-between shrink-0">
-          <Link to="/" className="flex flex-col" onClick={closeSidebar}>
+          <Link to="/" className="flex flex-col" onClick={resetMenus}>
             <h1 className="text-2xl font-black text-blue-600 dark:text-blue-400 leading-none tracking-tight">Снежинск</h1>
             <span className="text-[10px] font-bold tracking-[0.3em] text-gray-400 uppercase mt-1 ml-0.5">Онлайн</span>
           </Link>
@@ -321,17 +427,18 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-2 px-4 space-y-0.5 custom-scrollbar">
-          <NavItem to="/" icon={Home} label="Главная" active={isActive('/')} onClick={closeSidebar} />
+          <NavItem to="/" icon={Home} label="Главная" active={isActive('/')} onClick={resetMenus} />
+          <NavItem to="/map" icon={Map} label="Карта города" active={isActive('/map')} onClick={resetMenus} />
           
           <div className="mt-6 mb-2 px-3 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
             Каталог
           </div>
           
-          <NavItem to="/category/shops" icon={ShoppingBag} label="Магазины" active={isActive('/category/shops')} onClick={closeSidebar} />
+          <NavItem to="/category/shops" icon={ShoppingBag} label="Магазины" active={isActive('/category/shops')} onClick={resetMenus} />
 
           {renderMenuSection(CATALOG_MENU)}
 
-          <NavItem to="/category/emergency" icon={Siren} label="Экстренные службы" active={isActive('/category/emergency')} onClick={closeSidebar} />
+          <NavItem to="/category/emergency" icon={Siren} label="Экстренные службы" active={isActive('/category/emergency')} onClick={resetMenus} />
 
           <div className="mt-6 mb-2 px-3 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
             Сервисы
@@ -341,14 +448,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
           <div className="pt-6 pb-4">
            {user && !hasBusiness && (
-                <NavLink to="/business-connect" onClick={closeSidebar}>
+                <NavLink to="/business-connect" onClick={resetMenus}>
                     <Button variant="secondary" size="sm" className="w-full border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:text-blue-600 hover:border-blue-300 bg-transparent hover:bg-blue-50/50">
                         <PlusCircle className="w-4 h-4 mr-2" /> Подключить бизнес
                     </Button>
                 </NavLink>
            )}
            {user && hasBusiness && (
-                <NavLink to="/business-crm" onClick={closeSidebar}>
+                <NavLink to="/business-crm" onClick={resetMenus}>
                     <div className="bg-gray-900 dark:bg-black text-white p-3 rounded-xl flex items-center justify-between group cursor-pointer shadow-lg shadow-gray-200 dark:shadow-none hover:scale-[1.02] transition-transform">
                         <div className="flex items-center gap-3">
                             <div className="p-1.5 bg-gray-700 rounded-lg">
@@ -363,8 +470,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </nav>
         
         <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 shrink-0">
+            <button 
+                onClick={() => { setIsIdeaModalOpen(true); closeSidebar(); }}
+                className="flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors w-full p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 mb-1"
+            >
+                <MessageSquare className="w-4 h-4 mr-3" /> Обратная связь
+            </button>
             {user && (
-              <Link to="/settings" onClick={closeSidebar} className="flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors w-full p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 mb-1">
+              <Link to="/settings" onClick={resetMenus} className="flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors w-full p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 mb-1">
                   <Settings className="w-4 h-4 mr-3" /> Настройки
               </Link>
             )}
@@ -416,12 +529,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         <>
                             <Link to="/chat" className="relative p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-blue-600 transition-colors">
                                 <MessageCircle className="w-6 h-6" />
+                                {chatUnreadCount > 0 && <span className="absolute top-2.5 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900"></span>}
                             </Link>
                             
                             {/* Notification Bell */}
                             <div className="relative p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-gray-500 hover:text-blue-600 transition-colors" onClick={handleNotifClick}>
                                 <Bell className="w-6 h-6" />
-                                {unreadCount > 0 && <span className="absolute top-2.5 right-3 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900 animate-pulse"></span>}
+                                {unreadNotifCount > 0 && <span className="absolute top-2.5 right-3 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900 animate-pulse"></span>}
                             </div>
 
                             {/* Desktop Notification Dropdown */}
@@ -471,6 +585,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       <div className="lg:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 z-50 flex justify-around py-3 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <NavLink 
             to="/" 
+            onClick={() => setOpenMenus([])}
             className={({isActive}) => `flex flex-col items-center justify-center w-16 transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
         >
             <Home className="w-6 h-6 mb-1" strokeWidth={isActive ? 2.5 : 2} />
@@ -491,9 +606,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
         <NavLink 
             to="/chat" 
-            className={({isActive}) => `flex flex-col items-center justify-center w-16 transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
+            className={({isActive}) => `flex flex-col items-center justify-center w-16 transition-colors relative ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
         >
-            <MessageCircle className="w-6 h-6 mb-1" strokeWidth={isActive ? 2.5 : 2} />
+            <div className="relative">
+                <MessageCircle className="w-6 h-6 mb-1" strokeWidth={isActive ? 2.5 : 2} />
+                {chatUnreadCount > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>}
+            </div>
         </NavLink>
         <NavLink 
             to={user ? "/profile" : "/auth"} 
@@ -511,20 +629,3 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     </div>
   );
 };
-
-const NavItem: React.FC<{ to: string; icon: any; label: string; active: boolean; onClick?: () => void }> = ({ to, icon: Icon, label, active, onClick }) => (
-  <NavLink 
-    to={to} 
-    onClick={onClick}
-    className={`
-      flex items-center px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all duration-200 mb-1
-      ${active 
-        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 shadow-sm' 
-        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-      }
-    `}
-  >
-    <Icon className={`w-5 h-5 mr-3 ${active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-500'}`} strokeWidth={active ? 2.5 : 2} />
-    {label}
-  </NavLink>
-);

@@ -1,9 +1,18 @@
 
 import React, { useState } from 'react';
-import { Bus, Siren, Phone, Shield, Flame, Activity, Truck } from 'lucide-react';
+import { Bus, Siren, Phone, Shield, Flame, Activity, Truck, Loader2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../services/api';
 
 export const TransportPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'city' | 'intercity'>('city');
+
+    const { data: schedules = [], isLoading } = useQuery({
+        queryKey: ['transport'],
+        queryFn: api.getTransportSchedules
+    });
+
+    const filteredSchedules = schedules.filter(s => s.type === activeTab);
 
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8">
@@ -27,63 +36,52 @@ export const TransportPage: React.FC = () => {
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 overflow-hidden">
-                {activeTab === 'city' ? (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
-                                <tr>
-                                    <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">№</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Маршрут</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Интервал</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Часы работы</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y dark:divide-gray-700">
-                                <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                    <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400">1</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">ул. Ленина — пос. Сокол</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">15 мин</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">06:00 - 23:00</td>
-                                </tr>
-                                <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                    <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400">3</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">Вокзал — Больница</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">20 мин</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">06:30 - 22:00</td>
-                                </tr>
-                                <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                    <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400">7</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">Кольцевой (через Центр)</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">10 мин</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">06:00 - 23:30</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                {isLoading ? (
+                    <div className="flex justify-center p-8"><Loader2 className="animate-spin text-blue-600" /></div>
+                ) : filteredSchedules.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">Расписание пока пусто</div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
                                 <tr>
-                                    <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Направление</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Отправление</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Время в пути</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Цена</th>
+                                    {activeTab === 'city' ? (
+                                        <>
+                                            <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">№</th>
+                                            <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Маршрут</th>
+                                            <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Интервал</th>
+                                            <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Часы работы</th>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Направление</th>
+                                            <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Отправление</th>
+                                            <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Время в пути</th>
+                                            <th className="px-6 py-4 font-bold text-gray-900 dark:text-white">Цена</th>
+                                        </>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y dark:divide-gray-700">
-                                <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                    <td className="px-6 py-4 font-medium dark:text-gray-200">Екатеринбург (Северный)</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">07:00, 12:00, 18:00</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">2 ч 10 мин</td>
-                                    <td className="px-6 py-4 font-bold dark:text-white">450 ₽</td>
-                                </tr>
-                                <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                    <td className="px-6 py-4 font-medium dark:text-gray-200">Челябинск (Южный)</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">06:30, 09:00, 15:00</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">2 ч 30 мин</td>
-                                    <td className="px-6 py-4 font-bold dark:text-white">500 ₽</td>
-                                </tr>
+                                {filteredSchedules.map(item => (
+                                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                        {activeTab === 'city' ? (
+                                            <>
+                                                <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400">{item.routeNumber}</td>
+                                                <td className="px-6 py-4 dark:text-gray-300">{item.title}</td>
+                                                <td className="px-6 py-4 dark:text-gray-300">{item.schedule}</td>
+                                                <td className="px-6 py-4 dark:text-gray-300">{item.workHours}</td>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <td className="px-6 py-4 font-medium dark:text-gray-200">{item.title}</td>
+                                                <td className="px-6 py-4 dark:text-gray-300">{item.schedule}</td>
+                                                <td className="px-6 py-4 dark:text-gray-300">{item.workHours}</td>
+                                                <td className="px-6 py-4 font-bold dark:text-white">{item.price ? `${item.price} ₽` : ''}</td>
+                                            </>
+                                        )}
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>

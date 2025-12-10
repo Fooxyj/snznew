@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { UtilityBill } from '../types';
 import { Button } from '../components/ui/Common';
@@ -6,8 +8,7 @@ import { Home, Zap, Droplets, Receipt, CheckCircle, AlertCircle, Loader2 } from 
 
 export const HousingPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'meters' | 'bills'>('meters');
-    const [bills, setBills] = useState<UtilityBill[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     
     // Meters Form
     const [readings, setReadings] = useState({
@@ -15,49 +16,44 @@ export const HousingPage: React.FC = () => {
         cold: '',
         electricity: ''
     });
-    const [submitting, setSubmitting] = useState(false);
+    
+    // Queries
+    const { data: bills = [], isLoading: loading } = useQuery({
+        queryKey: ['utilityBills'],
+        queryFn: api.getUtilityBills
+    });
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const data = await api.getUtilityBills();
-            setBills(data);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const handleSubmitMeters = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSubmitting(true);
-        try {
+    // Mutations
+    const submitMeterMutation = useMutation({
+        mutationFn: async () => {
             if (readings.hot) await api.submitMeterReading('hot_water', Number(readings.hot));
             if (readings.cold) await api.submitMeterReading('cold_water', Number(readings.cold));
             if (readings.electricity) await api.submitMeterReading('electricity', Number(readings.electricity));
+        },
+        onSuccess: () => {
             alert("Показания успешно переданы!");
             setReadings({ hot: '', cold: '', electricity: '' });
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setSubmitting(false);
-        }
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    const payBillMutation = useMutation({
+        mutationFn: (bill: UtilityBill) => api.payUtilityBill(bill.id, bill.amount),
+        onSuccess: () => {
+            alert("Счет оплачен!");
+            queryClient.invalidateQueries({ queryKey: ['utilityBills'] });
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    const handleSubmitMeters = (e: React.FormEvent) => {
+        e.preventDefault();
+        submitMeterMutation.mutate();
     };
 
-    const handlePayBill = async (bill: UtilityBill) => {
+    const handlePayBill = (bill: UtilityBill) => {
         if (!confirm(`Оплатить счет "${bill.serviceName}" на сумму ${bill.amount} ₽?`)) return;
-        try {
-            await api.payUtilityBill(bill.id, bill.amount);
-            alert("Счет оплачен!");
-            loadData();
-        } catch (e: any) {
-            alert(e.message);
-        }
+        payBillMutation.mutate(bill);
     };
 
     return (
@@ -135,8 +131,8 @@ export const HousingPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <Button className="w-full" disabled={submitting}>
-                            {submitting ? <Loader2 className="animate-spin w-5 h-5" /> : 'Передать показания'}
+                        <Button className="w-full" disabled={submitMeterMutation.isPending}>
+                            {submitMeterMutation.isPending ? <Loader2 className="animate-spin w-5 h-5" /> : 'Передать показания'}
                         </Button>
                     </form>
                 </div>
@@ -161,7 +157,9 @@ export const HousingPage: React.FC = () => {
                                 {bill.isPaid ? (
                                     <span className="text-green-600 font-medium px-4 py-2 bg-green-50 rounded-lg">Оплачено</span>
                                 ) : (
-                                    <Button onClick={() => handlePayBill(bill)}>Оплатить</Button>
+                                    <Button onClick={() => handlePayBill(bill)} disabled={payBillMutation.isPending}>
+                                        {payBillMutation.isPending ? '...' : 'Оплатить'}
+                                    </Button>
                                 )}
                             </div>
                         </div>

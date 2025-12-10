@@ -1,46 +1,37 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { SmartDevice } from '../types';
 import { Button } from '../components/ui/Common';
 import { Loader2, Video, Unlock, Radio, MapPin, Eye, Lock } from 'lucide-react';
 
 export const SmartCity: React.FC = () => {
-    const [devices, setDevices] = useState<SmartDevice[]>([]);
-    const [loading, setLoading] = useState(true);
     const [openingId, setOpeningId] = useState<string | null>(null);
 
-    useEffect(() => {
-        const load = async () => {
-            try {
-                const data = await api.getSmartDevices();
-                setDevices(data);
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setLoading(false);
-            }
-        };
-        load();
-    }, []);
+    const { data: devices = [], isLoading } = useQuery({
+        queryKey: ['smartDevices'],
+        queryFn: api.getSmartDevices
+    });
 
-    const handleOpen = async (device: SmartDevice) => {
-        setOpeningId(device.id);
-        try {
-            await api.controlDevice(device.id, 'open');
-            alert("Дверь открыта!");
-        } catch (e) {
-            alert("Ошибка связи с устройством");
-        } finally {
-            setOpeningId(null);
-        }
+    const openMutation = useMutation({
+        mutationFn: (id: string) => api.controlDevice(id, 'open'),
+        onMutate: (id) => setOpeningId(id),
+        onSuccess: () => alert("Дверь открыта!"),
+        onError: () => alert("Ошибка связи с устройством"),
+        onSettled: () => setOpeningId(null)
+    });
+
+    const handleOpen = (device: SmartDevice) => {
+        openMutation.mutate(device.id);
     };
 
-    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
     const publicCams = devices.filter(d => !d.isPrivate);
-    // Add fake private intercom if not present (for demo)
     const privateDevices = devices.filter(d => d.isPrivate);
+    
+    // Demo content if empty
     if (privateDevices.length === 0) {
         privateDevices.push({
             id: 'demo-intercom',
@@ -75,7 +66,7 @@ export const SmartCity: React.FC = () => {
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <Button 
                                     onClick={() => handleOpen(device)} 
-                                    disabled={!!openingId}
+                                    disabled={openingId === device.id}
                                     className="rounded-full w-24 h-24 bg-green-600 hover:bg-green-500 border-4 border-green-800 shadow-[0_0_20px_rgba(34,197,94,0.5)] flex flex-col items-center justify-center text-white transition-all active:scale-95"
                                 >
                                     {openingId === device.id ? <Loader2 className="w-8 h-8 animate-spin" /> : <Unlock className="w-8 h-8" />}
@@ -97,7 +88,7 @@ export const SmartCity: React.FC = () => {
                     </div>
                 ))}
                 
-                {/* Add Barrier Mock */}
+                {/* Barrier Mock */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border dark:border-gray-700 shadow-sm flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
                         <Lock className="w-8 h-8 text-gray-500 dark:text-gray-300" />

@@ -1,29 +1,31 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Transaction, User } from '../types';
 import { Button } from '../components/ui/Common';
 import { Loader2, Plus, Send, History, CreditCard, ArrowUpRight, ArrowDownLeft, QrCode } from 'lucide-react';
 
-const TopUpModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
+const TopUpModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
     const [amount, setAmount] = useState('');
-    const [loading, setLoading] = useState(false);
+    const queryClient = useQueryClient();
+
+    const mutation = useMutation({
+        mutationFn: (amt: number) => api.topUpWallet(amt),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['user'] });
+            queryClient.invalidateQueries({ queryKey: ['transactions'] });
+            alert("Баланс пополнен!");
+            onClose();
+            setAmount('');
+        },
+        onError: (e: any) => alert(e.message)
+    });
 
     if (!isOpen) return null;
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        try {
-            await api.topUpWallet(Number(amount));
-            alert("Баланс пополнен!");
-            onSuccess();
-            onClose();
-            setAmount('');
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
+        mutation.mutate(Number(amount));
     };
 
     return (
@@ -39,8 +41,8 @@ const TopUpModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: ()
                         onChange={e => setAmount(e.target.value)}
                         required
                     />
-                    <Button className="w-full" disabled={loading}>
-                        {loading ? <Loader2 className="animate-spin" /> : 'Пополнить'}
+                    <Button className="w-full" disabled={mutation.isPending}>
+                        {mutation.isPending ? <Loader2 className="animate-spin" /> : 'Пополнить'}
                     </Button>
                     <Button variant="outline" className="w-full" onClick={onClose} type="button">Отмена</Button>
                 </form>
@@ -49,28 +51,29 @@ const TopUpModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: ()
     );
 };
 
-const TransferModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
+const TransferModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
     const [contact, setContact] = useState('');
     const [amount, setAmount] = useState('');
-    const [loading, setLoading] = useState(false);
+    const queryClient = useQueryClient();
 
-    if (!isOpen) return null;
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            await api.transferMoney(contact, Number(amount));
+    const mutation = useMutation({
+        mutationFn: ({ contact, amount }: { contact: string; amount: number }) => api.transferMoney(contact, amount),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['user'] });
+            queryClient.invalidateQueries({ queryKey: ['transactions'] });
             alert("Перевод успешно отправлен!");
-            onSuccess();
             onClose();
             setContact('');
             setAmount('');
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        mutation.mutate({ contact, amount: Number(amount) });
     };
 
     return (
@@ -94,8 +97,8 @@ const TransferModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess:
                         onChange={e => setAmount(e.target.value)}
                         required
                     />
-                    <Button className="w-full" disabled={loading}>
-                        {loading ? <Loader2 className="animate-spin" /> : 'Перевести'}
+                    <Button className="w-full" disabled={mutation.isPending}>
+                        {mutation.isPending ? <Loader2 className="animate-spin" /> : 'Перевести'}
                     </Button>
                     <Button variant="outline" className="w-full" onClick={onClose} type="button">Отмена</Button>
                 </form>
@@ -105,35 +108,27 @@ const TransferModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess:
 };
 
 export const WalletPage: React.FC = () => {
-    const [user, setUser] = useState<User | null>(null);
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isTopUpOpen, setIsTopUpOpen] = useState(false);
     const [isTransferOpen, setIsTransferOpen] = useState(false);
 
-    const loadData = async () => {
-        try {
-            const [u, tx] = await Promise.all([api.getCurrentUser(), api.getTransactions()]);
-            setUser(u);
-            setTransactions(tx);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { data: user, isLoading: userLoading } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { data: transactions = [], isLoading: txLoading } = useQuery({
+        queryKey: ['transactions'],
+        queryFn: api.getTransactions,
+        enabled: !!user
+    });
 
-    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (userLoading || txLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
     if (!user) return <div className="p-10 text-center">Войдите в систему</div>;
 
     return (
         <div className="max-w-2xl mx-auto p-4 lg:p-8">
-            <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} onSuccess={loadData} />
-            <TransferModal isOpen={isTransferOpen} onClose={() => setIsTransferOpen(false)} onSuccess={loadData} />
+            <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} />
+            <TransferModal isOpen={isTransferOpen} onClose={() => setIsTransferOpen(false)} />
 
             <h1 className="text-2xl font-bold mb-6 flex items-center gap-3 dark:text-white">
                 <CreditCard className="w-8 h-8 text-blue-600" /> Мой Кошелек

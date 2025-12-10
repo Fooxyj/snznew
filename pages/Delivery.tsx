@@ -1,5 +1,6 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Order } from '../types';
 import { Button } from '../components/ui/Common';
@@ -7,57 +8,58 @@ import { Truck, MapPin, Package, Clock, DollarSign, CheckCircle, Navigation, Loa
 
 export const DeliveryPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'available' | 'active' | 'history'>('available');
-    const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
-    const [myDeliveries, setMyDeliveries] = useState<Order[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const [avail, mine] = await Promise.all([api.getDeliveryOrders(), api.getMyDeliveries()]);
-            setAvailableOrders(avail);
-            setMyDeliveries(mine);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Queries with Polling (Auto-refresh every 10s)
+    const { data: availableOrders = [], isLoading: loadingAvailable } = useQuery({
+        queryKey: ['deliveryAvailable'],
+        queryFn: api.getDeliveryOrders,
+        refetchInterval: 10000 
+    });
 
-    useEffect(() => {
-        loadData();
-        // Poll for new orders every 10 sec
-        const interval = setInterval(loadData, 10000);
-        return () => clearInterval(interval);
-    }, []);
+    const { data: myDeliveries = [], isLoading: loadingMy } = useQuery({
+        queryKey: ['deliveryMy'],
+        queryFn: api.getMyDeliveries,
+        refetchInterval: 10000
+    });
 
-    const handleTakeOrder = async (id: string) => {
-        if (!confirm("Взять заказ в работу?")) return;
-        try {
-            await api.takeDelivery(id);
+    // Mutations
+    const takeOrderMutation = useMutation({
+        mutationFn: api.takeDelivery,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['deliveryAvailable'] });
+            queryClient.invalidateQueries({ queryKey: ['deliveryMy'] });
             alert("Заказ взят! Поспешите в ресторан.");
-            loadData();
             setActiveTab('active');
-        } catch (e: any) {
-            alert(e.message);
-        }
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    const completeOrderMutation = useMutation({
+        mutationFn: api.completeDelivery,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['deliveryMy'] });
+            queryClient.invalidateQueries({ queryKey: ['user'] }); // Update balance
+            alert("Отличная работа! +150₽ на счет.");
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    const handleTakeOrder = (id: string) => {
+        if (!confirm("Взять заказ в работу?")) return;
+        takeOrderMutation.mutate(id);
     };
 
-    const handleComplete = async (id: string) => {
+    const handleComplete = (id: string) => {
         if (!confirm("Заказ доставлен? Деньги будут зачислены.")) return;
-        try {
-            await api.completeDelivery(id);
-            alert("Отличная работа! +150₽ на счет.");
-            loadData();
-        } catch (e: any) {
-            alert(e.message);
-        }
+        completeOrderMutation.mutate(id);
     };
 
     const activeOrders = myDeliveries.filter(o => o.status !== 'done');
     const historyOrders = myDeliveries.filter(o => o.status === 'done');
+    const isLoading = loadingAvailable || loadingMy;
 
-    if (loading && availableOrders.length === 0 && myDeliveries.length === 0) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (isLoading && availableOrders.length === 0 && myDeliveries.length === 0) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8 pb-24">
@@ -130,8 +132,12 @@ export const DeliveryPage: React.FC = () => {
 
                             <div className="flex items-center justify-between mt-4 pt-4 border-t dark:border-gray-700">
                                 <span className="text-xs text-gray-400"><Clock className="w-3 h-3 inline mr-1" /> {new Date(order.createdAt).toLocaleTimeString()}</span>
-                                <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleTakeOrder(order.id)}>
-                                    Взять заказ
+                                <Button 
+                                    className="bg-green-600 hover:bg-green-700 text-white" 
+                                    onClick={() => handleTakeOrder(order.id)}
+                                    disabled={takeOrderMutation.isPending}
+                                >
+                                    {takeOrderMutation.isPending ? '...' : 'Взять заказ'}
                                 </Button>
                             </div>
                         </div>
@@ -159,7 +165,11 @@ export const DeliveryPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <Button className="w-full py-4 text-lg bg-green-600 hover:bg-green-700 text-white" onClick={() => handleComplete(order.id)}>
+                            <Button 
+                                className="w-full py-4 text-lg bg-green-600 hover:bg-green-700 text-white" 
+                                onClick={() => handleComplete(order.id)}
+                                disabled={completeOrderMutation.isPending}
+                            >
                                 <CheckCircle className="w-6 h-6 mr-2" /> Заказ доставлен
                             </Button>
                         </div>

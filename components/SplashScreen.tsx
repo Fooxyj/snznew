@@ -1,9 +1,28 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
-export const SplashScreen: React.FC = () => {
+interface SplashScreenProps {
+  isVisible?: boolean;
+}
+
+export const SplashScreen: React.FC<SplashScreenProps> = ({ isVisible = true }) => {
+  const [shouldRender, setShouldRender] = useState(true);
+
+  useEffect(() => {
+    if (!isVisible) {
+      // Ждем окончания анимации (500мс) перед удалением из DOM
+      const timer = setTimeout(() => setShouldRender(false), 500);
+      return () => clearTimeout(timer);
+    }
+    setShouldRender(true);
+  }, [isVisible]);
+
+  if (!shouldRender) return null;
+
   return (
-    <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center">
+    <div 
+      className={`fixed inset-0 z-[9999] bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center transition-opacity duration-500 ${isVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+    >
       <div className="text-center animate-pulse">
         <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-2">
           Снежинск

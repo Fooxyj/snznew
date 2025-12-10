@@ -75,13 +75,18 @@ export const XPBar: React.FC<{ xp: number }> = ({ xp }) => {
   );
 };
 
-export const Rating: React.FC<{ value: number; count?: number }> = ({ value, count }) => (
-  <div className="flex items-center bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded-lg">
-    <Star className="w-3.5 h-3.5 text-yellow-400 fill-current mr-1" />
-    <span className="font-bold text-sm text-gray-900 dark:text-white">{value}</span>
-    {count !== undefined && <span className="text-gray-400 dark:text-gray-500 text-xs ml-1">({count})</span>}
-  </div>
-);
+export const Rating: React.FC<{ value: number; count?: number }> = ({ value, count }) => {
+  // If count is explicitly 0, force display rating to 0.0 regardless of value
+  const displayValue = count === 0 ? 0 : value;
+  
+  return (
+    <div className="flex items-center bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded-lg">
+      <Star className={`w-3.5 h-3.5 mr-1 ${displayValue > 0 ? 'text-yellow-400 fill-current' : 'text-gray-300 dark:text-gray-600'}`} />
+      <span className="font-bold text-sm text-gray-900 dark:text-white">{displayValue.toFixed(1)}</span>
+      {count !== undefined && <span className="text-gray-400 dark:text-gray-500 text-xs ml-1">({count})</span>}
+    </div>
+  );
+};
 
 export const LocationBadge: React.FC<{ location: string }> = ({ location }) => (
   <div className="flex items-center text-gray-500 dark:text-gray-400 text-xs">
@@ -89,3 +94,48 @@ export const LocationBadge: React.FC<{ location: string }> = ({ location }) => (
     {location}
   </div>
 );
+
+// --- FORMATTERS ---
+
+export const formatAddress = (raw: string): string => {
+    if (!raw) return 'Адрес не указан';
+    
+    // 1. Remove "g. Snezhinsk" and variations
+    let clean = raw.replace(/^г\.?\s*Снежинск,?\s*/i, '').trim();
+    
+    // 2. Normalize typical prefixes if missing
+    // If it starts with just a name (e.g. "Dzerzhinskogo") and no prefix, add "ul."
+    // Exceptions: numbers (microdistricts), or already having prefixes like pr, per, mkr, bul
+    const hasPrefix = /^(ул\.|пр\.|пер\.|б-р|пл\.|мкр\.|шоссе|тракт)/i.test(clean);
+    const isMicrodistrict = /^\d/.test(clean) || /^мкр/i.test(clean);
+    
+    if (!hasPrefix && !isMicrodistrict && clean.length > 0) {
+        clean = 'ул. ' + clean;
+    }
+
+    return clean;
+};
+
+export const formatPhone = (raw: string): string => {
+    if (!raw) return '';
+    
+    // 1. Split by comma/slash if multiple, take first
+    const primary = raw.split(/[,/]/)[0].trim();
+    
+    // 2. Strip non-digits (keep + if at start)
+    const digits = primary.replace(/[^\d+]/g, '');
+    
+    // 3. Simple mask for Russian numbers
+    // 89001234567 -> +7 (900) 123-45-67
+    if ((digits.length === 11 && (digits.startsWith('8') || digits.startsWith('7'))) || (digits.length === 12 && digits.startsWith('+7'))) {
+        const d = digits.slice(-10);
+        return `+7 (${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6,8)}-${d.slice(8,10)}`;
+    }
+    
+    // 4. Landline 6-digit (local) -> XX-XX-XX
+    if (digits.length === 6) {
+        return `${digits.slice(0,2)}-${digits.slice(2,4)}-${digits.slice(4,6)}`;
+    }
+
+    return primary; // Return raw if didn't match standard patterns
+};

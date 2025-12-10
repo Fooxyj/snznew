@@ -1,9 +1,9 @@
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { User, UserRole } from '../types';
+import { User } from '../types';
 import { Loader2, Trophy, Shield, Star, Zap, Crown } from 'lucide-react';
-import { XPBar } from '../components/ui/Common';
 
 const BadgeIcon: React.FC<{ name: string }> = ({ name }) => {
     switch(name) {
@@ -16,21 +16,17 @@ const BadgeIcon: React.FC<{ name: string }> = ({ name }) => {
 };
 
 export const Leaderboard: React.FC = () => {
-    const [users, setUsers] = useState<User[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const { data: users = [], isLoading } = useQuery({
+        queryKey: ['leaderboard'],
+        queryFn: api.getLeaderboard
+    });
 
-    useEffect(() => {
-        const load = async () => {
-            const [u, me] = await Promise.all([api.getLeaderboard(), api.getCurrentUser()]);
-            setUsers(u);
-            setCurrentUser(me);
-            setLoading(false);
-        };
-        load();
-    }, []);
+    const { data: currentUser } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
 
-    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
     const top3 = users.slice(0, 3);
     const rest = users.slice(3);

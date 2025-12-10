@@ -1,40 +1,33 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { NewsItem, UserRole } from '../types';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Loader2, Calendar, Newspaper, PenSquare, Trash2, Filter, X } from 'lucide-react';
 import { CreateNewsModal } from '../components/CreateNewsModal';
 import { Button } from '../components/ui/Common';
+import { CardSkeleton } from '../components/ui/Skeleton';
 
 export const NewsFeed: React.FC = () => {
-    const [news, setNews] = useState<NewsItem[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [user, setUser] = useState<any>(null);
     const [searchParams, setSearchParams] = useSearchParams();
+    const queryClient = useQueryClient();
     
     const categoryFilter = searchParams.get('cat');
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const [n, u] = await Promise.all([api.getNews(), api.getCurrentUser()]);
-            setNews(n);
-            setUser(u);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { data: news = [], isLoading } = useQuery({
+        queryKey: ['news'],
+        queryFn: api.getNews
+    });
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { data: user } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
 
     const handleNewsCreated = (newItem: NewsItem) => {
-        setNews([newItem, ...news]);
+        queryClient.invalidateQueries({ queryKey: ['news'] });
     };
 
     const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -43,7 +36,7 @@ export const NewsFeed: React.FC = () => {
         if(confirm("АДМИН: Удалить эту новость?")) {
             try {
                 await api.deleteNews(id);
-                loadData();
+                queryClient.invalidateQueries({ queryKey: ['news'] });
             } catch(e: any) {
                 alert(e.message);
             }
@@ -89,7 +82,11 @@ export const NewsFeed: React.FC = () => {
                 </div>
             )}
 
-            {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600 w-8 h-8" /></div> : (
+            {isLoading ? (
+                <div className="grid gap-6">
+                    {[1, 2, 3, 4].map(i => <CardSkeleton key={i} />)}
+                </div>
+            ) : (
                 <div className="grid gap-6">
                     {filteredNews.length > 0 ? filteredNews.map(n => (
                         <Link key={n.id} to={`/news/${n.id}`} className="block group relative">

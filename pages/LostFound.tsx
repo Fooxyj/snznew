@@ -1,9 +1,12 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { LostFoundItem } from '../types';
+import { LostFoundItem, User } from '../types';
 import { Button } from '../components/ui/Common';
-import { Search, MapPin, Phone, Calendar, Loader2, Plus, CheckCircle, Upload, X } from 'lucide-react';
+import { Search, MapPin, Phone, Calendar, Loader2, Plus, CheckCircle, Upload, X, Lock } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { PhoneInput } from '../components/ui/PhoneInput';
 
 const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
     const [type, setType] = useState<'lost' | 'found'>('lost');
@@ -15,8 +18,18 @@ const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
         contactPhone: '',
         image: ''
     });
-    const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+    
+    // React Query Mutation
+    const createMutation = useMutation({
+        mutationFn: api.createLostFoundItem,
+        onSuccess: () => {
+            onSuccess();
+            onClose();
+            setFormData({ title: '', description: '', location: '', contactName: '', contactPhone: '', image: '' });
+        },
+        onError: (err: any) => alert(err.message)
+    });
 
     if (!isOpen) return null;
 
@@ -36,17 +49,7 @@ const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        try {
-            await api.createLostFoundItem({ ...formData, type });
-            onSuccess();
-            onClose();
-            setFormData({ title: '', description: '', location: '', contactName: '', contactPhone: '', image: '' });
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
+        createMutation.mutate({ ...formData, type });
     };
 
     return (
@@ -115,12 +118,10 @@ const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
                         </div>
                         <div>
                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Телефон</label>
-                            <input 
-                                required 
-                                className="w-full border rounded-lg p-2 mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
-                                placeholder="+7..."
+                            <PhoneInput 
                                 value={formData.contactPhone}
-                                onChange={e => setFormData({...formData, contactPhone: e.target.value})}
+                                onChangeText={val => setFormData({...formData, contactPhone: val})}
+                                required
                             />
                         </div>
                     </div>
@@ -137,8 +138,8 @@ const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
                         )}
                     </div>
 
-                    <Button className="w-full" disabled={loading || uploading}>
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Опубликовать'}
+                    <Button className="w-full" disabled={createMutation.isPending || uploading}>
+                        {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Опубликовать'}
                     </Button>
                 </form>
             </div>
@@ -147,47 +148,61 @@ const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
 };
 
 export const LostFound: React.FC = () => {
-    const [items, setItems] = useState<LostFoundItem[]>([]);
     const [filter, setFilter] = useState<'all' | 'lost' | 'found'>('all');
-    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const data = await api.getLostFoundItems(filter === 'all' ? undefined : filter);
-            setItems(data);
-            const u = await api.getCurrentUser();
-            if (u) setCurrentUserId(u.id);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
+    // Queries
+    const { data: currentUser } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
+
+    const { data: items = [], isLoading } = useQuery({
+        queryKey: ['lostFound', filter],
+        queryFn: () => api.getLostFoundItems(filter === 'all' ? undefined : filter)
+    });
+
+    // Mutations
+    const resolveMutation = useMutation({
+        mutationFn: api.resolveLostFoundItem,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['lostFound'] });
+        }
+    });
+
+    const handleCreateClick = () => {
+        if (!currentUser) {
+            if (confirm("Необходимо войти, чтобы подать объявление. Перейти?")) {
+                navigate('/auth');
+            }
+            return;
+        }
+        setIsModalOpen(true);
+    };
+
+    const handleResolve = async (id: string) => {
+        if (!currentUser) return;
+        if (confirm("Отметить как решенное? Это скроет контактные данные.")) {
+            resolveMutation.mutate(id);
         }
     };
 
-    useEffect(() => {
-        loadData();
-    }, [filter]);
-
-    const handleResolve = async (id: string) => {
-        if (confirm("Отметить как решенное? Это скроет контактные данные.")) {
-            await api.resolveLostFoundItem(id);
-            loadData();
-        }
+    const handleSuccess = () => {
+        queryClient.invalidateQueries({ queryKey: ['lostFound'] });
     };
 
     return (
         <div className="max-w-5xl mx-auto p-4 lg:p-8">
-            <CreateLostFoundModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={loadData} />
+            <CreateLostFoundModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={handleSuccess} />
             
             <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Бюро находок</h1>
                     <p className="text-gray-500 dark:text-gray-400">Поможем найти потерянное и вернуть найденное</p>
                 </div>
-                <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
+                <Button onClick={handleCreateClick} className="flex items-center gap-2">
                     <Plus className="w-4 h-4" /> Подать объявление
                 </Button>
             </div>
@@ -213,7 +228,7 @@ export const LostFound: React.FC = () => {
                 </button>
             </div>
 
-            {loading ? (
+            {isLoading ? (
                 <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-blue-600 animate-spin" /></div>
             ) : items.length === 0 ? (
                 <div className="text-center py-20 text-gray-400 bg-white dark:bg-gray-800 rounded-xl border border-dashed dark:border-gray-700">
@@ -256,9 +271,15 @@ export const LostFound: React.FC = () => {
                                             <p className="text-xs text-gray-500 dark:text-gray-400">Контакт:</p>
                                             <p className="font-medium text-gray-900 dark:text-white">{item.contactName}</p>
                                         </div>
-                                        <a href={`tel:${item.contactPhone}`} className="bg-white dark:bg-gray-600 border dark:border-gray-500 p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-500 text-blue-600 dark:text-blue-300">
-                                            <Phone className="w-4 h-4" />
-                                        </a>
+                                        {currentUser ? (
+                                            <a href={`tel:${item.contactPhone}`} className="bg-white dark:bg-gray-600 border dark:border-gray-500 p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-500 text-blue-600 dark:text-blue-300">
+                                                <Phone className="w-4 h-4" />
+                                            </a>
+                                        ) : (
+                                            <Link to="/auth" className="flex items-center text-xs text-blue-600 hover:underline">
+                                                <Lock className="w-3 h-3 mr-1" /> Войти
+                                            </Link>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg text-center text-gray-500 dark:text-gray-300 text-xs">
@@ -266,7 +287,7 @@ export const LostFound: React.FC = () => {
                                     </div>
                                 )}
 
-                                {currentUserId === item.authorId && !item.isResolved && (
+                                {currentUser && currentUser.id === item.authorId && !item.isResolved && (
                                     <Button variant="outline" size="sm" className="mt-4 w-full dark:border-gray-600 dark:text-gray-300" onClick={() => handleResolve(item.id)}>
                                         Отметить как решено
                                     </Button>

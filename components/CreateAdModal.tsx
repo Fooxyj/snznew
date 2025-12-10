@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
-import { X, Loader2, Upload, Check, Sparkles, Crown } from 'lucide-react';
+import { X, Loader2, Upload, Trash2, Plus, Image as ImageIcon, Crown, Sparkles, CheckCircle2 } from 'lucide-react';
 import { Button } from './ui/Common';
 import { api } from '../services/api';
 import { Ad } from '../types';
+import { useQuery } from '@tanstack/react-query';
 
 interface CreateAdModalProps {
   isOpen: boolean;
@@ -13,27 +15,38 @@ interface CreateAdModalProps {
 export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  
+  const [tier, setTier] = useState<'regular' | 'premium' | 'vip'>('regular');
+
   const [formData, setFormData] = useState({
     title: '',
     price: '',
     category: 'Личные вещи',
     description: '',
     location: '',
-    image: '' 
   });
-  const [promotion, setPromotion] = useState<'none' | 'premium' | 'vip'>('none');
+  const [images, setImages] = useState<string[]>([]);
+
+  const { data: user } = useQuery({
+    queryKey: ['user'],
+    queryFn: api.getCurrentUser
+  });
 
   if (!isOpen) return null;
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    if (images.length >= 5) {
+        alert("Максимум 5 фотографий");
+        return;
+    }
 
     setIsUploading(true);
     try {
         const url = await api.uploadImage(file);
-        setFormData(prev => ({ ...prev, image: url }));
+        setImages(prev => [...prev, url]);
     } catch (error: any) {
         console.error(error);
         alert('Ошибка загрузки фото: ' + error.message);
@@ -42,10 +55,27 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
     }
   };
 
+  const removeImage = (index: number) => {
+      setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const cost = tier === 'vip' ? 100 : tier === 'premium' ? 50 : 0;
+    
+    if (cost > 0) {
+        if (!user) {
+            alert("Необходимо войти для платного размещения");
+            return;
+        }
+        if ((user.balance || 0) < cost) {
+            alert(`Недостаточно средств. Ваш баланс: ${user.balance} ₽. Требуется: ${cost} ₽`);
+            return;
+        }
+    }
+
     setIsLoading(true);
-    setErrorMsg(null);
 
     try {
       const newAd = await api.createAd({
@@ -55,193 +85,206 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
         category: formData.category,
         description: formData.description,
         location: formData.location || 'Снежинск',
-        image: formData.image || 'https://picsum.photos/seed/new/400/300',
-        isVip: promotion === 'vip',
-        isPremium: promotion === 'premium'
+        image: images[0] || 'https://picsum.photos/seed/new/400/300',
+        images: images,
+        isVip: tier === 'vip',
+        isPremium: tier === 'premium'
       });
-
-      if (newAd) {
-        onSuccess(newAd);
-        onClose();
-        // Reset form
-        setFormData({
-            title: '',
-            price: '',
-            category: 'Личные вещи',
-            description: '',
-            location: '',
-            image: ''
-        });
-        setPromotion('none');
-      }
+      
+      onSuccess(newAd);
+      onClose();
+      // Reset form
+      setFormData({
+        title: '',
+        price: '',
+        category: 'Личные вещи',
+        description: '',
+        location: '',
+      });
+      setImages([]);
+      setTier('regular');
     } catch (error: any) {
       console.error(error);
-      setErrorMsg(error.message || 'Ошибка при создании объявления');
+      alert(error.message || "Ошибка при создании объявления");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden slide-in-from-top h-[85vh] flex flex-col">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 dark:border-gray-700 sticky top-0 z-10">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Новое объявление</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+        <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800 shrink-0">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Подать объявление</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          
-          {errorMsg && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm rounded-lg border border-red-200 dark:border-red-800">
-                {errorMsg}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Заголовок</label>
-            <input 
-              required
-              type="text" 
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              placeholder="Например: Продам велосипед"
-              value={formData.title}
-              onChange={e => setFormData({...formData, title: e.target.value})}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+        {/* Scrollable Form */}
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            <form id="create-ad-form" onSubmit={handleSubmit} className="space-y-5">
+            
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Цена (₽)</label>
-              <input 
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Заголовок</label>
+                <input 
                 required
-                type="number" 
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="0"
-                value={formData.price}
-                onChange={e => setFormData({...formData, price: e.target.value})}
-              />
+                type="text" 
+                placeholder="Например, Велосипед"
+                className="w-full px-4 py-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white transition-all"
+                value={formData.title}
+                onChange={e => setFormData({...formData, title: e.target.value})}
+                />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Цена (₽)</label>
+                    <input 
+                        required
+                        type="number" 
+                        placeholder="0"
+                        className="w-full px-4 py-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white transition-all"
+                        value={formData.price}
+                        onChange={e => setFormData({...formData, price: e.target.value})}
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Категория</label>
+                    <select 
+                        className="w-full px-4 py-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white transition-all"
+                        value={formData.category}
+                        onChange={e => setFormData({...formData, category: e.target.value})}
+                    >
+                        {['Личные вещи', 'Транспорт', 'Недвижимость', 'Работа', 'Услуги', 'Хобби и отдых', 'Для дома и дачи', 'Электроника', 'Животные'].map(c => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Категория</label>
-              <select 
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                value={formData.category}
-                onChange={e => setFormData({...formData, category: e.target.value})}
-              >
-                {['Транспорт', 'Недвижимость', 'Работа', 'Услуги', 'Личные вещи', 'Электроника', 'Хобби'].map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Описание</label>
+                <textarea 
+                    required
+                    rows={4}
+                    placeholder="Подробное описание товара или услуги..."
+                    className="w-full px-4 py-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white transition-all resize-none"
+                    value={formData.description}
+                    onChange={e => setFormData({...formData, description: e.target.value})}
+                />
             </div>
-          </div>
 
-          <div>
-             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Описание</label>
-             <textarea 
-                required
-                rows={3}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="Расскажите подробнее о товаре..."
-                value={formData.description}
-                onChange={e => setFormData({...formData, description: e.target.value})}
-             />
-          </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Местоположение</label>
+                <input 
+                    type="text" 
+                    placeholder="Район, улица"
+                    className="w-full px-4 py-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white transition-all"
+                    value={formData.location}
+                    onChange={e => setFormData({...formData, location: e.target.value})}
+                />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Местоположение</label>
-            <input 
-              type="text" 
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              placeholder="Улица, район"
-              value={formData.location}
-              onChange={e => setFormData({...formData, location: e.target.value})}
-            />
-          </div>
-
-          {/* Real Image Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Фотография</label>
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center text-gray-500 dark:text-gray-400 text-sm bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
-                {formData.image ? (
-                    <div className="relative group">
-                        <img src={formData.image} alt="Preview" className="h-32 mx-auto rounded object-cover" />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span className="text-xs">Нажмите, чтобы изменить</span>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Фотографии</label>
+                
+                <div className="grid grid-cols-3 gap-2">
+                    {images.map((img, idx) => (
+                        <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border dark:border-gray-600 group">
+                            <img src={img} alt="" className="w-full h-full object-cover" />
+                            <button 
+                                type="button"
+                                onClick={() => removeImage(idx)}
+                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                            </button>
                         </div>
-                        <input 
-                            type="file" 
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
+                    ))}
+                    
+                    {images.length < 5 && (
+                        <div className="relative aspect-square rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
+                            {isUploading ? (
+                                <Loader2 className="w-6 h-6 animate-spin" />
+                            ) : (
+                                <>
+                                    <Plus className="w-6 h-6 mb-1" />
+                                    <span className="text-xs">Добавить</span>
+                                </>
+                            )}
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                disabled={isUploading}
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                            />
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Ad Tier Selection */}
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Тип размещения</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Regular */}
+                    <div 
+                        onClick={() => setTier('regular')}
+                        className={`relative border-2 rounded-xl p-3 cursor-pointer transition-all flex flex-col items-center text-center ${tier === 'regular' ? 'border-gray-500 bg-gray-50 dark:bg-gray-700 dark:border-gray-400' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+                    >
+                        <div className="font-bold text-gray-900 dark:text-white mb-1">Обычное</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Бесплатно</div>
+                        {tier === 'regular' && <div className="absolute top-2 right-2 text-gray-600 dark:text-gray-300"><CheckCircle2 className="w-4 h-4" /></div>}
                     </div>
-                ) : (
-                    <div className="flex flex-col items-center">
-                        {isUploading ? (
-                            <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-2" />
-                        ) : (
-                            <Upload className="w-8 h-8 text-gray-400 dark:text-gray-500 mb-2" />
-                        )}
-                        <p>{isUploading ? "Загрузка..." : "Нажмите для загрузки фото"}</p>
-                        <input 
-                            type="file" 
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
+
+                    {/* Premium */}
+                    <div 
+                        onClick={() => setTier('premium')}
+                        className={`relative border-2 rounded-xl p-3 cursor-pointer transition-all flex flex-col items-center text-center ${tier === 'premium' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'}`}
+                    >
+                        <Sparkles className={`w-5 h-5 mb-1 ${tier === 'premium' ? 'text-blue-600' : 'text-gray-400'}`} />
+                        <div className="font-bold text-gray-900 dark:text-white">PRO</div>
+                        <div className="text-sm font-bold text-blue-600 dark:text-blue-400">50 ₽</div>
+                        {tier === 'premium' && <div className="absolute top-2 right-2 text-blue-600"><CheckCircle2 className="w-4 h-4" /></div>}
+                    </div>
+
+                    {/* VIP */}
+                    <div 
+                        onClick={() => setTier('vip')}
+                        className={`relative border-2 rounded-xl p-3 cursor-pointer transition-all flex flex-col items-center text-center ${tier === 'vip' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-orange-300'}`}
+                    >
+                        <Crown className={`w-5 h-5 mb-1 ${tier === 'vip' ? 'text-orange-500' : 'text-gray-400'}`} />
+                        <div className="font-bold text-gray-900 dark:text-white">VIP</div>
+                        <div className="text-sm font-bold text-orange-600 dark:text-orange-400">100 ₽</div>
+                        {tier === 'vip' && <div className="absolute top-2 right-2 text-orange-600"><CheckCircle2 className="w-4 h-4" /></div>}
+                    </div>
+                </div>
+                {tier !== 'regular' && user && (
+                    <div className="mt-2 text-xs text-center text-gray-500">
+                        Ваш баланс: <span className={(user.balance || 0) < (tier === 'vip' ? 100 : 50) ? 'text-red-500 font-bold' : 'text-green-600 font-bold'}>{user.balance || 0} ₽</span>
                     </div>
                 )}
             </div>
-          </div>
 
-          {/* Promotion Selection */}
-          <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border dark:border-gray-700">
-              <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">Продвижение (по желанию)</label>
-              <div className="grid grid-cols-3 gap-2">
-                  <div 
-                    onClick={() => setPromotion('none')}
-                    className={`cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${promotion === 'none' ? 'border-gray-400 bg-white dark:bg-gray-600' : 'border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'}`}
-                  >
-                      <div className="text-sm font-bold dark:text-white">Обычное</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Бесплатно</div>
-                  </div>
+            </form>
+        </div>
 
-                  <div 
-                    onClick={() => setPromotion('premium')}
-                    className={`cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${promotion === 'premium' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-transparent hover:bg-blue-50 dark:hover:bg-blue-900/10'}`}
-                  >
-                      <div className="flex justify-center mb-1 text-blue-600 dark:text-blue-400"><Sparkles className="w-4 h-4" /></div>
-                      <div className="text-sm font-bold text-blue-900 dark:text-blue-100">Premium</div>
-                      <div className="text-xs text-blue-600 dark:text-blue-400 font-bold">49 ₽</div>
-                  </div>
-
-                  <div 
-                    onClick={() => setPromotion('vip')}
-                    className={`cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${promotion === 'vip' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30' : 'border-transparent hover:bg-orange-50 dark:hover:bg-orange-900/10'}`}
-                  >
-                      <div className="flex justify-center mb-1 text-orange-600 dark:text-orange-400"><Crown className="w-4 h-4" /></div>
-                      <div className="text-sm font-bold text-orange-900 dark:text-orange-100">VIP</div>
-                      <div className="text-xs text-orange-600 dark:text-orange-400 font-bold">99 ₽</div>
-                  </div>
-              </div>
-          </div>
-
-          <div className="pt-2">
-            <Button disabled={isLoading || isUploading} className="w-full py-2.5">
-              {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Публикация...</> : (
-                  promotion === 'none' ? 'Опубликовать бесплатно' : `Оплатить и опубликовать (${promotion === 'vip' ? '99' : '49'} ₽)`
-              )}
+        {/* Footer */}
+        <div className="px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0">
+            <Button 
+                form="create-ad-form" 
+                disabled={isLoading || isUploading} 
+                className="w-full py-3 text-base shadow-lg shadow-blue-500/20"
+            >
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : `Опубликовать ${tier !== 'regular' ? `(${tier === 'vip' ? '100' : '50'} ₽)` : ''}`}
             </Button>
-          </div>
+        </div>
 
-        </form>
       </div>
     </div>
   );
-}
+};

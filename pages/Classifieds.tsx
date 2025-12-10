@@ -1,27 +1,41 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge, Button, LocationBadge } from '../components/ui/Common';
 import { Filter, Search, Grid, List, Heart, MessageCircle, Loader2, Sparkles, CreditCard, ShoppingBag, Crown, Star, User as UserIcon } from 'lucide-react';
 import { Ad, UserRole } from '../types';
 import { api } from '../services/api';
 import { CreateAdModal } from '../components/CreateAdModal';
 import { useNavigate } from 'react-router-dom';
+import { AdGridSkeleton, CardSkeleton } from '../components/ui/Skeleton';
 
 // New Payment Modal with Selection
 const PromoteModal: React.FC<{ isOpen: boolean; onClose: () => void; onConfirm: (level: 'vip' | 'premium') => void }> = ({ isOpen, onClose, onConfirm }) => {
     const [loading, setLoading] = useState(false);
     const [selectedLevel, setSelectedLevel] = useState<'vip' | 'premium'>('premium');
+    
+    const { data: user } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
 
     if (!isOpen) return null;
 
+    const price = selectedLevel === 'vip' ? 100 : 50;
+    const canAfford = (user?.balance || 0) >= price;
+
     const handlePay = () => {
+        if (!canAfford) {
+            alert("Недостаточно средств на кошельке. Пополните баланс в профиле.");
+            return;
+        }
         setLoading(true);
+        // Simulate slight delay for UX
         setTimeout(() => {
             setLoading(false);
             onConfirm(selectedLevel);
             onClose();
-            alert(selectedLevel === 'vip' ? "Оплата успешна! VIP активирован." : "Оплата успешна! Premium активирован.");
-        }, 1500);
+        }, 1000);
     };
 
     return (
@@ -44,7 +58,7 @@ const PromoteModal: React.FC<{ isOpen: boolean; onClose: () => void; onConfirm: 
                         <div className="flex-1 text-left">
                             <div className="flex justify-between items-center">
                                 <span className="font-bold text-gray-900 dark:text-white">VIP Статус</span>
-                                <span className="font-bold text-orange-600 dark:text-orange-400">99 ₽</span>
+                                <span className="font-bold text-orange-600 dark:text-orange-400">100 ₽</span>
                             </div>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Закрепление вверху, золотая рамка, значок короны.</p>
                         </div>
@@ -61,17 +75,29 @@ const PromoteModal: React.FC<{ isOpen: boolean; onClose: () => void; onConfirm: 
                         <div className="flex-1 text-left">
                             <div className="flex justify-between items-center">
                                 <span className="font-bold text-gray-900 dark:text-white">Premium</span>
-                                <span className="font-bold text-blue-600 dark:text-blue-400">49 ₽</span>
+                                <span className="font-bold text-blue-600 dark:text-blue-400">50 ₽</span>
                             </div>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Синяя рамка, выделение в ленте, значок.</p>
                         </div>
                     </div>
                 </div>
 
+                <div className="text-center mb-4 text-sm">
+                    <span className="text-gray-500">Ваш баланс: </span>
+                    <span className={`font-bold ${canAfford ? 'text-green-600' : 'text-red-600'}`}>
+                        {user?.balance || 0} ₽
+                    </span>
+                    {!canAfford && <div className="text-xs text-red-500 mt-1">Недостаточно средств</div>}
+                </div>
+
                 <div className="flex gap-3">
                     <Button variant="outline" className="flex-1 dark:border-gray-600 dark:text-gray-300" onClick={onClose} disabled={loading}>Отмена</Button>
-                    <Button className="flex-[2] bg-gray-900 dark:bg-white dark:text-black text-white hover:bg-gray-800" onClick={handlePay} disabled={loading}>
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Оплатить картой'}
+                    <Button 
+                        className={`flex-[2] ${canAfford ? 'bg-gray-900 dark:bg-white dark:text-black text-white hover:bg-gray-800' : 'bg-gray-300 cursor-not-allowed text-gray-500'}`} 
+                        onClick={handlePay} 
+                        disabled={loading || !canAfford}
+                    >
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : `Оплатить ${price} ₽`}
                     </Button>
                 </div>
             </div>
@@ -84,57 +110,48 @@ export const Classifieds: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  
-  const [ads, setAds] = useState<Ad[]>([]);
-  const [userFavs, setUserFavs] = useState<string[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  
   const [promoteId, setPromoteId] = useState<string | null>(null);
 
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const categories = ['Все', 'Транспорт', 'Недвижимость', 'Работа', 'Услуги', 'Личные вещи', 'Хобби'];
+  const { data: ads = [], isLoading } = useQuery({
+      queryKey: ['ads'],
+      queryFn: api.getAds
+  });
 
-  const fetchAds = async () => {
-      setIsLoading(true);
-      try {
-        const [adsData, user] = await Promise.all([
-             api.getAds(),
-             api.getCurrentUser()
-        ]);
-        setAds(adsData);
-        if (user) {
-            setUserFavs(user.favorites);
-            setCurrentUserId(user.id);
-            setCurrentUserRole(user.role);
-        }
-      } catch (error) {
-        console.error("Failed to load ads", error);
-      } finally {
-        setIsLoading(false);
+  const { data: user } = useQuery({
+      queryKey: ['user'],
+      queryFn: api.getCurrentUser
+  });
+
+  const categories = ['Все', 'Транспорт', 'Недвижимость', 'Работа', 'Услуги', 'Личные вещи', 'Хобби', 'Электроника', 'Животные'];
+
+  const userFavs = user?.favorites || [];
+  const currentUserId = user?.id || null;
+  const currentUserRole = user?.role || null;
+
+  const handleCreateClick = () => {
+      if (!user) {
+          if (confirm("Необходимо войти в систему, чтобы подать объявление. Перейти на страницу входа?")) {
+              navigate('/auth');
+          }
+          return;
       }
-    };
-
-  useEffect(() => {
-    fetchAds();
-  }, []);
+      setIsCreateModalOpen(true);
+  };
 
   const handleAdCreated = (newAd: Ad) => {
-    setAds(prev => [newAd, ...prev]);
+    // Invalidate ads to refetch
+    queryClient.invalidateQueries({ queryKey: ['ads'] });
   };
 
   const toggleFav = async (id: string, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       try {
-        const isNowFav = await api.toggleFavorite(id, 'ad');
-        if (isNowFav) {
-            setUserFavs([...userFavs, id]);
-        } else {
-            setUserFavs(userFavs.filter(fid => fid !== id));
-        }
+        await api.toggleFavorite(id, 'ad');
+        queryClient.invalidateQueries({ queryKey: ['user'] });
       } catch (err: any) {
         alert(err.message || "Ошибка");
       }
@@ -151,6 +168,7 @@ export const Classifieds: React.FC = () => {
                 title: ad.title,
                 price: `${ad.price.toLocaleString()} ${ad.currency}`,
                 image: ad.image,
+                description: ad.description,
                 text: "Здравствуйте! Меня интересует это объявление."
           });
           const chatId = await api.startChat(ad.authorId, payload);
@@ -165,7 +183,9 @@ export const Classifieds: React.FC = () => {
           try {
             await api.promoteAd(promoteId, level);
             setPromoteId(null);
-            fetchAds(); 
+            queryClient.invalidateQueries({ queryKey: ['ads'] });
+            queryClient.invalidateQueries({ queryKey: ['user'] }); // update balance
+            alert("Услуга успешно активирована!");
           } catch (e: any) {
             alert(e.message || "Ошибка оплаты");
           }
@@ -176,18 +196,50 @@ export const Classifieds: React.FC = () => {
       if (!confirm(`Админ: ${ad.isVip ? 'Снять' : 'Назначить'} VIP статус для "${ad.title}"?`)) return;
       try {
           await api.adminToggleVip(ad.id, !!ad.isVip);
-          fetchAds();
+          queryClient.invalidateQueries({ queryKey: ['ads'] });
       } catch (e: any) {
           alert(e.message);
       }
   };
 
-  const filteredAds = ads.filter(ad => 
-    (selectedCategory === 'Все' || ad.category === selectedCategory) &&
-    ad.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Performance Optimization: Memoize filtered results to prevent recalculation on every render
+  const filteredAds = useMemo(() => {
+      return ads.filter(ad => 
+        (selectedCategory === 'Все' || ad.category === selectedCategory) &&
+        ad.title.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+  }, [ads, selectedCategory, searchTerm]);
+
+  // Performance Optimization: Memoize grouped ads
+  const { vipAds, premiumAds, regularAds } = useMemo(() => {
+      return {
+          vipAds: filteredAds.filter(ad => ad.isVip),
+          premiumAds: filteredAds.filter(ad => !ad.isVip && ad.isPremium),
+          regularAds: filteredAds.filter(ad => !ad.isVip && !ad.isPremium)
+      };
+  }, [filteredAds]);
 
   const isAdmin = currentUserRole === UserRole.ADMIN;
+
+  const renderAdList = (adList: Ad[]) => (
+      <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-1'}`}>
+          {adList.map(ad => (
+              <AdCard 
+                  key={ad.id} 
+                  ad={ad} 
+                  mode={viewMode} 
+                  isFav={userFavs.includes(ad.id)} 
+                  isMine={currentUserId === ad.authorId}
+                  isAdmin={isAdmin}
+                  onToggleFav={(e) => toggleFav(ad.id, e)}
+                  onPromote={() => setPromoteId(ad.id)}
+                  onAdminToggleVip={() => handleAdminToggleVip(ad)}
+                  onClick={() => navigate(`/ad/${ad.id}`)}
+                  onWrite={(e) => handleWrite(ad, e)}
+              />
+          ))}
+      </div>
+  );
 
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto">
@@ -206,7 +258,7 @@ export const Classifieds: React.FC = () => {
              {isLoading ? 'Загрузка...' : `Найдено ${filteredAds.length} объявлений`}
           </p>
         </div>
-        <Button size="md" variant="secondary" onClick={() => setIsCreateModalOpen(true)}>
+        <Button size="md" variant="secondary" onClick={handleCreateClick}>
           Подать объявление
         </Button>
       </div>
@@ -265,32 +317,52 @@ export const Classifieds: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid */}
+      {/* Content */}
       {isLoading ? (
-        <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-1'}`}>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                viewMode === 'grid' ? <AdGridSkeleton key={i} /> : <CardSkeleton key={i} />
+            ))}
+        </div>
+      ) : filteredAds.length === 0 ? (
+        <div className="col-span-full text-center py-12 text-gray-500">
+            По вашему запросу ничего не найдено.
         </div>
       ) : (
-        <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-1'}`}>
-            {filteredAds.length > 0 ? (
-                filteredAds.map(ad => (
-                <AdCard 
-                    key={ad.id} 
-                    ad={ad} 
-                    mode={viewMode} 
-                    isFav={userFavs.includes(ad.id)} 
-                    isMine={currentUserId === ad.authorId}
-                    isAdmin={isAdmin}
-                    onToggleFav={(e) => toggleFav(ad.id, e)}
-                    onPromote={() => setPromoteId(ad.id)}
-                    onAdminToggleVip={() => handleAdminToggleVip(ad)}
-                    onClick={() => navigate(`/ad/${ad.id}`)}
-                    onWrite={(e) => handleWrite(ad, e)}
-                />
-                ))
-            ) : (
-                <div className="col-span-full text-center py-12 text-gray-500">
-                    По вашему запросу ничего не найдено.
+        <div className="space-y-10">
+            {/* VIP Section */}
+            {vipAds.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg">
+                            <Crown className="w-5 h-5 fill-current" />
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">VIP Объявления</h2>
+                    </div>
+                    {renderAdList(vipAds)}
+                </div>
+            )}
+
+            {/* PRO Section */}
+            {premiumAds.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+                            <Sparkles className="w-5 h-5 fill-current" />
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">PRO Объявления</h2>
+                    </div>
+                    {renderAdList(premiumAds)}
+                </div>
+            )}
+
+            {/* Fresh/Regular Section */}
+            {regularAds.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Свежие объявления</h2>
+                    </div>
+                    {renderAdList(regularAds)}
                 </div>
             )}
         </div>

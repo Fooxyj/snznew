@@ -1,13 +1,17 @@
-import React, { useEffect, useState, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Business, Review, Product, User, Service, UserRole, Event } from '../types';
-import { Button } from '../components/ui/Common';
-import { MapPin, Phone, Clock, Loader2, Star, ChevronLeft, ShoppingBag, Plus, X, Upload, Calendar, Clock4, ShoppingCart, Trash2, Film, Ticket, CreditCard } from 'lucide-react';
+import { Product, Service, Event, UserRole } from '../types';
+import { Button, formatAddress, formatPhone } from '../components/ui/Common';
+import { MapPin, Phone, Clock, Loader2, Star, ChevronLeft, ShoppingBag, Plus, X, Calendar, Clock4, ShoppingCart, Trash2, Film, CreditCard } from 'lucide-react';
 import { useCart } from '../components/CartProvider';
 import { YandexMap } from '../components/YandexMap';
 import { CreateEventModal } from '../components/CreateEventModal';
 import { SeatPicker } from '../components/ui/SeatPicker';
+import { CreateProductModal, CreateServiceModal } from '../components/CRMModals';
+import { NotFound } from './NotFound';
 
 const ProductDetailModal: React.FC<{ product: Product | null; isOpen: boolean; onClose: () => void; canDelete?: boolean; onDelete?: (id:string)=>void }> = ({ product, isOpen, onClose, canDelete, onDelete }) => {
     const { addToCart } = useCart();
@@ -15,7 +19,7 @@ const ProductDetailModal: React.FC<{ product: Product | null; isOpen: boolean; o
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in duration-200 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <div className="relative">
                     <img src={product.image} alt={product.name} className="w-full h-64 object-cover" />
                     <button 
@@ -74,6 +78,12 @@ const BookingTicketModal: React.FC<{ event: Event | null; sessionTime: string | 
     if (!isOpen || !event || !sessionTime) return null;
 
     const handleBuy = async () => {
+        const user = await api.getCurrentUser();
+        if (!user) {
+            if(confirm("Необходимо войти для покупки билета. Войти?")) navigate('/auth');
+            return;
+        }
+
         if (!selectedSeat) return;
         setBuying(true);
         try {
@@ -125,150 +135,11 @@ const BookingTicketModal: React.FC<{ event: Event | null; sessionTime: string | 
     );
 };
 
-const CreateProductModal: React.FC<{ businessId: string; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ businessId, isOpen, onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({ name: '', description: '', price: '', image: '', category: 'Товары' });
-    const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState(false);
-
-    if (!isOpen) return null;
-
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setUploading(true);
-        try {
-            const url = await api.uploadImage(file);
-            setFormData(prev => ({ ...prev, image: url }));
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            await api.createProduct({ ...formData, businessId, price: Number(formData.price) });
-            onSuccess();
-            onClose();
-            setFormData({ name: '', description: '', price: '', image: '', category: 'Товары' });
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg dark:text-white">Добавить товар/услугу</h3>
-                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400 dark:text-gray-400 hover:text-gray-600 dark:hover:text-white" /></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Название</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Цена (₽)</label>
-                        <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
-                    </div>
-                    <div>
-                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Категория</label>
-                         <select className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                             <option>Еда</option>
-                             <option>Напитки</option>
-                             <option>Товары</option>
-                             <option>Услуги</option>
-                             <option>Медикаменты</option>
-                             <option>Билеты</option>
-                             <option>Сувениры</option>
-                             <option>Абонементы</option>
-                             <option>Банные принадлежности</option>
-                             <option>Аренда</option>
-                             <option>Прочее</option>
-                         </select>
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Описание</label>
-                        <textarea className="w-full border rounded-lg p-2 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" rows={2} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-                    </div>
-                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
-                        {formData.image ? (
-                            <img src={formData.image} alt="" className="h-24 mx-auto rounded object-cover" />
-                        ) : (
-                            <div className="relative cursor-pointer">
-                                <Upload className="w-6 h-6 text-gray-400 dark:text-gray-500 mx-auto mb-1" />
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{uploading ? "..." : "Фото"}</span>
-                                <input type="file" className="absolute inset-0 opacity-0" onChange={handleImageUpload} />
-                            </div>
-                        )}
-                    </div>
-                    <Button className="w-full" disabled={loading || uploading}>{loading ? <Loader2 className="animate-spin" /> : 'Добавить'}</Button>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-const CreateServiceModal: React.FC<{ businessId: string; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ businessId, isOpen, onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({ title: '', price: '', durationMin: '60' });
-    const [loading, setLoading] = useState(false);
-
-    if (!isOpen) return null;
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            await api.createService({ ...formData, businessId, price: Number(formData.price), durationMin: Number(formData.durationMin) });
-            onSuccess();
-            onClose();
-            setFormData({ title: '', price: '', durationMin: '60' });
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-sm p-6 shadow-2xl">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg dark:text-white">Добавить услугу для записи</h3>
-                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400 dark:text-gray-400 hover:text-gray-600 dark:hover:text-white" /></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Название услуги</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required placeholder="Например: Стрижка / Аренда" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Цена (₽)</label>
-                            <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Длительность (мин)</label>
-                            <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.durationMin} onChange={e => setFormData({...formData, durationMin: e.target.value})} required />
-                        </div>
-                    </div>
-                    <Button className="w-full" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Создать'}</Button>
-                </form>
-            </div>
-        </div>
-    );
-};
-
 const BookingModal: React.FC<{ service: Service | null; isOpen: boolean; onClose: () => void }> = ({ service, isOpen, onClose }) => {
     const [selectedDate, setSelectedDate] = useState('');
     const [selectedTime, setSelectedTime] = useState('');
     const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
 
     // Mock slots generator
     const generateSlots = () => {
@@ -284,6 +155,12 @@ const BookingModal: React.FC<{ service: Service | null; isOpen: boolean; onClose
     if (!isOpen || !service) return null;
 
     const handleBook = async () => {
+        const user = await api.getCurrentUser();
+        if (!user) {
+            if(confirm("Необходимо войти для записи. Войти?")) navigate('/auth');
+            return;
+        }
+
         if (!selectedDate || !selectedTime) return alert("Выберите дату и время");
         setLoading(true);
         try {
@@ -355,14 +232,9 @@ const BookingModal: React.FC<{ service: Service | null; isOpen: boolean; onClose
 export const BusinessDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [business, setBusiness] = useState<Business | null>(null);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [services, setServices] = useState<Service[]>([]);
-    const [cinemaEvents, setCinemaEvents] = useState<Event[]>([]);
-    const [reviews, setReviews] = useState<Review[]>([]);
+    const queryClient = useQueryClient();
+    
     const [activeTab, setActiveTab] = useState<'menu' | 'services' | 'reviews'>('menu');
-    const [user, setUser] = useState<User | null>(null);
-    const [isOwner, setIsOwner] = useState(false);
     
     // Cart Hook
     const { addToCart, cartCount } = useCart();
@@ -382,107 +254,125 @@ export const BusinessDetail: React.FC = () => {
     const [newReviewText, setNewReviewText] = useState('');
     const [rating, setRating] = useState(5);
 
-    const loadData = async () => {
-        if (!id) return;
-        try {
-            const [b, p, s, r, u] = await Promise.all([
-                api.getBusinessById(id),
-                api.getProducts(id),
-                api.getServices(id),
-                api.getReviews(id),
-                api.getCurrentUser()
-            ]);
-            setBusiness(b);
-            setProducts(p);
-            setServices(s);
-            setReviews(r);
-            setUser(u);
-            if (u && b && u.id === b.authorId) setIsOwner(true);
-            
-            // Special logic for Cinema
-            if (b && b.category === 'Кино' && b.authorId) {
-                const evts = await api.getEventsByAuthor(b.authorId);
-                setCinemaEvents(evts);
-            }
-            
-            // Default tab logic
-            if (p.length === 0 && s.length > 0) setActiveTab('services');
-        } catch (e) {
-            console.error(e);
-        }
-    };
+    // Queries
+    const { data: business, isLoading: businessLoading } = useQuery({
+        queryKey: ['business', id],
+        queryFn: () => api.getBusinessById(id!),
+        enabled: !!id
+    });
 
-    useEffect(() => {
-        loadData();
-    }, [id]);
+    const { data: products = [] } = useQuery({
+        queryKey: ['products', id],
+        queryFn: () => api.getProducts(id!),
+        enabled: !!id
+    });
 
-    const handleReviewSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!id) return;
-        try {
-            await api.addReview(id, rating, newReviewText);
+    const { data: services = [] } = useQuery({
+        queryKey: ['services', id],
+        queryFn: () => api.getServices(id!),
+        enabled: !!id
+    });
+
+    const { data: reviews = [] } = useQuery({
+        queryKey: ['reviews', id],
+        queryFn: () => api.getReviews(id!),
+        enabled: !!id
+    });
+
+    const { data: user } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
+
+    // Special logic for Cinema Events
+    const { data: cinemaEvents = [] } = useQuery({
+        queryKey: ['cinemaEvents', business?.authorId],
+        queryFn: () => api.getEventsByAuthor(business?.authorId || ''),
+        enabled: !!business && business.category === 'Кино' && !!business.authorId
+    });
+
+    // Mutations
+    const reviewMutation = useMutation({
+        mutationFn: () => api.addReview(id!, rating, newReviewText),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['reviews', id] });
+            queryClient.invalidateQueries({ queryKey: ['business', id] }); // rating updates
             setNewReviewText('');
-            loadData();
-        } catch (e: any) {
-            alert(e.message);
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    const deleteProductMutation = useMutation({
+        mutationFn: (pid: string) => api.deleteProduct(pid),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', id] })
+    });
+
+    const deleteServiceMutation = useMutation({
+        mutationFn: (sid: string) => api.deleteService(sid),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services', id] })
+    });
+
+    const deleteEventMutation = useMutation({
+        mutationFn: (eid: string) => api.deleteEvent(eid),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cinemaEvents', business?.authorId] })
+    });
+
+    const deleteBusinessMutation = useMutation({
+        mutationFn: (bid: string) => api.deleteBusiness(bid),
+        onSuccess: () => navigate('/'),
+        onError: (e: any) => alert(e.message)
+    });
+
+    const handleCall = () => {
+        if (!user) {
+            if(confirm("Войдите в систему, чтобы позвонить. Перейти?")) navigate('/auth');
+            return;
+        }
+        if (business?.phone) {
+            window.location.href = `tel:${business.phone}`;
         }
     };
 
-    const handleDeleteProduct = async (pid: string) => {
-        if (!confirm("Удалить этот товар?")) return;
-        try {
-            await api.deleteProduct(pid);
-            loadData();
-        } catch (e: any) {
-            alert(e.message);
+    const handleReviewSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        reviewMutation.mutate();
+    };
+
+    const handleDeleteProduct = (pid: string) => {
+        if (confirm("Удалить этот товар?")) deleteProductMutation.mutate(pid);
+    };
+
+    const handleDeleteService = (sid: string) => {
+        if (confirm("Удалить эту услугу?")) deleteServiceMutation.mutate(sid);
+    };
+
+    const handleDeleteEvent = (eid: string) => {
+        if (confirm("Удалить этот фильм?")) deleteEventMutation.mutate(eid);
+    };
+
+    const handleAdminDeleteBiz = () => {
+        if (confirm("АДМИН: Удалить эту организацию полностью?")) {
+            deleteBusinessMutation.mutate(id!);
         }
     };
 
-    const handleDeleteService = async (sid: string) => {
-        if (!confirm("Удалить эту услугу?")) return;
-        try {
-            await api.deleteService(sid);
-            loadData();
-        } catch (e: any) {
-            alert(e.message);
-        }
-    };
-
-    const handleDeleteEvent = async (eid: string) => {
-        if (!confirm("Удалить этот фильм?")) return;
-        try {
-            await api.deleteEvent(eid);
-            loadData();
-        } catch(e: any) {
-            alert(e.message);
-        }
-    };
-
-    const handleAdminDeleteBiz = async () => {
-        if (!id) return;
-        if(confirm("АДМИН: Удалить эту организацию полностью?")) {
-            try {
-                await api.deleteBusiness(id);
-                navigate('/');
-            } catch(e: any) {
-                alert(e.message);
-            }
-        }
-    };
-
-    if (!business) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (businessLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (!business) return <NotFound />;
 
     const isAdmin = user?.role === UserRole.ADMIN;
-    // Owner OR Admin can edit
+    const isOwner = user?.id === business.authorId;
     const canEdit = isOwner || isAdmin;
     const isCinema = business.category === 'Кино';
 
+    const cleanAddress = formatAddress(business.address);
+    const cleanPhone = formatPhone(business.phone);
+
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8 pb-24">
-            {id && <CreateProductModal businessId={id} isOpen={isProductModalOpen} onClose={() => setIsProductModalOpen(false)} onSuccess={loadData} />}
-            {id && <CreateServiceModal businessId={id} isOpen={isServiceModalOpen} onClose={() => setIsServiceModalOpen(false)} onSuccess={loadData} />}
+            {id && <CreateProductModal businessId={id} isOpen={isProductModalOpen} onClose={() => setIsProductModalOpen(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['products', id] })} />}
+            {id && <CreateServiceModal businessId={id} isOpen={isServiceModalOpen} onClose={() => setIsServiceModalOpen(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['services', id] })} />}
             {/* Cinema Event Modal */}
-            <CreateEventModal isOpen={isEventModalOpen} onClose={() => setIsEventModalOpen(false)} onSuccess={(e) => { loadData(); }} />
+            <CreateEventModal isOpen={isEventModalOpen} onClose={() => setIsEventModalOpen(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['cinemaEvents', business.authorId] })} />
             
             <BookingModal service={bookingService} isOpen={!!bookingService} onClose={() => setBookingService(null)} />
             <BookingTicketModal 
@@ -505,39 +395,65 @@ export const BusinessDetail: React.FC = () => {
                 </button>
             </div>
 
-            {/* Header Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 overflow-hidden mb-8 relative">
-                <div className="h-48 md:h-64 relative">
-                    <img src={business.image} alt={business.name} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                    <div className="absolute bottom-6 left-6 text-white">
-                        <h1 className="text-3xl font-bold">{business.name}</h1>
-                        <p className="opacity-90">{business.category}</p>
-                    </div>
+            {/* New Header: Cover + Logo */}
+            <div className="relative mb-8">
+                {/* Cover Image */}
+                <div className="h-48 md:h-72 rounded-2xl overflow-hidden relative bg-gray-200 dark:bg-gray-700 shadow-md">
+                    {business.coverImage ? (
+                        <img src={business.coverImage} alt="Cover" className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full bg-gradient-to-r from-blue-600 to-purple-600"></div>
+                    )}
+                    <div className="absolute inset-0 bg-black/20"></div>
+                    
                     {isAdmin && (
-                        <button 
-                            onClick={handleAdminDeleteBiz}
-                            className="absolute top-4 right-4 bg-red-600 text-white p-2 rounded-full z-20 shadow-lg hover:bg-red-700"
-                            title="Админ: Удалить компанию"
-                        >
-                            <Trash2 className="w-5 h-5" />
-                        </button>
+                         <button onClick={handleAdminDeleteBiz} className="absolute top-4 right-4 bg-red-600 text-white p-2 rounded-full z-20 shadow-lg hover:bg-red-700" title="Удалить">
+                             <Trash2 className="w-5 h-5" />
+                         </button>
                     )}
                 </div>
-                <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2 space-y-4">
-                        <p className="text-gray-700 dark:text-gray-300">{business.description}</p>
-                        <div className="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
-                            <div className="flex items-center"><MapPin className="w-4 h-4 mr-2" /> {business.address}</div>
-                            <div className="flex items-center"><Clock className="w-4 h-4 mr-2" /> {business.workHours}</div>
-                            <a href={`tel:${business.phone}`} className="flex items-center text-blue-600 hover:underline font-bold bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-lg">
-                                <Phone className="w-4 h-4 mr-2" /> {business.phone}
-                            </a>
-                        </div>
+                
+                {/* Content Overlay */}
+                <div className="px-4 md:px-6 relative -mt-12 flex flex-col md:flex-row gap-4 md:gap-6 items-start">
+                    {/* Logo */}
+                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl border-4 border-white dark:border-gray-900 overflow-hidden shadow-xl bg-white shrink-0 z-10">
+                        <img src={business.image} alt={business.name} className="w-full h-full object-cover" />
                     </div>
-                    <div>
-                        <div className="bg-gray-100 dark:bg-gray-700 rounded-xl h-40 w-full z-0 overflow-hidden">
-                            <YandexMap center={[business.lat, business.lng]} zoom={15} markers={[{lat: business.lat, lng: business.lng}]} />
+                    
+                    {/* Text Info */}
+                    <div className="flex-1 pt-2 md:pt-14 w-full">
+                        <div className="flex flex-col md:flex-row md:justify-between gap-4">
+                            <div>
+                                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white leading-tight">{business.name}</h1>
+                                <p className="text-gray-500 dark:text-gray-400 font-medium">{business.category}</p>
+                            </div>
+                            
+                            <div className="flex flex-wrap gap-2 text-sm">
+                                {cleanPhone && (
+                                    <button onClick={handleCall} className="flex items-center text-white font-bold bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl transition-colors shadow-sm">
+                                        <Phone className="w-4 h-4 mr-2" /> Позвонить
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{business.description}</p>
+                                <div className="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
+                                    <div className="flex items-center" title={cleanAddress}>
+                                        <MapPin className="w-4 h-4 mr-2 text-gray-400" /> {cleanAddress}
+                                    </div>
+                                    <div className="flex items-center">
+                                        <Clock className="w-4 h-4 mr-2 text-gray-400" /> {business.workHours}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Mini Map */}
+                            <div className="bg-gray-100 dark:bg-gray-700 rounded-xl h-32 w-full overflow-hidden shadow-inner border dark:border-gray-600 hidden md:block">
+                                <YandexMap center={[business.lat, business.lng]} zoom={15} markers={[{lat: business.lat, lng: business.lng}]} />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -736,20 +652,18 @@ export const BusinessDetail: React.FC = () => {
                             value={newReviewText}
                             onChange={e => setNewReviewText(e.target.value)}
                         />
-                        <Button size="sm">Отправить</Button>
+                        <Button size="sm" disabled={reviewMutation.isPending}>Отправить</Button>
                     </form>
 
                     {reviews.map(r => (
                         <div key={r.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm">
                             <div className="flex justify-between items-start mb-2">
                                 <div className="flex items-center gap-3">
-                                    {r.authorAvatar ? (
-                                        <img src={r.authorAvatar} alt="" className="w-8 h-8 rounded-full object-cover" />
-                                    ) : (
-                                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-500 text-xs">
-                                            {r.authorName ? r.authorName[0] : '?'}
-                                        </div>
-                                    )}
+                                    <img 
+                                        src={r.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.authorName)}&background=random&color=fff`} 
+                                        alt="" 
+                                        className="w-8 h-8 rounded-full object-cover bg-gray-200 dark:bg-gray-700" 
+                                    />
                                     <div>
                                         <div className="font-bold dark:text-white text-sm">{r.authorName}</div>
                                         <div className="flex text-yellow-400">
