@@ -14,6 +14,8 @@ export const ConnectBusiness: React.FC = () => {
         description: '',
         address: '',
         phone: '',
+        inn: '',
+        ogrn: '',
         workHours: '09:00 - 18:00',
         image: '',
         coverImage: ''
@@ -43,8 +45,23 @@ export const ConnectBusiness: React.FC = () => {
         }
     };
 
+    const handleNumericInput = (e: React.ChangeEvent<HTMLInputElement>, field: 'inn' | 'ogrn') => {
+        const val = e.target.value.replace(/\D/g, ''); // Keep only numbers
+        setFormData(prev => ({ ...prev, [field]: val }));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (formData.inn.length < 10 || formData.inn.length > 12) {
+            alert("ИНН должен содержать 10 или 12 цифр");
+            return;
+        }
+        if (formData.ogrn.length < 13 || formData.ogrn.length > 15) {
+            alert("ОГРН должен содержать 13 или 15 цифр");
+            return;
+        }
+
         setLoading(true);
         try {
             await api.createBusiness(formData);
@@ -69,6 +86,32 @@ export const ConnectBusiness: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Название компании</label>
                         <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
                     </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ИНН</label>
+                            <input 
+                                className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                                value={formData.inn} 
+                                onChange={(e) => handleNumericInput(e, 'inn')} 
+                                required 
+                                maxLength={12}
+                                placeholder="10 или 12 цифр"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ОГРН</label>
+                            <input 
+                                className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                                value={formData.ogrn} 
+                                onChange={(e) => handleNumericInput(e, 'ogrn')} 
+                                required 
+                                maxLength={15}
+                                placeholder="13 или 15 цифр"
+                            />
+                        </div>
+                    </div>
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Категория</label>
                         <select className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>

@@ -55,6 +55,60 @@ const mapAdFromDB = (a: any, profile?: any): Ad => ({
     status: a.status || 'approved'
 });
 
+// Helper: Client-side Image Compression
+const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            img.src = e.target?.result as string;
+        };
+        
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            const MAX_WIDTH = 1200; 
+            const MAX_HEIGHT = 1200;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                }
+            } else {
+                if (height > MAX_HEIGHT) {
+                    width *= MAX_HEIGHT / height;
+                    height = MAX_HEIGHT;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx?.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    // Create new file with same name but JPEG type and 0.8 quality
+                    const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { 
+                        type: 'image/jpeg', 
+                        lastModified: Date.now() 
+                    });
+                    resolve(newFile);
+                } else {
+                    reject(new Error('Compression failed'));
+                }
+            }, 'image/jpeg', 0.8);
+        };
+        
+        img.onerror = (err) => reject(err);
+        reader.readAsDataURL(file);
+    });
+};
+
 export const api = {
   ...authService,
   ...businessService,
@@ -304,7 +358,6 @@ export const api = {
   async updateAd(id: string, data: Partial<Ad>): Promise<void> {
       if (isSupabaseConfigured() && supabase) {
           const dbData: any = { ...data };
-          // Remove client-side only fields before sending to Supabase
           delete dbData.id; 
           delete dbData.authorId; 
           delete dbData.authorName; 
@@ -313,7 +366,6 @@ export const api = {
           const { error } = await supabase.from('ads').update(dbData).eq('id', id);
           if (error) throw error;
       } else {
-          // Mock update
           const idx = mockStore.ads.findIndex(a => a.id === id);
           if (idx !== -1) mockStore.ads[idx] = { ...mockStore.ads[idx], ...data };
       }
@@ -339,7 +391,6 @@ export const api = {
       if (isSupabaseConfigured() && supabase) {
           try {
               const { data, error } = await supabase.from('ads').select('*').order('date', { ascending: false });
-              
               if (error) return []; 
 
               if (data && data.length > 0) {
@@ -476,7 +527,7 @@ export const api = {
       }
   },
 
-  // --- EVENTS (Real DB Implementation) ---
+  // --- EVENTS ---
   async getEvents(): Promise<Event[]> {
       if (isSupabaseConfigured() && supabase) {
           const { data } = await supabase.from('events').select('*').order('created_at', { ascending: false });
@@ -527,7 +578,7 @@ export const api = {
   async getBookedSeats(eid: string) { return []; },
   async buyTicket(eid: string, r: number, c: number, p: number) {},
 
-  // --- RENTALS (Real DB Implementation) ---
+  // --- RENTALS ---
   async getRentals(): Promise<RentalItem[]> { 
       if (isSupabaseConfigured() && supabase) {
           const { data } = await supabase.from('rentals').select('*').eq('is_available', true);
@@ -611,10 +662,20 @@ export const api = {
   // --- STORAGE ---
   async uploadImage(file: File): Promise<string> {
       if (isSupabaseConfigured() && supabase) {
+          let fileToUpload = file;
+          // Optimize image if it is an image type
+          if (file.type.startsWith('image/')) {
+              try {
+                  fileToUpload = await compressImage(file);
+              } catch (e) {
+                  console.warn("Image compression failed, using original file", e);
+              }
+          }
+
           try {
-              const fileExt = file.name.split('.').pop();
+              const fileExt = fileToUpload.name.split('.').pop();
               const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-              const { error } = await supabase.storage.from('images').upload(fileName, file);
+              const { error } = await supabase.storage.from('images').upload(fileName, fileToUpload);
               if (error) throw error;
               const { data } = supabase.storage.from('images').getPublicUrl(fileName);
               return data.publicUrl;

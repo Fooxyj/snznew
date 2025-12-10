@@ -66,7 +66,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const { data: user } = useQuery({
     queryKey: ['user'],
     queryFn: api.getCurrentUser,
-    staleTime: Infinity // User data is static unless action happens
+    staleTime: 1000 * 60 * 5 // Refresh user data every 5 mins to catch updates
   });
 
   const { data: myBusiness } = useQuery({
@@ -100,15 +100,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     // Listen for global changes to critical tables to trigger instant UI updates
     const channel = supabase.channel('global-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ads' }, () => {
-        console.log('Realtime: Ads updated');
         queryClient.invalidateQueries({ queryKey: ['ads'] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stories' }, () => {
-        console.log('Realtime: Stories updated');
         queryClient.invalidateQueries({ queryKey: ['stories'] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => {
-        console.log('Realtime: Businesses updated');
         queryClient.invalidateQueries({ queryKey: ['businesses'] });
         queryClient.invalidateQueries({ queryKey: ['myBusinesses'] });
         queryClient.invalidateQueries({ queryKey: ['myBusiness'] });
@@ -117,16 +114,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         queryClient.invalidateQueries({ queryKey: ['news'] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'suggestions' }, () => {
-        console.log('Realtime: Suggestions updated');
         queryClient.invalidateQueries({ queryKey: ['suggestions'] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, () => {
-        console.log('Realtime: Reports updated');
         queryClient.invalidateQueries({ queryKey: ['reports'] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_schedules' }, () => {
-        console.log('Realtime: Transport updated');
         queryClient.invalidateQueries({ queryKey: ['transport'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['chatUnread'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['user'] });
       })
       .subscribe();
 
@@ -246,6 +246,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const closeSidebar = () => setIsSidebarOpen(false);
   
+  // Closes all submenus and the mobile sidebar
   const resetMenus = () => {
       setOpenMenus([]);
       setIsSidebarOpen(false);
@@ -585,7 +586,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       <div className="lg:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 z-50 flex justify-around py-3 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <NavLink 
             to="/" 
-            onClick={() => setOpenMenus([])}
+            onClick={resetMenus}
             className={({isActive}) => `flex flex-col items-center justify-center w-16 transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
         >
             <Home className="w-6 h-6 mb-1" strokeWidth={isActive ? 2.5 : 2} />

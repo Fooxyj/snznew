@@ -1,43 +1,33 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Community, CommunityPost } from '../types';
 import { Button } from '../components/ui/Common';
 import { Loader2, Users, ChevronLeft, Image as ImageIcon, Send, LogOut } from 'lucide-react';
 
 export const CommunityDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [community, setCommunity] = useState<Community | null>(null);
-    const [posts, setPosts] = useState<CommunityPost[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     
-    // Create Post
+    // Create Post State
     const [content, setContent] = useState('');
     const [image, setImage] = useState('');
     const [uploading, setUploading] = useState(false);
 
-    const loadData = async () => {
-        if (!id) return;
-        try {
-            // Fetch single community by ID directly from DB
-            const comm = await api.getCommunityById(id);
-            setCommunity(comm);
-            
-            if (comm) {
-                const p = await api.getCommunityPosts(id);
-                setPosts(p);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Queries
+    const { data: community, isLoading: commLoading } = useQuery({
+        queryKey: ['community', id],
+        queryFn: () => api.getCommunityById(id!),
+        enabled: !!id
+    });
 
-    useEffect(() => {
-        loadData();
-    }, [id]);
+    const { data: posts = [], isLoading: postsLoading } = useQuery({
+        queryKey: ['communityPosts', id],
+        queryFn: () => api.getCommunityPosts(id!),
+        enabled: !!community
+    });
 
     const handleLeave = async () => {
         if (!id || !confirm("Выйти из сообщества?")) return;
@@ -66,13 +56,13 @@ export const CommunityDetail: React.FC = () => {
             await api.createCommunityPost(id, content, image);
             setContent('');
             setImage('');
-            loadData();
+            queryClient.invalidateQueries({ queryKey: ['communityPosts', id] });
         } catch (e: any) {
             alert(e.message);
         }
     };
 
-    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (commLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
     if (!community) return <div className="p-10 text-center">Сообщество не найдено</div>;
 
     return (
@@ -135,7 +125,9 @@ export const CommunityDetail: React.FC = () => {
                     )}
 
                     {/* Posts List */}
-                    {posts.length === 0 ? (
+                    {postsLoading ? (
+                        <div className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500" /></div>
+                    ) : posts.length === 0 ? (
                         <div className="text-center py-10 text-gray-400">На стене пока пусто</div>
                     ) : (
                         posts.map(post => (
@@ -154,7 +146,6 @@ export const CommunityDetail: React.FC = () => {
                                     <img src={post.image} className="w-full max-h-96 object-cover bg-gray-100 dark:bg-gray-700 mt-2" alt="" />
                                 )}
                                 <div className="p-3 border-t dark:border-gray-700 flex items-center gap-4 text-gray-500 dark:text-gray-400 text-sm">
-                                    {/* Likes placeholder */}
                                     <button className="flex items-center gap-1 hover:text-red-500 transition-colors">
                                         ❤️ {post.likes}
                                     </button>

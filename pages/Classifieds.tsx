@@ -466,7 +466,8 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
                 )}
                 {isMine && !ad.isVip && (
                     <Button 
-                        size="sm" 
+                        size="sm"
+                        variant="ghost"
                         className="bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600 h-8 text-xs px-3 dark:bg-gray-700 dark:text-gray-300" 
                         onClick={(e) => { e.stopPropagation(); onPromote(); }}
                     >
@@ -528,6 +529,7 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
           {isMine && !ad.isVip && (
                <Button 
                 size="sm" 
+                variant="ghost"
                 className="bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-700 h-6 text-[10px] px-2 dark:bg-gray-700 dark:text-gray-300" 
                 onClick={(e) => { e.stopPropagation(); onPromote(); }}
                >

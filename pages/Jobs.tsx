@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { api } from '../services/api';
 import { Vacancy, Resume, User } from '../types';
 import { Button } from '../components/ui/Common';
 import { Loader2, Briefcase, User as UserIcon, Phone, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PhoneInput } from '../components/ui/PhoneInput';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const CreateVacancyModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({ title: '', companyName: '', description: '', contactPhone: '', salaryMin: '', salaryMax: '', schedule: 'full' });
@@ -155,32 +156,29 @@ const CreateResumeModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucc
 
 export const JobsPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'vacancies' | 'resumes'>('vacancies');
-    const [vacancies, setVacancies] = useState<Vacancy[]>([]);
-    const [resumes, setResumes] = useState<Resume[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isVacancyModalOpen, setIsVacancyModalOpen] = useState(false);
     const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
     
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const [v, r, u] = await Promise.all([api.getVacancies(), api.getResumes(), api.getCurrentUser()]);
-            setVacancies(v);
-            setResumes(r);
-            setCurrentUser(u);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Queries
+    const { data: vacancies = [], isLoading: vLoading } = useQuery({
+        queryKey: ['vacancies'],
+        queryFn: api.getVacancies
+    });
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { data: resumes = [], isLoading: rLoading } = useQuery({
+        queryKey: ['resumes'],
+        queryFn: api.getResumes
+    });
+
+    const { data: currentUser } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
+
+    const loading = vLoading || rLoading;
 
     const checkAuth = (action: () => void) => {
         if (currentUser) {
@@ -207,10 +205,15 @@ export const JobsPage: React.FC = () => {
         }
     };
 
+    const refreshData = () => {
+        queryClient.invalidateQueries({ queryKey: ['vacancies'] });
+        queryClient.invalidateQueries({ queryKey: ['resumes'] });
+    };
+
     return (
         <div className="max-w-5xl mx-auto p-4 lg:p-8">
-            <CreateVacancyModal isOpen={isVacancyModalOpen} onClose={() => setIsVacancyModalOpen(false)} onSuccess={loadData} />
-            <CreateResumeModal isOpen={isResumeModalOpen} onClose={() => setIsResumeModalOpen(false)} onSuccess={loadData} />
+            <CreateVacancyModal isOpen={isVacancyModalOpen} onClose={() => setIsVacancyModalOpen(false)} onSuccess={refreshData} />
+            <CreateResumeModal isOpen={isResumeModalOpen} onClose={() => setIsResumeModalOpen(false)} onSuccess={refreshData} />
 
             <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                 <h1 className="text-2xl font-bold flex items-center gap-2 dark:text-white">

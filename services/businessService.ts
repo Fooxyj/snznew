@@ -140,6 +140,8 @@ export const businessService = {
         work_hours: data.workHours,
         image: data.image,
         cover_image: data.coverImage,
+        inn: data.inn,
+        ogrn: data.ogrn,
         author_id: user.id, 
         rating: 0, 
         reviews_count: 0 
@@ -173,15 +175,21 @@ export const businessService = {
               dbData.cover_image = data.coverImage;
               delete dbData.coverImage;
           }
-          await supabase.from('businesses').update(dbData).eq('id', id);
+          if (data.inn !== undefined) dbData.inn = data.inn;
+          if (data.ogrn !== undefined) dbData.ogrn = data.ogrn;
+
+          const { error } = await supabase.from('businesses').update(dbData).eq('id', id);
+          if (error) throw error;
+      } else {
+          const idx = mockStore.businesses.findIndex(b => b.id === id);
+          if (idx !== -1) mockStore.businesses[idx] = { ...mockStore.businesses[idx], ...data };
       }
-      const idx = mockStore.businesses.findIndex(b => b.id === id);
-      if (idx !== -1) mockStore.businesses[idx] = { ...mockStore.businesses[idx], ...data };
   },
 
   async deleteBusiness(id: string): Promise<void> {
       if (isSupabaseConfigured() && supabase) {
-          await supabase.from('businesses').delete().eq('id', id);
+          const { error } = await supabase.from('businesses').delete().eq('id', id);
+          if (error) throw error;
       }
       mockStore.businesses = mockStore.businesses.filter(b => b.id !== id);
   },

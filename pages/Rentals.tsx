@@ -1,43 +1,41 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { api } from '../services/api';
 import { RentalItem, RentalBooking } from '../types';
 import { Button } from '../components/ui/Common';
 import { Repeat, Plus, Loader2, Calendar, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { CreateRentalModal } from '../components/CRMModals';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const RentalsPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'catalog' | 'my'>('catalog');
-    const [rentals, setRentals] = useState<RentalItem[]>([]);
-    const [myBookings, setMyBookings] = useState<RentalBooking[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [currentUser, setCurrentUser] = useState<any>(null);
     
     // Booking State
     const [selectedItem, setSelectedItem] = useState<RentalItem | null>(null);
     const [dates, setDates] = useState({ start: '', end: '' });
     
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const [r, b, u] = await Promise.all([api.getRentals(), api.getMyRentals(), api.getCurrentUser()]);
-            setRentals(r);
-            setMyBookings(b);
-            setCurrentUser(u);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Queries
+    const { data: rentals = [], isLoading: rLoading } = useQuery({
+        queryKey: ['rentals'],
+        queryFn: api.getRentals
+    });
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { data: myBookings = [], isLoading: bLoading } = useQuery({
+        queryKey: ['myRentalBookings'],
+        queryFn: api.getMyRentals
+    });
+
+    const { data: currentUser } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
+
+    const loading = rLoading || bLoading;
 
     const handleCreateClick = () => {
         if (!currentUser) {
@@ -45,6 +43,11 @@ export const RentalsPage: React.FC = () => {
             return;
         }
         setIsCreateOpen(true);
+    };
+
+    const refreshData = () => {
+        queryClient.invalidateQueries({ queryKey: ['rentals'] });
+        queryClient.invalidateQueries({ queryKey: ['myRentalBookings'] });
     };
 
     const handleBook = async () => {
@@ -65,7 +68,7 @@ export const RentalsPage: React.FC = () => {
                 await api.bookRental(selectedItem.id, dates.start, dates.end, totalPrice, selectedItem.deposit);
                 alert("Успешно забронировано!");
                 setSelectedItem(null);
-                loadData();
+                refreshData();
             } catch (e: any) {
                 alert(e.message);
             }
@@ -78,7 +81,7 @@ export const RentalsPage: React.FC = () => {
             try {
                 await api.returnRental(id);
                 alert("Залог возвращен!");
-                loadData();
+                refreshData();
             } catch (e: any) {
                 alert(e.message);
             }
@@ -87,7 +90,7 @@ export const RentalsPage: React.FC = () => {
 
     return (
         <div className="max-w-5xl mx-auto p-4 lg:p-8">
-            <CreateRentalModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSuccess={loadData} />
+            <CreateRentalModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSuccess={refreshData} />
 
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl p-8 text-white mb-8 shadow-xl">
                 <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">

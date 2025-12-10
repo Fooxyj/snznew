@@ -1,27 +1,22 @@
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { api } from '../services/api';
 import { Loader2, Wind, Droplets, Gauge, Cloud, CloudSun, Sun, CloudRain, Snowflake, CloudFog, CloudLightning } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 export const Weather: React.FC = () => {
-    const [weather, setWeather] = useState<any>(null);
-    const [forecast, setForecast] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    
+    const { data: weather, isLoading: wLoading } = useQuery({
+        queryKey: ['weather'],
+        queryFn: api.getWeather
+    });
 
-    useEffect(() => {
-        const load = async () => {
-            try {
-                const [w, f] = await Promise.all([api.getWeather(), api.getWeatherForecast()]);
-                setWeather(w);
-                setForecast(f);
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setLoading(false);
-            }
-        };
-        load();
-    }, []);
+    const { data: forecast = [], isLoading: fLoading } = useQuery({
+        queryKey: ['weatherForecast'],
+        queryFn: api.getWeatherForecast
+    });
+
+    const loading = wLoading || fLoading;
 
     const getWeatherIcon = (code: number, className: string = "w-12 h-12") => {
         // WMO Weather interpretation codes (0-99)
@@ -107,7 +102,7 @@ export const Weather: React.FC = () => {
             <h2 className="text-xl font-bold mb-4 dark:text-white">Прогноз на неделю</h2>
             <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
                 <div className="divide-y dark:divide-gray-700">
-                    {forecast.map((day, idx) => (
+                    {forecast.map((day: any, idx: number) => (
                         <div key={idx} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                             {/* Day & Condition */}
                             <div className="w-28">

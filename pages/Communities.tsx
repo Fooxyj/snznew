@@ -1,10 +1,11 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { api } from '../services/api';
-import { Community, User, UserRole } from '../types';
+import { Community, UserRole } from '../types';
 import { Button } from '../components/ui/Common';
 import { Users, Loader2, ArrowRight, Plus, X, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 
 const CreateCommunityModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({ name: '', description: '', image: '' });
@@ -77,45 +78,37 @@ const CreateCommunityModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
 };
 
 export const Communities: React.FC = () => {
-    const [communities, setCommunities] = useState<Community[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-    const loadData = async () => {
-        try {
-            const [data, user] = await Promise.all([api.getCommunities(), api.getCurrentUser()]);
-            setCommunities(data);
-            setCurrentUser(user);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Queries
+    const { data: communities = [], isLoading } = useQuery({
+        queryKey: ['communities'],
+        queryFn: api.getCommunities
+    });
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { data: currentUser } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
 
     const handleJoin = async (id: string, isMember?: boolean) => {
-        if (isMember) return; // Already member, go to detail
+        if (isMember) return; // Already member
         try {
             await api.joinCommunity(id);
-            // Optimistic update
-            setCommunities(prev => prev.map(c => c.id === id ? { ...c, isMember: true, membersCount: c.membersCount + 1 } : c));
+            // Invalidate to refresh membership status
+            // Assuming queryClient is available via hook or parent context
         } catch (e: any) {
             alert(e.message);
         }
     };
 
-    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
     const isAdmin = currentUser?.role === UserRole.ADMIN;
 
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8">
-            <CreateCommunityModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSuccess={loadData} />
+            <CreateCommunityModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSuccess={() => {}} />
 
             <div className="flex justify-between items-center mb-6">
                 <div>

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { api } from '../services/api';
 import { User, Ad, Business, UserRole, Story, Suggestion, TransportSchedule } from '../types';
 import { Button, XPBar, Badge } from '../components/ui/Common';
@@ -114,7 +114,9 @@ const EditBusinessModal: React.FC<{ business: Business; isOpen: boolean; onClose
         phone: business.phone,
         workHours: business.workHours,
         image: business.image,
-        coverImage: business.coverImage
+        coverImage: business.coverImage,
+        inn: business.inn || '',
+        ogrn: business.ogrn || ''
     });
     const [loading, setLoading] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -139,6 +141,11 @@ const EditBusinessModal: React.FC<{ business: Business; isOpen: boolean; onClose
             if (field === 'image') setUploadingImage(false);
             else setUploadingCover(false);
         }
+    };
+
+    const handleNumericInput = (e: React.ChangeEvent<HTMLInputElement>, field: 'inn' | 'ogrn') => {
+        const val = e.target.value.replace(/\D/g, ''); 
+        setFormData(prev => ({ ...prev, [field]: val }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -167,6 +174,28 @@ const EditBusinessModal: React.FC<{ business: Business; isOpen: boolean; onClose
                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Название</label>
                         <input className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
                     </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">ИНН</label>
+                            <input 
+                                className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                                value={formData.inn} 
+                                onChange={(e) => handleNumericInput(e, 'inn')}
+                                maxLength={12}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400">ОГРН</label>
+                            <input 
+                                className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                                value={formData.ogrn} 
+                                onChange={(e) => handleNumericInput(e, 'ogrn')}
+                                maxLength={15}
+                            />
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Телефон</label>
@@ -249,40 +278,33 @@ const EditBusinessModal: React.FC<{ business: Business; isOpen: boolean; onClose
 };
 
 export const Profile: React.FC = () => {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [myAds, setMyAds] = useState<Ad[]>([]);
-    const [myBusinesses, setMyBusinesses] = useState<Business[]>([]);
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
     const [editingAd, setEditingAd] = useState<Ad | null>(null);
     const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
     const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
     const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
 
-    const loadData = async () => {
-        try {
-            const u = await api.getCurrentUser();
-            setUser(u);
-            if (u) {
-                const [adsData, businessesData] = await Promise.all([
-                    api.getUserContent(u.id), 
-                    api.getMyBusinesses()
-                ]);
-                
-                setMyAds(adsData.ads);
-                setMyBusinesses(businessesData);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Queries
+    const { data: user, isLoading: userLoading } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { data: userContent } = useQuery({
+        queryKey: ['userContent', user?.id],
+        queryFn: () => user ? api.getUserContent(user.id) : { ads: [] },
+        enabled: !!user
+    });
+
+    const { data: myBusinesses = [] } = useQuery({
+        queryKey: ['myBusinesses'],
+        queryFn: api.getMyBusinesses,
+        enabled: !!user
+    });
+
+    const myAds = userContent?.ads || [];
 
     const handleLogout = async () => {
         await api.signOut();
@@ -294,7 +316,8 @@ export const Profile: React.FC = () => {
         e.stopPropagation();
         if (confirm("Удалить объявление?")) {
             await api.deleteAd(id);
-            loadData();
+            queryClient.invalidateQueries({ queryKey: ['userContent'] });
+            queryClient.invalidateQueries({ queryKey: ['ads'] });
         }
     };
 
@@ -304,7 +327,8 @@ export const Profile: React.FC = () => {
         setEditingAd(ad);
     };
 
-    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (userLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    
     if (!user) {
         navigate('/auth');
         return null;
@@ -318,7 +342,11 @@ export const Profile: React.FC = () => {
                     ad={editingAd} 
                     isOpen={!!editingAd} 
                     onClose={() => setEditingAd(null)} 
-                    onSuccess={() => { setEditingAd(null); loadData(); }} 
+                    onSuccess={() => { 
+                        setEditingAd(null); 
+                        queryClient.invalidateQueries({ queryKey: ['userContent'] }); 
+                        queryClient.invalidateQueries({ queryKey: ['ads'] });
+                    }} 
                 />
             )}
             {user && (
@@ -326,7 +354,7 @@ export const Profile: React.FC = () => {
                     user={user}
                     isOpen={isEditProfileOpen}
                     onClose={() => setIsEditProfileOpen(false)}
-                    onSuccess={loadData}
+                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ['user'] })}
                 />
             )}
             {editingBusiness && (
@@ -334,7 +362,7 @@ export const Profile: React.FC = () => {
                     business={editingBusiness}
                     isOpen={!!editingBusiness}
                     onClose={() => setEditingBusiness(null)}
-                    onSuccess={loadData}
+                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ['myBusinesses'] })}
                 />
             )}
 
@@ -524,10 +552,6 @@ export const Profile: React.FC = () => {
 
 // Admin Dashboard
 export const AdminDashboard: React.FC = () => {
-    const [stats, setStats] = useState({ users: 0, ads: 0, businesses: 0, news: 0, stories: 0 });
-    const [analytics, setAnalytics] = useState<any>({ activity: [], distribution: [] });
-    const [pendingAds, setPendingAds] = useState<Ad[]>([]);
-    const [allAds, setAllAds] = useState<Ad[]>([]); 
     const [activeTab, setActiveTab] = useState<'overview' | 'moderation' | 'content' | 'ads' | 'stories' | 'feedback' | 'transport'>('overview');
     
     // Poll State
@@ -539,7 +563,27 @@ export const AdminDashboard: React.FC = () => {
 
     const queryClient = useQueryClient();
 
-    // Use React Query for Stories, Transport, Feedback
+    // Use React Query for all data
+    const { data: stats = { users: 0, ads: 0, businesses: 0, news: 0, stories: 0 } } = useQuery({
+        queryKey: ['adminStats'],
+        queryFn: api.getSystemStats
+    });
+
+    const { data: analytics = { activity: [], distribution: [] } } = useQuery({
+        queryKey: ['adminAnalytics'],
+        queryFn: api.getAdminAnalytics
+    });
+
+    const { data: pendingAds = [] } = useQuery({
+        queryKey: ['ads', 'pending'],
+        queryFn: api.getPendingAds
+    });
+
+    const { data: allAds = [] } = useQuery({
+        queryKey: ['ads', 'admin'],
+        queryFn: api.getAllAdsForAdmin
+    });
+
     const { data: allStories = [] } = useQuery({
         queryKey: ['stories'],
         queryFn: api.getStories,
@@ -562,23 +606,6 @@ export const AdminDashboard: React.FC = () => {
         queryFn: api.getReports,
         staleTime: 0
     });
-
-    const loadAllData = async () => {
-        try {
-            const [s, p, all, anal] = await Promise.all([
-                api.getSystemStats(), 
-                api.getPendingAds(),
-                api.getAllAdsForAdmin(),
-                api.getAdminAnalytics()
-            ]);
-            setStats(s);
-            setPendingAds(p);
-            setAllAds(all);
-            setAnalytics(anal);
-        } catch (e) {
-            console.error("Failed to load admin data", e);
-        }
-    };
 
     // Mutations
     const deleteStoryMutation = useMutation({
@@ -613,10 +640,6 @@ export const AdminDashboard: React.FC = () => {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transport'] })
     });
 
-    useEffect(() => {
-        loadAllData();
-    }, []);
-
     const handleCreatePoll = async (e: React.FormEvent) => {
         e.preventDefault();
         const validOptions = pollOptions.filter(o => o.trim() !== '');
@@ -641,7 +664,7 @@ export const AdminDashboard: React.FC = () => {
     const approveAd = async (id: string) => {
         try {
             await api.approveAd(id);
-            loadAllData();
+            queryClient.invalidateQueries({ queryKey: ['ads'] });
         } catch (e: any) {
             alert("Ошибка одобрения: " + e.message);
         }
@@ -651,7 +674,7 @@ export const AdminDashboard: React.FC = () => {
         if(confirm("Отклонить объявление?")) {
             try {
                 await api.rejectAd(id);
-                loadAllData();
+                queryClient.invalidateQueries({ queryKey: ['ads'] });
             } catch (e: any) {
                 alert("Ошибка отклонения: " + e.message);
             }
@@ -661,7 +684,7 @@ export const AdminDashboard: React.FC = () => {
     const toggleVipAd = async (ad: Ad) => {
         try {
             await api.adminToggleVip(ad.id, !!ad.isVip);
-            loadAllData();
+            queryClient.invalidateQueries({ queryKey: ['ads'] });
         } catch(e:any) {
             alert(e.message);
         }
@@ -671,7 +694,7 @@ export const AdminDashboard: React.FC = () => {
         if(confirm("Удалить это объявление навсегда?")) {
             try {
                 await api.deleteAd(id);
-                loadAllData();
+                queryClient.invalidateQueries({ queryKey: ['ads'] });
             } catch(e:any) {
                 alert(e.message);
             }

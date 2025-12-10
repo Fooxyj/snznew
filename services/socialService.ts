@@ -1,4 +1,3 @@
-
 import { 
     Comment, Review, Conversation, Message, Story, Community, CommunityPost, StoryConfig, Suggestion 
 } from '../types';
@@ -277,7 +276,21 @@ export const socialService = {
     },
 
     async getUnreadChatsCount(): Promise<number> {
-        return 0; 
+        const user = await authService.getCurrentUser();
+        if (!user || !isSupabaseConfigured() || !supabase) return 0;
+        
+        try {
+            const { count } = await supabase
+                .from('messages')
+                .select('*', { count: 'exact', head: true })
+                .neq('sender_id', user.id)
+                .eq('is_read', false);
+            
+            return count || 0;
+        } catch (e) {
+            console.error(e);
+            return 0;
+        }
     },
 
     async sendMessage(conversationId: string, text: string): Promise<void> {
@@ -333,6 +346,8 @@ export const socialService = {
             .channel(`public:messages:conversation_id=eq.${conversationId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, (payload) => {
                 const m = payload.new as any;
+                if (!m) return;
+                
                 callback({
                     id: m.id,
                     conversationId: m.conversation_id,
@@ -374,7 +389,7 @@ export const socialService = {
         return newConvo.id;
     },
 
-    // --- STORIES (Fixed manual fetch) ---
+    // --- STORIES ---
     async getStories(): Promise<Story[]> {
         if (isSupabaseConfigured() && supabase) {
             try {

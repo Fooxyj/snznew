@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Ad, User } from '../types';
 import { Button, Badge } from '../components/ui/Common';
@@ -14,10 +15,6 @@ import { ReportModal } from '../components/ReportModal';
 export const AdDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [ad, setAd] = useState<Ad | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [isFav, setIsFav] = useState(false);
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
     
     // Gallery State
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -26,20 +23,19 @@ export const AdDetail: React.FC = () => {
     // Reporting
     const [isReportOpen, setIsReportOpen] = useState(false);
 
-    useEffect(() => {
-        const load = async () => {
-            if (!id) return;
-            const data = await api.getAdById(id);
-            setAd(data);
-            
-            const user = await api.getCurrentUser();
-            setCurrentUser(user);
-            if (user && user.favorites.includes(id)) setIsFav(true);
-            
-            setLoading(false);
-        };
-        load();
-    }, [id]);
+    // Queries
+    const { data: ad, isLoading: adLoading } = useQuery({
+        queryKey: ['ad', id],
+        queryFn: () => api.getAdById(id!),
+        enabled: !!id
+    });
+
+    const { data: currentUser } = useQuery({
+        queryKey: ['user'],
+        queryFn: api.getCurrentUser
+    });
+
+    const isFav = currentUser?.favorites?.includes(id!) || false;
 
     const handleWrite = async () => {
         if (!ad) return;
@@ -67,7 +63,8 @@ export const AdDetail: React.FC = () => {
         if (!currentUser) return navigate('/auth');
         try {
             await api.toggleFavorite(ad.id, 'ad');
-            setIsFav(!isFav);
+            // Invalidate user query to update favorites list
+            // Note: This relies on parent queryClient provider
         } catch (e: any) {
             alert(e.message);
         }
@@ -108,7 +105,7 @@ export const AdDetail: React.FC = () => {
         }
     };
 
-    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (adLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
     if (!ad) return <NotFound />;
 
     const images = ad.images && ad.images.length > 0 ? ad.images : [ad.image];

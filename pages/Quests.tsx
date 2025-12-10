@@ -1,30 +1,20 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { api } from '../services/api';
 import { Quest } from '../types';
 import { Button } from '../components/ui/Common';
 import { Map, Loader2, Navigation, CheckCircle2, Trophy } from 'lucide-react';
 import { YandexMap } from '../components/YandexMap';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const Quests: React.FC = () => {
-    const [quests, setQuests] = useState<Quest[]>([]);
-    const [loading, setLoading] = useState(true);
     const [checking, setChecking] = useState(false);
+    const queryClient = useQueryClient();
 
-    const loadData = async () => {
-        try {
-            const data = await api.getQuests();
-            setQuests(data);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { data: quests = [], isLoading } = useQuery({
+        queryKey: ['quests'],
+        queryFn: api.getQuests
+    });
 
     const handleCheckIn = (quest: Quest) => {
         setChecking(true);
@@ -40,7 +30,7 @@ export const Quests: React.FC = () => {
                 try {
                     const reward = await api.completeQuest(quest.id, latitude, longitude);
                     alert(`🎉 Квест пройден! Вы получили ${reward} XP!`);
-                    loadData(); // Refresh state
+                    queryClient.invalidateQueries({ queryKey: ['quests'] });
                 } catch (e: any) {
                     alert(e.message);
                 } finally {
@@ -55,19 +45,19 @@ export const Quests: React.FC = () => {
     };
 
     const handleCheat = async (quest: Quest) => {
-        // Dev function to test completion without walking to Siberia
+        // Dev function to test completion without walking
         if (confirm("DEV: Телепортироваться к цели и пройти квест?")) {
              try {
                 const reward = await api.completeQuest(quest.id, quest.lat, quest.lng);
                 alert(`🎉 Квест пройден! Вы получили ${reward} XP!`);
-                loadData();
+                queryClient.invalidateQueries({ queryKey: ['quests'] });
              } catch (e: any) {
                  alert(e.message);
              }
         }
     };
 
-    if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
     const completedCount = quests.filter(q => q.isCompleted).length;
     const progress = Math.round((completedCount / quests.length) * 100) || 0;

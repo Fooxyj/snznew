@@ -76,6 +76,8 @@ export interface Business {
   phone: string;
   workHours: string;
   authorId?: string;
+  inn?: string;
+  ogrn?: string;
 }
 
 export interface Product {
