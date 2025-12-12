@@ -13,6 +13,9 @@ const HARDCODED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 export const SUPABASE_URL = ENV_URL || HARDCODED_URL;
 export const SUPABASE_ANON_KEY = ENV_KEY || HARDCODED_KEY;
 
+// Вставьте ваш ключ от Яндекс Карт сюда, если есть. Иначе будет использоваться демо-режим.
+export const YANDEX_MAPS_API_KEY = (import.meta as any).env?.VITE_YANDEX_MAPS_KEY || '';
+
 // Проверка, настроен ли Supabase
 export const isSupabaseConfigured = () => {
     return SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0 && SUPABASE_ANON_KEY.startsWith('ey');

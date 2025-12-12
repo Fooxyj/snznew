@@ -6,7 +6,7 @@ import {
   Coupon, UserCoupon, Story, Community, CommunityPost, 
   Quest, Order, Product, Service, Booking, RentalItem, 
   RentalBooking, SmartDevice, Transaction, UtilityBill, 
-  Campaign, UserRole, StoryConfig, Employee, AnalyticsData, Table, Report, Suggestion 
+  Campaign, UserRole, StoryConfig, Employee, AnalyticsData, Table, Report, Suggestion, AccessRequest 
 } from '../types';
 import { supabase } from '../lib/supabase';
 import { isSupabaseConfigured } from '../config';
@@ -115,6 +115,24 @@ export const api = {
   ...socialService,
   ...cityService,
 
+  // --- ADMIN HELPER ---
+  async getAdminUserId(): Promise<string | null> {
+      const ADMIN_EMAIL = 'fooxyj@yandex.ru';
+      
+      if (isSupabaseConfigured() && supabase) {
+          try {
+              const { data } = await supabase.from('profiles').select('id').eq('email', ADMIN_EMAIL).single();
+              if (data) return data.id;
+              
+              const { data: adminRole } = await supabase.from('profiles').select('id').eq('role', 'ADMIN').limit(1).single();
+              if (adminRole) return adminRole.id;
+          } catch (e) {
+              console.warn("Could not find specific admin in DB");
+          }
+      }
+      return 'admin_user_id'; 
+  },
+
   async getUserContent(userId: string): Promise<{ ads: Ad[] }> {
     if (isSupabaseConfigured() && supabase) {
         try {
@@ -206,7 +224,6 @@ export const api = {
           return;
       }
       
-      // Mock Fallback
       mockStore.reports.push({
           id: Math.random().toString(),
           userId: user.id,
@@ -223,7 +240,6 @@ export const api = {
   async getReports(): Promise<Report[]> {
       if (isSupabaseConfigured() && supabase) {
           try {
-              // 1. Fetch reports
               const { data: reportsData, error } = await supabase
                   .from('reports')
                   .select('*')
@@ -232,13 +248,11 @@ export const api = {
               if (error) throw error;
               if (!reportsData) return [];
 
-              // 2. Collect User IDs
               const userIds = new Set<string>();
               reportsData.forEach((r: any) => {
                   if (r.user_id) userIds.add(r.user_id);
               });
 
-              // 3. Fetch Profiles
               let profilesMap = new Map();
               if (userIds.size > 0) {
                   const { data: profiles } = await supabase
@@ -251,7 +265,6 @@ export const api = {
                   }
               }
 
-              // 4. Map
               return reportsData.map((r: any) => {
                   const profile = profilesMap.get(r.user_id);
                   return {
@@ -688,6 +701,73 @@ export const api = {
       return URL.createObjectURL(file);
   },
 
+  // --- NOTIFICATIONS (Real Implementation) ---
+  async getNotifications(): Promise<Notification[]> {
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return [];
+      
+      try {
+          const { data } = await supabase
+              .from('notifications')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false });
+              
+          if (data) {
+              return data.map((n: any) => ({
+                  id: n.id,
+                  userId: n.user_id,
+                  type: n.type,
+                  text: n.text,
+                  isRead: n.is_read,
+                  createdAt: n.created_at,
+                  link: n.link
+              }));
+          }
+      } catch (e) {
+          console.error("Error fetching notifications", e);
+      }
+      return [];
+  },
+
+  async subscribeToNotifications(userId: string, callback: (n: Notification) => void) {
+      if (!isSupabaseConfigured() || !supabase) return { unsubscribe: () => {} };
+      
+      const subscription = supabase.channel(`public:notifications:user_id=eq.${userId}`)
+          .on('postgres_changes', 
+              { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, 
+              (payload) => {
+                  const n = payload.new as any;
+                  if (n) {
+                      callback({
+                          id: n.id,
+                          userId: n.user_id,
+                          type: n.type,
+                          text: n.text,
+                          isRead: n.is_read,
+                          createdAt: n.created_at,
+                          link: n.link
+                      });
+                  }
+              }
+          )
+          .subscribe();
+          
+      return { unsubscribe: () => supabase?.removeChannel(subscription) };
+  },
+
+  async markNotificationRead(id: string): Promise<void> {
+      if (isSupabaseConfigured() && supabase) {
+          await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+      }
+  },
+
+  async deleteNotification(id: string): Promise<void> {
+      if (isSupabaseConfigured() && supabase) {
+          await supabase.from('notifications').delete().eq('id', id);
+      }
+  },
+
   // --- ECONOMY & MISC ---
   async getCoupons(): Promise<Coupon[]> { return []; },
   async getMyCoupons(): Promise<UserCoupon[]> { return []; },
@@ -735,11 +815,6 @@ export const api = {
       }
       return { ads: [], businesses: [], news: [] }; 
   },
-
-  async getNotifications(): Promise<Notification[]> { return []; },
-  async subscribeToNotifications(uid: string, cb: any) { return { unsubscribe: () => {} }; },
-  async markNotificationRead(id: string) {},
-  async deleteNotification(id: string) {},
   
   async getVacancies() { return []; },
   async createVacancy(d: any) {},

@@ -78,6 +78,7 @@ export interface Business {
   authorId?: string;
   inn?: string;
   ogrn?: string;
+  canPostStories?: boolean; // Permission flag
 }
 
 export interface Product {
@@ -164,6 +165,7 @@ export interface Conversation {
   partnerName: string;
   partnerAvatar: string;
   lastMessageDate?: string;
+  lastMessageText?: string;
 }
 
 export interface Message {
@@ -311,6 +313,7 @@ export interface Story {
   createdAt: string;
   authorName?: string;
   authorAvatar?: string;
+  status?: 'published' | 'pending' | 'rejected';
   viewers?: { name: string; avatar: string }[]; 
 }
 
@@ -333,6 +336,17 @@ export interface Report {
   targetType: string;
   reason: string;
   status: 'new' | 'resolved' | 'dismissed';
+  createdAt: string;
+}
+
+// New Interface for Access Requests
+export interface AccessRequest {
+  id: string;
+  businessId: string;
+  businessName: string;
+  userId: string;
+  userName: string;
+  message: string;
   createdAt: string;
 }
 

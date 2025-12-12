@@ -4,7 +4,7 @@ import { NavLink, useLocation, Link, useNavigate, useSearchParams } from 'react-
 import { 
   Menu, X, Home, Newspaper, ShoppingBag, Coffee, Film, Map, 
   Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Briefcase, 
-  User as UserIcon, Bell, Search, PlusCircle, LogIn, LogOut, MessageCircle, HelpCircle, Car, Gift, Users, Flag, Settings, Moon, Sun, Trophy, ShoppingCart, Truck, Heart, Repeat, Key, ChevronLeft, ArrowUp, Calendar, ChevronDown, ChevronRight, Droplets, Wrench, Building2, Trash2, Lightbulb, MessageSquare
+  User as UserIcon, Bell, Search, PlusCircle, LogIn, LogOut, MessageCircle, HelpCircle, Car, Gift, Users, Flag, Settings, Moon, Sun, Trophy, ShoppingCart, Truck, Heart, Repeat, Key, ChevronLeft, ArrowUp, Calendar, ChevronDown, ChevronRight, Droplets, Wrench, Building2, Trash2, Lightbulb, MessageSquare, AlertTriangle, Eye
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CATALOG_MENU, SERVICES_MENU } from '../constants';
@@ -17,8 +17,27 @@ import { supabase } from '../lib/supabase';
 import { isSupabaseConfigured } from '../config';
 import { SuggestIdeaModal } from './SuggestIdeaModal';
 
+// Simple cloud fallback if not imported
+const Cloud: React.FC<any> = (props) => (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      width="24" 
+      height="24" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      {...props}
+    >
+        <path d="M17.5 19c0-1.7-1.3-3-3-3h-1.1c-.2-3.1-2.8-5.5-5.9-5.5C4 10.5 1.5 13 1.5 16.1c0 2.2 1.3 4 3.2 4.9" />
+        <path d="M17.5 19c2.5 0 4.5-2 4.5-4.5S20 10 17.5 10c-.5 0-.9.1-1.3.2" />
+    </svg>
+);
+
 const ICON_MAP: Record<string, React.FC<any>> = {
-  Newspaper, ShoppingBag, Coffee, Film, Map, Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Key, Truck, Car, Droplets, Wrench, Building2, HelpCircle, Briefcase, Repeat, Users, Heart, Flag, Trophy, Gift, MessageCircle
+  Newspaper, ShoppingBag, Coffee, Film, Map, Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Key, Truck, Car, Droplets, Wrench, Building2, HelpCircle, Briefcase, Repeat, Users, Heart, Flag, Trophy, Gift, MessageCircle, AlertTriangle, Home, Eye, Calendar, Cloud: Cloud
 };
 
 interface NavItemProps {
@@ -62,11 +81,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const mainRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
-  // --- REACT QUERY STATE ---
   const { data: user } = useQuery({
     queryKey: ['user'],
     queryFn: api.getCurrentUser,
-    staleTime: 1000 * 60 * 5 // Refresh user data every 5 mins to catch updates
+    staleTime: 1000 * 60 * 5 
   });
 
   const { data: myBusiness } = useQuery({
@@ -86,113 +104,70 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     queryKey: ['chatUnread'],
     queryFn: api.getUnreadChatsCount,
     enabled: !!user,
-    initialData: 0
+    initialData: 0,
+    staleTime: 0 
   });
 
   const hasBusiness = !!myBusiness;
 
-  // --- EFFECTS ---
-
-  // REAL-TIME SUBSCRIPTIONS
   useEffect(() => {
     if (!isSupabaseConfigured() || !supabase) return;
-
-    // Listen for global changes to critical tables to trigger instant UI updates
+    
+    // Global subscription to update counters and data
     const channel = supabase.channel('global-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ads' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['ads'] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stories' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['stories'] });
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ads' }, () => queryClient.invalidateQueries({ queryKey: ['ads'] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stories' }, () => queryClient.invalidateQueries({ queryKey: ['stories'] }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => {
         queryClient.invalidateQueries({ queryKey: ['businesses'] });
-        queryClient.invalidateQueries({ queryKey: ['myBusinesses'] });
         queryClient.invalidateQueries({ queryKey: ['myBusiness'] });
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['news'] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'suggestions' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['suggestions'] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['reports'] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_schedules' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['transport'] });
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, () => queryClient.invalidateQueries({ queryKey: ['news'] }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['chatUnread'] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['user'] });
+          // When ANY message changes (insert or update like is_read), invalidate queries to refresh UI
+          queryClient.invalidateQueries({ queryKey: ['chatUnread'] });
+          queryClient.invalidateQueries({ queryKey: ['messages'] }); 
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
       })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
-  // Sync Search with URL
   useEffect(() => {
     const q = searchParams.get('q');
     if (q) setSearchQuery(q);
     else if (location.pathname !== '/search') setSearchQuery('');
   }, [searchParams, location.pathname]);
 
-  // Notifications Subscription
   useEffect(() => {
     let subPromise: Promise<{ unsubscribe: () => void }> | null = null;
-
     if (user) {
-        // Subscribe to real-time notifications
         subPromise = api.subscribeToNotifications(user.id, (n) => {
             queryClient.setQueryData(['notifications'], (old: Notification[] = []) => [n, ...old]);
             showToast(n.text);
         });
     }
-
-    return () => {
-        if (subPromise) {
-            subPromise.then(sub => sub.unsubscribe());
-        }
-    };
+    return () => { if (subPromise) subPromise.then(sub => sub.unsubscribe()); };
   }, [user, queryClient]);
 
-  // Scroll listener
   useEffect(() => {
     const handleScroll = () => {
         if (mainRef.current) {
-            if (mainRef.current.scrollTop > 300) {
-                setShowScrollTop(true);
-            } else {
-                setShowScrollTop(false);
-            }
+            if (mainRef.current.scrollTop > 300) setShowScrollTop(true);
+            else setShowScrollTop(false);
         }
     };
-
     const el = mainRef.current;
-    if (el) {
-        el.addEventListener('scroll', handleScroll);
-    }
+    if (el) el.addEventListener('scroll', handleScroll);
     return () => el?.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Scroll to top on route change - INSTANTLY
   useEffect(() => {
-      if (mainRef.current) {
-          mainRef.current.scrollTo({ top: 0, behavior: 'instant' });
-      }
+      if (mainRef.current) mainRef.current.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.pathname]);
 
-  // --- HANDLERS ---
-
   const scrollToTop = () => {
-      if (mainRef.current) {
-          mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      if (mainRef.current) mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const showToast = (msg: string) => {
@@ -202,12 +177,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   const handleLogout = async () => {
     await api.signOut();
-    // Invalidate queries to clear user data
     await queryClient.invalidateQueries({ queryKey: ['user'] });
-    await queryClient.invalidateQueries({ queryKey: ['myBusiness'] });
-    await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    
-    setOpenMenus([]); // Reset menus on logout
+    setOpenMenus([]);
     navigate('/auth');
     setIsSidebarOpen(false);
   };
@@ -223,7 +194,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const handleNotifClick = async () => {
       setShowNotif(!showNotif);
       if (!showNotif && user) {
-          // Optimistic update for read status
           const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
           if (unreadIds.length > 0) {
               unreadIds.forEach(id => api.markNotificationRead(id));
@@ -243,13 +213,28 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       );
   };
 
+  const handleBack = () => {
+      if (location.pathname.startsWith('/news/')) {
+          navigate('/news');
+      } else {
+          navigate(-1);
+      }
+  };
+
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const closeSidebar = () => setIsSidebarOpen(false);
+  const resetMenus = () => { setOpenMenus([]); setIsSidebarOpen(false); };
   
-  // Closes all submenus and the mobile sidebar
-  const resetMenus = () => {
-      setOpenMenus([]);
-      setIsSidebarOpen(false);
+  const handleFeedbackClick = () => {
+      if (!user) {
+          if (confirm('Для отправки сообщения необходимо войти в систему. Перейти к входу?')) {
+              closeSidebar();
+              navigate('/auth');
+          }
+          return;
+      }
+      setIsIdeaModalOpen(true);
+      closeSidebar();
   };
   
   const isActive = (path: string) => location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
@@ -265,7 +250,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           const Icon = ICON_MAP[item.icon as string] || Home;
           const isOpen = openMenus.includes(item.id);
           const isItemActive = item.path ? isActive(item.path) : false;
-          // Check if any child is active to highlight parent
           const isChildActive = item.submenu.some((sub: any) => isActive(sub.path));
           
           return (
@@ -342,7 +326,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-gray-900 flex transition-colors duration-200 font-sans">
       <SuggestIdeaModal isOpen={isIdeaModalOpen} onClose={() => setIsIdeaModalOpen(false)} />
 
-      {/* Toast Notification */}
       {toast && (
           <div className="fixed top-24 right-6 z-[100] bg-white dark:bg-gray-800 border-0 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-4 flex items-center gap-4 animate-slide-in max-w-sm">
              <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
@@ -355,24 +338,22 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </div>
       )}
 
-      {/* Backdrop for closing dropdowns */}
       {showNotif && (
           <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowNotif(false)} />
       )}
 
-      {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 w-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-40 px-4 py-3 flex items-center justify-between h-[64px]">
+      {/* Mobile Header - Increased Z-index and Opacity */}
+      <div className="lg:hidden fixed top-0 w-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-[90] px-4 py-3 flex items-center justify-between h-[64px] shadow-sm">
         {isHome ? (
             <button onClick={toggleSidebar} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl h-10 w-10 flex items-center justify-center shrink-0">
                 <Menu className="w-6 h-6" />
             </button>
         ) : (
-            <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl h-10 w-10 flex items-center justify-center shrink-0">
+            <button onClick={handleBack} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl h-10 w-10 flex items-center justify-center shrink-0">
                 <ChevronLeft className="w-6 h-6" />
             </button>
         )}
         
-        {/* Mobile Search Input */}
         <form onSubmit={handleSearch} className="flex-1 mx-3 relative flex items-center h-10">
              <input 
                 type="text" 
@@ -394,7 +375,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 {unreadNotifCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>}
             </div>
 
-            {/* Mobile Notification Dropdown */}
             {showNotif && (
                 <div className="absolute top-12 right-0 w-72 max-w-[90vw] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden animate-in zoom-in-95 duration-200">
                     {renderNotificationList()}
@@ -403,17 +383,16 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
       </div>
 
-      {/* Overlay */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[60] lg:hidden"
+          className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[100] lg:hidden"
           onClick={closeSidebar}
         />
       )}
 
-      {/* Sidebar (Desktop + Mobile Drawer) */}
+      {/* Sidebar */}
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-[70] w-72 bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-800 transform transition-transform duration-300 cubic-bezier(0.4, 0, 0.2, 1)
+        fixed lg:static inset-y-0 left-0 z-[110] w-72 bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-800 transform transition-transform duration-300 cubic-bezier(0.4, 0, 0.2, 1)
         ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
         flex flex-col h-full
       `}>
@@ -436,15 +415,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </div>
           
           <NavItem to="/category/shops" icon={ShoppingBag} label="Магазины" active={isActive('/category/shops')} onClick={resetMenus} />
-
           {renderMenuSection(CATALOG_MENU)}
-
           <NavItem to="/category/emergency" icon={Siren} label="Экстренные службы" active={isActive('/category/emergency')} onClick={resetMenus} />
 
           <div className="mt-6 mb-2 px-3 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
             Сервисы
           </div>
-          
           {renderMenuSection(SERVICES_MENU)}
 
           <div className="pt-6 pb-4">
@@ -472,7 +448,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         
         <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 shrink-0">
             <button 
-                onClick={() => { setIsIdeaModalOpen(true); closeSidebar(); }}
+                onClick={handleFeedbackClick}
                 className="flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors w-full p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 mb-1"
             >
                 <MessageSquare className="w-4 h-4 mr-3" /> Обратная связь
@@ -497,15 +473,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       {/* Main Content Wrapper */}
       <div className="flex-1 flex flex-col min-w-0 h-screen relative">
           {/* Desktop Header */}
-          <header className="hidden lg:flex items-center justify-between bg-white/80 dark:bg-gray-900/80 backdrop-blur-md h-20 px-8 z-30 sticky top-0 transition-colors duration-200">
-             {/* Left side with Back button if not home */}
+          <header className="hidden lg:flex items-center justify-between bg-white/95 dark:bg-gray-900/95 backdrop-blur-md h-20 px-8 z-30 sticky top-0 transition-colors duration-200 shadow-sm border-b dark:border-gray-800">
              <div className="flex items-center gap-4 flex-1">
                  {!isHome && (
-                     <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">
+                     <button onClick={handleBack} className="p-2 -ml-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">
                          <ChevronLeft className="w-5 h-5" />
                      </button>
                  )}
-                 {/* Search */}
                  <form onSubmit={handleSearch} className="flex-1 max-w-xl relative group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
                     <input 
@@ -518,7 +492,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                  </form>
              </div>
 
-             {/* Right Actions */}
              <div className="flex items-center space-x-5 ml-6">
                 <div className="flex items-center space-x-2 relative">
                     <Link to="/cart" className="relative p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-blue-600 transition-colors">
@@ -530,16 +503,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         <>
                             <Link to="/chat" className="relative p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-blue-600 transition-colors">
                                 <MessageCircle className="w-6 h-6" />
-                                {chatUnreadCount > 0 && <span className="absolute top-2.5 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900"></span>}
+                                {chatUnreadCount > 0 && <span className="absolute top-2.5 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900 animate-pulse"></span>}
                             </Link>
                             
-                            {/* Notification Bell */}
                             <div className="relative p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-gray-500 hover:text-blue-600 transition-colors" onClick={handleNotifClick}>
                                 <Bell className="w-6 h-6" />
                                 {unreadNotifCount > 0 && <span className="absolute top-2.5 right-3 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900 animate-pulse"></span>}
                             </div>
 
-                            {/* Desktop Notification Dropdown */}
                             {showNotif && (
                                 <div className="absolute top-14 right-0 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700 z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200">
                                     {renderNotificationList()}
@@ -565,15 +536,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
              </div>
           </header>
 
-          {/* Main Scrollable Area */}
           <main 
             ref={mainRef}
-            className="flex-1 overflow-y-auto overflow-x-hidden pt-[72px] lg:pt-0 pb-20 lg:pb-0 bg-[#F8FAFC] dark:bg-gray-900 transition-colors duration-200"
+            className="flex-1 overflow-y-auto overflow-x-hidden pt-[64px] lg:pt-0 pb-20 lg:pb-0 bg-[#F8FAFC] dark:bg-gray-900 transition-colors duration-200"
           >
             {children}
           </main>
 
-          {/* Scroll To Top Button */}
           <button 
             onClick={scrollToTop}
             className={`fixed bottom-24 right-4 lg:bottom-10 lg:right-10 z-[60] bg-blue-600/90 hover:bg-blue-700 text-white p-3 rounded-full shadow-xl transition-all duration-300 backdrop-blur-sm ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
@@ -582,8 +551,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </button>
       </div>
 
-      {/* Mobile Bottom Navigation */}
-      <div className="lg:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 z-50 flex justify-around py-3 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+      <div className="lg:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 z-[60] flex justify-around py-3 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <NavLink 
             to="/" 
             onClick={resetMenus}
@@ -598,7 +566,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <ShoppingBag className="w-6 h-6 mb-1" strokeWidth={isActive ? 2.5 : 2} />
         </NavLink>
         
-        {/* Central Burger Menu Button */}
         <div className="relative -top-6 cursor-pointer" onClick={toggleSidebar}>
             <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-500/40 border-4 border-white dark:border-gray-900 transition-transform active:scale-95">
                 <Building2 className="w-7 h-7" />

@@ -1,22 +1,30 @@
 
 import React from 'react';
 import { api } from '../services/api';
-import { Loader2, Wind, Droplets, Gauge, Cloud, CloudSun, Sun, CloudRain, Snowflake, CloudFog, CloudLightning } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { Loader2, Wind, Droplets, Gauge, Cloud, CloudSun, Sun, CloudRain, Snowflake, CloudFog, CloudLightning, RefreshCw } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Button } from '../components/ui/Common';
 
 export const Weather: React.FC = () => {
+    const queryClient = useQueryClient();
     
-    const { data: weather, isLoading: wLoading } = useQuery({
+    const { data: weather, isLoading: wLoading, isError: wError, refetch: refetchWeather } = useQuery({
         queryKey: ['weather'],
         queryFn: api.getWeather
     });
 
-    const { data: forecast = [], isLoading: fLoading } = useQuery({
+    const { data: forecast = [], isLoading: fLoading, isError: fError, refetch: refetchForecast } = useQuery({
         queryKey: ['weatherForecast'],
         queryFn: api.getWeatherForecast
     });
 
     const loading = wLoading || fLoading;
+    const hasError = wError || fError;
+
+    const handleRefresh = () => {
+        refetchWeather();
+        refetchForecast();
+    };
 
     const getWeatherIcon = (code: number, className: string = "w-12 h-12") => {
         // WMO Weather interpretation codes (0-99)
@@ -53,9 +61,14 @@ export const Weather: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8 pb-24">
-            <h1 className="text-2xl font-bold mb-6 dark:text-white flex items-center gap-3">
-                {getWeatherIcon(weather?.code || 0, "w-8 h-8")} Погода в Снежинске
-            </h1>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold dark:text-white flex items-center gap-3">
+                    {getWeatherIcon(weather?.code || 0, "w-8 h-8")} Погода в Снежинске
+                </h1>
+                <Button variant="ghost" size="sm" onClick={handleRefresh}>
+                    <RefreshCw className="w-4 h-4" />
+                </Button>
+            </div>
 
             {/* Current Weather Card */}
             <div className="bg-gradient-to-br from-blue-500 to-indigo-600 dark:from-blue-900 dark:to-indigo-950 rounded-3xl p-8 text-white shadow-xl mb-8 relative overflow-hidden">
@@ -101,42 +114,48 @@ export const Weather: React.FC = () => {
             {/* Weekly Forecast with Detailed Data */}
             <h2 className="text-xl font-bold mb-4 dark:text-white">Прогноз на неделю</h2>
             <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden">
-                <div className="divide-y dark:divide-gray-700">
-                    {forecast.map((day: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                            {/* Day & Condition */}
-                            <div className="w-28">
-                                <div className="font-bold text-gray-900 dark:text-white text-lg">{day.day}</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{getWeatherDesc(day.code)}</div>
-                            </div>
-                            
-                            {/* Icon & Rain */}
-                            <div className="flex flex-col items-center justify-center w-16">
-                                {getWeatherIcon(day.code, "w-8 h-8")}
-                                {day.precip > 0 && (
-                                    <div className="flex items-center text-[10px] font-bold text-blue-500 mt-1">
-                                        <Droplets className="w-3 h-3 mr-0.5" /> {day.precip}%
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Wind */}
-                            <div className="flex flex-col items-center justify-center w-16 text-sm text-gray-600 dark:text-gray-300">
-                                <div className="flex items-center gap-1">
-                                    <Wind className="w-4 h-4 opacity-50" />
-                                    <span>{day.wind}</span>
+                {forecast.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                        {hasError ? 'Не удалось загрузить прогноз. Проверьте соединение.' : 'Данные о прогнозе временно недоступны.'}
+                    </div>
+                ) : (
+                    <div className="divide-y dark:divide-gray-700">
+                        {forecast.map((day: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                {/* Day & Condition */}
+                                <div className="w-28">
+                                    <div className="font-bold text-gray-900 dark:text-white text-lg">{day.day}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{getWeatherDesc(day.code)}</div>
                                 </div>
-                                <span className="text-[10px] text-gray-400">м/с</span>
-                            </div>
+                                
+                                {/* Icon & Rain */}
+                                <div className="flex flex-col items-center justify-center w-16">
+                                    {getWeatherIcon(day.code, "w-8 h-8")}
+                                    {day.precip > 0 && (
+                                        <div className="flex items-center text-[10px] font-bold text-blue-500 mt-1">
+                                            <Droplets className="w-3 h-3 mr-0.5" /> {day.precip}%
+                                        </div>
+                                    )}
+                                </div>
 
-                            {/* Temperatures */}
-                            <div className="w-20 text-right">
-                                <div className="font-bold text-gray-900 dark:text-white text-lg">{day.tempDay > 0 ? '+' : ''}{day.tempDay}°</div>
-                                <div className="text-sm text-gray-500 dark:text-gray-400">{day.tempNight > 0 ? '+' : ''}{day.tempNight}°</div>
+                                {/* Wind */}
+                                <div className="flex flex-col items-center justify-center w-16 text-sm text-gray-600 dark:text-gray-300">
+                                    <div className="flex items-center gap-1">
+                                        <Wind className="w-4 h-4 opacity-50" />
+                                        <span>{day.wind}</span>
+                                    </div>
+                                    <span className="text-[10px] text-gray-400">м/с</span>
+                                </div>
+
+                                {/* Temperatures */}
+                                <div className="w-20 text-right">
+                                    <div className="font-bold text-gray-900 dark:text-white text-lg">{day.tempDay > 0 ? '+' : ''}{day.tempDay}°</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">{day.tempNight > 0 ? '+' : ''}{day.tempNight}°</div>
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

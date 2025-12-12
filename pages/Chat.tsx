@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Conversation, Message, User } from '../types';
+import { Message } from '../types';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Send, User as UserIcon, Loader2, MessageCircle, ArrowRight, Paperclip, Check, CheckCheck, FileIcon } from 'lucide-react';
+import { Send, Loader2, MessageCircle, Paperclip, Check, CheckCheck, ChevronLeft } from 'lucide-react';
 
 export const ChatPage: React.FC = () => {
     const [activeChat, setActiveChat] = useState<string | null>(null);
@@ -12,7 +13,7 @@ export const ChatPage: React.FC = () => {
     
     const [searchParams] = useSearchParams();
     const urlChatId = searchParams.get('id');
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messageContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     
     const queryClient = useQueryClient();
@@ -27,45 +28,58 @@ export const ChatPage: React.FC = () => {
     const { data: conversations = [], isLoading: convosLoading } = useQuery({
         queryKey: ['conversations'],
         queryFn: api.getConversations,
-        enabled: !!currentUser
+        enabled: !!currentUser,
+        // Poll for new conversations or last message updates
+        refetchInterval: 5000
     });
 
-    // Handle URL param selection
+    // Handle URL param selection only explicitly
     useEffect(() => {
         if (urlChatId) {
             setActiveChat(urlChatId);
-        } else if (conversations.length > 0 && !activeChat) {
-            setActiveChat(conversations[0].id);
         }
-    }, [urlChatId, conversations]);
+    }, [urlChatId]);
 
     // Fetch Messages
     const { data: messages = [] } = useQuery({
         queryKey: ['messages', activeChat],
         queryFn: () => api.getMessages(activeChat!),
         enabled: !!activeChat,
-        // Short poll as fallback if subscriptions fail
-        refetchInterval: 5000 
+        // Short polling is good backup if realtime socket drops
+        refetchInterval: 3000 
     });
 
-    // Mark as Read Effect - Trigger only when unread messages from partner exist
-    useEffect(() => {
+    const markReadIfNeeded = useCallback(() => {
         if (activeChat && messages.length > 0 && currentUser) {
             const hasUnreadFromPartner = messages.some(m => m.senderId !== currentUser.id && !m.isRead);
             if (hasUnreadFromPartner) {
                 api.markMessagesAsRead(activeChat);
+                // We invalidate strictly to ensure UI update
+                queryClient.invalidateQueries({ queryKey: ['conversations'] });
             }
         }
-    }, [activeChat, messages, currentUser]);
+    }, [activeChat, messages, currentUser, queryClient]);
+
+    // MARK AS READ LOGIC
+    useEffect(() => {
+        markReadIfNeeded();
+    }, [markReadIfNeeded]);
+
+    // Also mark read on window focus (in case user came back to tab)
+    useEffect(() => {
+        const onFocus = () => markReadIfNeeded();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
+    }, [markReadIfNeeded]);
 
     // Send Message Mutation
     const sendMessageMutation = useMutation({
         mutationFn: (text: string) => api.sendMessage(activeChat!, text),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['messages', activeChat] });
-            queryClient.invalidateQueries({ queryKey: ['conversations'] }); // Update last msg time
+            // Optimistic update handled by Realtime, but invalidation ensures consistency
+            queryClient.invalidateQueries({ queryKey: ['conversations'] });
             setNewMessage('');
-            setTimeout(scrollToBottom, 100);
+            setTimeout(scrollToBottom, 50);
         }
     });
 
@@ -76,28 +90,26 @@ export const ChatPage: React.FC = () => {
         let unsub: () => void;
         const setupSub = async () => {
             const sub = await api.subscribeToMessages(activeChat, (msg) => {
-                // If the message is an update (e.g. read status changed), update existing
-                // If it's new, append it
                 queryClient.setQueryData(['messages', activeChat], (old: Message[] | undefined) => {
                     if (!old) return [msg];
                     
                     const existingIdx = old.findIndex(m => m.id === msg.id);
                     if (existingIdx !== -1) {
-                        // Update existing message (e.g. status changed to read)
                         const newArr = [...old];
+                        // Update existing message (e.g. status changed to read)
                         newArr[existingIdx] = { ...newArr[existingIdx], ...msg };
                         return newArr;
                     }
-                    
+                    // Add new message
                     return [...old, msg];
                 });
                 
-                // If I am active on this chat and a new message comes in, mark it read
+                // If I receive a message while looking at the chat, mark it read immediately
                 if (!msg.isRead && msg.senderId !== currentUser?.id) {
                     api.markMessagesAsRead(activeChat);
                 }
 
-                setTimeout(scrollToBottom, 100);
+                setTimeout(scrollToBottom, 50);
             });
             unsub = sub.unsubscribe;
         };
@@ -108,13 +120,15 @@ export const ChatPage: React.FC = () => {
         };
     }, [activeChat, queryClient, currentUser]);
 
-    // Scroll effect
+    // Scroll effect for new messages
     useEffect(() => {
         scrollToBottom();
     }, [messages.length, activeChat]);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (messageContainerRef.current) {
+            messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+        }
     };
 
     const handleSend = async (e: React.FormEvent) => {
@@ -140,7 +154,6 @@ export const ChatPage: React.FC = () => {
     };
 
     const renderMessageContent = (text: string) => {
-        // 1. Try parse JSON for "Ad Card"
         try {
             if (text.trim().startsWith('{') && text.trim().endsWith('}')) {
                 const data = JSON.parse(text);
@@ -151,9 +164,6 @@ export const ChatPage: React.FC = () => {
                                 <img src={data.image} alt="" className="w-full h-32 object-cover rounded-lg mb-2" />
                                 <div className="font-bold text-gray-900 dark:text-white line-clamp-1">{data.title}</div>
                                 <div className="text-blue-600 dark:text-blue-400 font-bold mb-1">{data.price}</div>
-                                {data.description && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">{data.description}</p>
-                                )}
                                 <Link to={`/ad/${data.adId}`} className="block w-full bg-white dark:bg-gray-600 text-center py-2 rounded-lg text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors">
                                     Открыть объявление
                                 </Link>
@@ -164,10 +174,9 @@ export const ChatPage: React.FC = () => {
                 }
             }
         } catch (e) {
-            // ignore JSON parse error, treat as text
+            // ignore
         }
 
-        // 2. Standard Text / Image rendering
         const lines = text.split('\n');
         return lines.map((line, idx) => {
             const isImageUrl = line.match(/^https?:\/\/.*\.(jpg|jpeg|png|webp|gif|bmp)$/i) || line.includes('picsum.photos') || line.includes('ui-avatars.com') || (line.startsWith('blob:') && !line.includes(' '));
@@ -185,13 +194,19 @@ export const ChatPage: React.FC = () => {
     const StatusIcon = ({ isRead, isMe }: { isRead?: boolean, isMe: boolean }) => {
         if (!isMe) return null;
         
-        // Read: Double check, bright color (cyan/white)
         if (isRead) {
-            return <CheckCheck className="w-4 h-4 text-cyan-300" strokeWidth={2.5} />;
+            return (
+                <div className="flex -space-x-1.5 text-blue-500 dark:text-blue-400 animate-in zoom-in duration-300" title="Прочитано">
+                    <CheckCheck className="w-3.5 h-3.5" strokeWidth={2.5} />
+                </div>
+            );
         }
         
-        // Sent: Single check, dimmer color
-        return <Check className="w-4 h-4 text-blue-200/80" strokeWidth={2} />;
+        return (
+            <div title="Отправлено (не прочитано)">
+                <Check className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" strokeWidth={2} />
+            </div>
+        );
     };
 
     if (convosLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
@@ -200,50 +215,68 @@ export const ChatPage: React.FC = () => {
     const activeConvo = conversations.find(c => c.id === activeChat);
 
     return (
-        <div className="flex h-[calc(100vh-64px)] bg-white dark:bg-gray-900">
+        <div className="flex h-full bg-white dark:bg-gray-900 overflow-hidden relative">
             {/* Sidebar List */}
-            <div className={`w-full md:w-80 border-r dark:border-gray-700 flex flex-col ${activeChat ? 'hidden md:flex' : 'flex'}`}>
-                <div className="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                    <h2 className="font-bold text-gray-700 dark:text-white">Сообщения</h2>
+            <div className={`w-full md:w-80 border-r dark:border-gray-700 flex flex-col h-full absolute inset-0 md:static z-20 bg-white dark:bg-gray-900 transition-transform duration-300 ${activeChat ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
+                <div className="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0">
+                    <h2 className="font-bold text-gray-700 dark:text-white text-lg">Сообщения</h2>
                 </div>
                 <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-900">
                     {conversations.length === 0 ? (
-                        <p className="text-gray-500 dark:text-gray-400 text-center py-10 text-sm">Нет активных диалогов</p>
+                        <div className="flex flex-col items-center justify-center h-full text-center p-6">
+                            <MessageCircle className="w-12 h-12 text-gray-300 mb-2" />
+                            <p className="text-gray-500 dark:text-gray-400 text-sm">Нет активных диалогов</p>
+                        </div>
                     ) : (
-                        conversations.map(c => (
-                            <div 
-                                key={c.id}
-                                onClick={() => setActiveChat(c.id)}
-                                className={`p-4 border-b dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3 transition-colors ${activeChat === c.id ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500' : ''}`}
-                            >
-                                <img src={c.partnerAvatar} alt="" className="w-12 h-12 rounded-full object-cover bg-gray-200 dark:bg-gray-700" />
-                                <div className="min-w-0">
-                                    <h4 className="font-medium text-gray-900 dark:text-white truncate">{c.partnerName}</h4>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">{c.lastMessageDate}</p>
+                        conversations.map((c, idx) => {
+                            const isSelected = activeChat === c.id;
+                            return (
+                                <div 
+                                    key={c.id}
+                                    onClick={() => setActiveChat(c.id)}
+                                    className={`p-4 border-b dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3 transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500' : 'border-l-4 border-l-transparent'}`}
+                                >
+                                    <div className="relative">
+                                        <img src={c.partnerAvatar} alt="" className="w-12 h-12 rounded-full object-cover bg-gray-200 dark:bg-gray-700" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <h4 className="font-medium text-gray-900 dark:text-white truncate">{c.partnerName}</h4>
+                                            <span className="text-[10px] text-gray-400">{c.lastMessageDate}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <p className={`text-xs truncate max-w-[90%] text-gray-500 dark:text-gray-400`}>
+                                                {c.lastMessageText || 'Нет сообщений'}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             </div>
 
             {/* Chat Window */}
-            <div className={`flex-1 flex flex-col ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
+            <div className={`w-full md:flex-1 flex flex-col h-full absolute inset-0 md:static z-30 bg-white dark:bg-gray-900 transition-transform duration-300 ${activeChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
                 {activeChat && activeConvo ? (
                     <>
                         {/* Chat Header */}
-                        <div className="p-4 border-b dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800 shadow-sm z-10">
+                        <div className="p-3 lg:p-4 border-b dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800 shadow-sm z-30 shrink-0 h-[64px] lg:h-auto">
                             <div className="flex items-center gap-3">
-                                <button className="md:hidden text-gray-500 dark:text-gray-300" onClick={() => setActiveChat(null)}>
-                                    <ArrowRight className="w-5 h-5 rotate-180" />
+                                <button className="md:hidden text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-full" onClick={() => setActiveChat(null)}>
+                                    <ChevronLeft className="w-6 h-6" />
                                 </button>
                                 <img src={activeConvo.partnerAvatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-                                <span className="font-bold text-gray-800 dark:text-white">{activeConvo.partnerName}</span>
+                                <span className="font-bold text-gray-800 dark:text-white truncate max-w-[200px]">{activeConvo.partnerName}</span>
                             </div>
                         </div>
 
-                        {/* Messages Area */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-gray-900/50">
+                        {/* Messages Area - constrained scroll */}
+                        <div 
+                            ref={messageContainerRef}
+                            className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-gray-900/50 scroll-smooth"
+                        >
                             {messages.map(m => {
                                 const isMe = m.senderId === currentUser.id;
                                 return (
@@ -258,11 +291,10 @@ export const ChatPage: React.FC = () => {
                                     </div>
                                 );
                             })}
-                            <div ref={messagesEndRef} />
                         </div>
 
                         {/* Input Area */}
-                        <form onSubmit={handleSend} className="p-3 bg-white dark:bg-gray-800 border-t dark:border-gray-700 flex gap-2 items-center">
+                        <form onSubmit={handleSend} className="p-3 bg-white dark:bg-gray-800 border-t dark:border-gray-700 flex gap-2 items-center shrink-0 safe-area-pb">
                             <input 
                                 type="file" 
                                 ref={fileInputRef} 
@@ -294,9 +326,12 @@ export const ChatPage: React.FC = () => {
                         </form>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600">
-                        <MessageCircle className="w-20 h-20 mb-4 opacity-20" />
-                        <p>Выберите собеседника для начала общения</p>
+                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 bg-slate-50 dark:bg-gray-900/50 hidden md:flex">
+                        <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-full mb-4">
+                            <MessageCircle className="w-16 h-16 opacity-30" />
+                        </div>
+                        <p className="text-lg font-medium">Выберите чат</p>
+                        <p className="text-sm opacity-70">чтобы начать общение</p>
                     </div>
                 )}
             </div>

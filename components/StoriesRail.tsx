@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../services/api';
-import { Story, User, UserRole, StoryElement } from '../types';
+import { Story, User, UserRole, StoryElement, Business } from '../types';
 import { Plus, X, Upload, Loader2, Eye, ChevronDown, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { StoryEditor } from './StoryEditor';
@@ -16,12 +16,16 @@ const ViewersList: React.FC<{ viewers: {name: string, avatar: string}[]; onClose
                     <button onClick={onClose}><X className="w-5 h-5 text-gray-500" /></button>
                 </div>
                 <div className="space-y-3">
-                    {viewers.map((v, i) => (
-                        <Link to="/profile" key={i} className="flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors">
-                            <img src={v.avatar} className="w-10 h-10 rounded-full object-cover bg-gray-200" alt="" />
-                            <span className="font-medium text-gray-900 dark:text-white">{v.name}</span>
-                        </Link>
-                    ))}
+                    {viewers.length === 0 ? (
+                        <p className="text-gray-500 text-center py-4">Пока никто не смотрел</p>
+                    ) : (
+                        viewers.map((v, i) => (
+                            <Link to="/profile" key={i} className="flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors">
+                                <img src={v.avatar} className="w-10 h-10 rounded-full object-cover bg-gray-200" alt="" />
+                                <span className="font-medium text-gray-900 dark:text-white">{v.name}</span>
+                            </Link>
+                        ))
+                    )}
                 </div>
             </div>
         </div>
@@ -38,6 +42,7 @@ const StoryViewer: React.FC<{
     const [progress, setProgress] = useState(0);
     const [showViewers, setShowViewers] = useState(false);
     const timerRef = useRef<any>(null);
+    const viewRegisteredRef = useRef<Set<string>>(new Set());
 
     // Swipe handlers
     const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -46,6 +51,33 @@ const StoryViewer: React.FC<{
     const activeStory = stories[currentIndex];
     // Allow owner if IDs match OR if user is admin (simplified check for admin override viewing)
     const isOwner = currentUser && (activeStory.authorId === currentUser.id || currentUser.role === UserRole.ADMIN);
+
+    // Register View Effect
+    useEffect(() => {
+        const registerView = async () => {
+            if (!activeStory || !currentUser) return;
+            
+            // Avoid duplicate API calls in same session
+            if (viewRegisteredRef.current.has(activeStory.id)) return;
+            
+            // Check if already in the viewer list to avoid DB call
+            const alreadyViewed = activeStory.viewers?.some(v => v.name === currentUser.name); 
+            if (alreadyViewed) {
+                viewRegisteredRef.current.add(activeStory.id);
+                return;
+            }
+
+            // Call API
+            try {
+                await api.viewStory(activeStory.id);
+                viewRegisteredRef.current.add(activeStory.id);
+            } catch (e) {
+                console.error("Failed to register view", e);
+            }
+        };
+
+        registerView();
+    }, [activeStory?.id, currentUser]);
 
     // Auto-advance
     useEffect(() => {
@@ -232,25 +264,43 @@ export const StoriesRail: React.FC = () => {
     // Author Selection State
     const [availableAuthors, setAvailableAuthors] = useState<{id: string, name: string, avatar: string}[]>([]);
     const [selectedAuthorId, setSelectedAuthorId] = useState<string>(''); // '' means self
+    const [canCreate, setCanCreate] = useState(false);
 
     const loadData = async () => {
         try {
             const [s, u] = await Promise.all([api.getStories(), api.getCurrentUser()]);
             setCurrentUser(u);
             
+            let userCanPost = false;
+            let authors: {id: string, name: string, avatar: string}[] = [];
+
             if (u) {
-                let authors = [{ id: '', name: 'Мой профиль', avatar: u.avatar }];
-                
-                // If Admin or Business, fetch businesses
+                // If Admin, can post as self or any managed profile
                 if (u.role === UserRole.ADMIN) {
+                    userCanPost = true;
+                    authors.push({ id: '', name: 'Мой профиль', avatar: u.avatar });
                     const allBiz = await api.getBusinesses();
                     authors = [...authors, ...allBiz.map(b => ({ id: b.id, name: b.name, avatar: b.image }))];
-                } else if (u.role === UserRole.BUSINESS) {
+                } 
+                // If Business, check permissions
+                else if (u.role === UserRole.BUSINESS) {
                     const myBiz = await api.getMyBusinesses();
-                    authors = [...authors, ...myBiz.map(b => ({ id: b.id, name: b.name, avatar: b.image }))];
+                    // Filter businesses that have permission
+                    const allowedBiz = myBiz.filter(b => b.canPostStories);
+                    
+                    if (allowedBiz.length > 0) {
+                        userCanPost = true;
+                        // Business users post as their business usually, but let's default to first allowed business
+                        authors = allowedBiz.map(b => ({ id: b.id, name: b.name, avatar: b.image }));
+                        // If we want to allow personal profile posting for business owners? Usually no, strict business account.
+                        // But let's set default selection to the first business ID
+                        if (authors.length > 0) setSelectedAuthorId(authors[0].id);
+                    }
                 }
-                setAvailableAuthors(authors);
             }
+            
+            setCanCreate(userCanPost);
+            setAvailableAuthors(authors);
             
             // Group stories by author
             const grouped = s.reduce((acc, story) => {
@@ -276,6 +326,7 @@ export const StoriesRail: React.FC = () => {
     const submitStory = async (media: string, caption: string, config: any) => {
         try {
             // Pass the selected business ID (if any) or undefined for profile
+            // If selectedAuthorId is '', it means 'self' (for admin mostly)
             const businessId = selectedAuthorId !== '' ? selectedAuthorId : undefined;
             await api.createStory(media, caption, businessId, config);
             
@@ -306,9 +357,9 @@ export const StoriesRail: React.FC = () => {
             {/* Creation Modal (Editor) */}
             {isCreating && (
                 <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-md flex flex-col justify-center items-center">
-                    {/* Author Selector Overlay */}
+                    {/* Author Selector Overlay - Moved down to avoid overlap with Close button */}
                     {availableAuthors.length > 1 && (
-                        <div className="absolute top-4 left-4 z-[125] bg-black/60 rounded-xl p-2 flex items-center gap-2 border border-white/20">
+                        <div className="absolute top-20 left-4 z-[125] bg-black/60 rounded-xl p-2 flex items-center gap-2 border border-white/20">
                             <img src={selectedAuthor.avatar} className="w-8 h-8 rounded-full object-cover" alt="" />
                             <select 
                                 className="bg-transparent text-white text-sm font-bold appearance-none outline-none pr-6 cursor-pointer"
@@ -332,8 +383,8 @@ export const StoriesRail: React.FC = () => {
 
             {/* Rail */}
             <div className="flex gap-4 overflow-x-auto pb-4 items-center">
-                {/* Create Button */}
-                {currentUser && (
+                {/* Create Button - RESTRICTED */}
+                {currentUser && canCreate && (
                     <div className="flex flex-col items-center gap-1 cursor-pointer shrink-0" onClick={() => setIsCreating(true)}>
                         <div className="w-16 h-16 rounded-full border-2 border-gray-200 dark:border-gray-700 p-0.5 relative">
                             <img src={currentUser.avatar} className="w-full h-full rounded-full object-cover opacity-50" alt="" />

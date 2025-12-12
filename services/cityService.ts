@@ -8,22 +8,74 @@ import { authService } from './authService';
 const delay = (ms: number = 500) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const cityService = {
-    // --- WEATHER ---
+    // --- WEATHER (Real Data via Open-Meteo) ---
     async getWeather() {
-        // Mock Weather API
-        await delay(300);
-        return { temp: 22, wind: 4, code: 1, humidity: 45, pressure: 748 }; 
+        try {
+            // Fetch real weather for Snezhinsk (56.08, 60.73)
+            // Added wind_speed_unit=ms to match UI "m/s" label
+            // Added timezone to ensure daily alignment matches user reality
+            const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=56.08&longitude=60.73&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,weather_code&wind_speed_unit=ms&timezone=Asia%2FYekaterinburg');
+            
+            if (!res.ok) throw new Error('Weather API Error');
+            
+            const data = await res.json();
+            const current = data.current;
+            
+            return { 
+                temp: Math.round(current.temperature_2m), 
+                wind: Math.round(current.wind_speed_10m), 
+                code: current.weather_code, 
+                humidity: current.relative_humidity_2m, 
+                pressure: Math.round(current.surface_pressure * 0.750062) // Convert hPa to mmHg
+            }; 
+        } catch (e) {
+            console.error("Weather fetch failed:", e);
+            // Fallback if API fails
+            return { temp: 0, wind: 0, code: 3, humidity: 0, pressure: 0 }; 
+        }
     },
 
     async getWeatherForecast() {
-        await delay(300);
-        return [
-            { day: 'Завтра', tempDay: 24, tempNight: 15, code: 0, wind: 3, precip: 0 },
-            { day: 'Ср', tempDay: 20, tempNight: 14, code: 3, wind: 5, precip: 10 },
-            { day: 'Чт', tempDay: 18, tempNight: 12, code: 61, wind: 7, precip: 60 },
-            { day: 'Пт', tempDay: 21, tempNight: 13, code: 2, wind: 4, precip: 0 },
-            { day: 'Сб', tempDay: 25, tempNight: 16, code: 0, wind: 2, precip: 0 },
-        ];
+        try {
+            const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=56.08&longitude=60.73&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&wind_speed_unit=ms&timezone=Asia%2FYekaterinburg');
+            
+            if (!res.ok) throw new Error('Forecast API Error');
+
+            const data = await res.json();
+            if (!data.daily) return [];
+
+            const daily = data.daily;
+            
+            const days = daily.time.map((dateStr: string, index: number) => {
+                const date = new Date(dateStr);
+                const today = new Date();
+                const tomorrow = new Date();
+                tomorrow.setDate(today.getDate() + 1);
+                
+                let dayName = date.toLocaleDateString('ru-RU', { weekday: 'long' });
+                
+                // Simple check for Today/Tomorrow based on date components (ignoring time)
+                if (date.getDate() === today.getDate() && date.getMonth() === today.getMonth()) {
+                    dayName = 'Сегодня';
+                } else if (date.getDate() === tomorrow.getDate() && date.getMonth() === tomorrow.getMonth()) {
+                    dayName = 'Завтра';
+                }
+
+                return {
+                    day: dayName.charAt(0).toUpperCase() + dayName.slice(1),
+                    tempDay: Math.round(daily.temperature_2m_max[index]),
+                    tempNight: Math.round(daily.temperature_2m_min[index]),
+                    code: daily.weather_code[index],
+                    wind: Math.round(daily.wind_speed_10m_max[index]),
+                    precip: daily.precipitation_probability_max[index]
+                };
+            });
+
+            return days.slice(0, 7);
+        } catch (e) {
+            console.error("Forecast fetch failed:", e);
+            return [];
+        }
     },
 
     // --- LOST & FOUND ---

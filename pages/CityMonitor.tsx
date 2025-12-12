@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import { Appeal, UserRole } from '../types';
 import { Button } from '../components/ui/Common';
 import { MapPin, Loader2, Camera, CheckCircle2, AlertCircle, Plus, Upload, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const CreateAppealModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -114,6 +115,7 @@ const CreateAppealModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucc
 
 export const CityMonitor: React.FC = () => {
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
     
     // Resolve Logic
@@ -142,6 +144,16 @@ export const CityMonitor: React.FC = () => {
         },
         onError: (e: any) => alert(e.message)
     });
+
+    const handleCreateClick = () => {
+        if (!user) {
+            if (confirm("Для отправки обращения необходимо войти. Перейти?")) {
+                navigate('/auth');
+            }
+            return;
+        }
+        setIsModalOpen(true);
+    };
 
     const handleResultUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -206,7 +218,7 @@ export const CityMonitor: React.FC = () => {
                     <h1 className="text-3xl font-bold mb-2">Городской Контроль</h1>
                     <p className="opacity-90 max-w-xl mb-6">Вместе мы делаем Снежинск лучше. Сообщайте о проблемах городской инфраструктуры, и администрация решит их.</p>
                     <Button 
-                        onClick={() => setIsModalOpen(true)} 
+                        onClick={handleCreateClick} 
                         variant="secondary"
                         className="text-blue-600 hover:bg-blue-50 border-none shadow-lg shadow-blue-900/20"
                     >

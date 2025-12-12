@@ -1,3 +1,4 @@
+
 import { 
     Comment, Review, Conversation, Message, Story, Community, CommunityPost, StoryConfig, Suggestion 
 } from '../types';
@@ -5,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { isSupabaseConfigured } from '../config';
 import { mockStore } from './mockData';
 import { authService } from './authService';
+import { businessService } from './businessService'; 
 
 const delay = (ms: number = 500) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -32,69 +34,34 @@ export const socialService = {
     async getComments(newsId: string): Promise<Comment[]> {
         if (isSupabaseConfigured() && supabase) {
             let data: any[] | null = null;
-            
             try {
-                const result = await supabase
-                    .from('comments')
-                    .select('*, profiles(name, avatar)')
-                    .eq('news_id', newsId);
-                
+                const result = await supabase.from('comments').select('*, profiles(name, avatar)').eq('news_id', newsId);
                 if (!result.error && result.data) data = result.data;
             } catch (e) { console.warn(e); }
 
             if (!data) {
                 try {
-                    const result = await supabase
-                        .from('comments')
-                        .select('*')
-                        .eq('news_id', newsId);
+                    const result = await supabase.from('comments').select('*').eq('news_id', newsId);
                     if (!result.error && result.data) data = result.data;
                 } catch (e) { console.warn(e); }
             }
 
             if (data) {
                 const userIdsToFetch = new Set<string>();
-                data.forEach((c: any) => {
-                    if (!c.profiles) {
-                        const uid = getRecordUserId(c);
-                        if (uid) userIdsToFetch.add(uid);
-                    }
-                });
-
+                data.forEach((c: any) => { if (!c.profiles) { const uid = getRecordUserId(c); if (uid) userIdsToFetch.add(uid); }});
                 if (userIdsToFetch.size > 0) {
                     try {
-                        const { data: profiles } = await supabase
-                            .from('profiles')
-                            .select('id, name, avatar')
-                            .in('id', Array.from(userIdsToFetch));
-                        
+                        const { data: profiles } = await supabase.from('profiles').select('id, name, avatar').in('id', Array.from(userIdsToFetch));
                         if (profiles) {
                             const profileMap = new Map(profiles.map((p: any) => [p.id, p]));
-                            data = data.map((c: any) => {
-                                if (!c.profiles) {
-                                    const uid = getRecordUserId(c);
-                                    if (uid && profileMap.has(uid)) {
-                                        return { ...c, profiles: profileMap.get(uid) };
-                                    }
-                                }
-                                return c;
-                            });
+                            data = data.map((c: any) => { if (!c.profiles) { const uid = getRecordUserId(c); if (uid && profileMap.has(uid)) return { ...c, profiles: profileMap.get(uid) }; } return c; });
                         }
                     } catch (e) {}
                 }
-
                 return data.map((c: any) => {
                     const name = c.profiles?.name || 'Пользователь';
                     const avatar = c.profiles?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff`;
-
-                    return {
-                        id: c.id,
-                        newsId: c.news_id,
-                        text: c.text || c.content || c.body || '',
-                        date: formatRelativeDate(c.created_at || c.date),
-                        authorName: name,
-                        authorAvatar: avatar
-                    };
+                    return { id: c.id, newsId: c.news_id, text: c.text || c.content || c.body || '', date: formatRelativeDate(c.created_at || c.date), authorName: name, authorAvatar: avatar };
                 }).sort((a, b) => b.date.localeCompare(a.date));
             }
             return [];
@@ -105,80 +72,37 @@ export const socialService = {
     async addComment(newsId: string, text: string): Promise<void> {
         const user = await authService.getCurrentUser();
         if (!user) throw new Error("Unauthorized");
-        
         if (isSupabaseConfigured() && supabase) {
             const payload = { news_id: newsId, user_id: user.id, text };
             const { error } = await supabase.from('comments').insert(payload);
-            if (error) {
-                await supabase.from('comments').insert({ news_id: newsId, author_id: user.id, text });
-            }
+            if (error) await supabase.from('comments').insert({ news_id: newsId, author_id: user.id, text });
             return;
         }
-
-        mockStore.comments.push({
-            id: Math.random().toString(),
-            newsId,
-            authorName: user.name,
-            authorAvatar: user.avatar,
-            text,
-            date: 'Только что'
-        });
+        mockStore.comments.push({ id: Math.random().toString(), newsId, authorName: user.name, authorAvatar: user.avatar, text, date: 'Только что' });
     },
 
     // --- REVIEWS ---
     async getReviews(businessId: string): Promise<Review[]> {
         if (isSupabaseConfigured() && supabase) {
-            // Similar robust fetch logic as comments
             let data: any[] | null = null;
-            try {
-                const result = await supabase.from('reviews').select('*, profiles(name, avatar)').eq('business_id', businessId);
-                if (!result.error && result.data) data = result.data;
-            } catch (e) {}
-
-            if (!data) {
-                try {
-                    const result = await supabase.from('reviews').select('*').eq('business_id', businessId);
-                    if (!result.error && result.data) data = result.data;
-                } catch (e) {}
-            }
-
+            try { const result = await supabase.from('reviews').select('*, profiles(name, avatar)').eq('business_id', businessId); if (!result.error && result.data) data = result.data; } catch (e) {}
+            if (!data) { try { const result = await supabase.from('reviews').select('*').eq('business_id', businessId); if (!result.error && result.data) data = result.data; } catch (e) {} }
             if (data) {
                 const userIdsToFetch = new Set<string>();
-                data.forEach((r: any) => {
-                    if (!r.profiles) {
-                        const uid = getRecordUserId(r);
-                        if (uid) userIdsToFetch.add(uid);
-                    }
-                });
-
+                data.forEach((r: any) => { if (!r.profiles) { const uid = getRecordUserId(r); if (uid) userIdsToFetch.add(uid); }});
                 if (userIdsToFetch.size > 0) {
                     try {
                         const { data: profiles } = await supabase.from('profiles').select('id, name, avatar').in('id', Array.from(userIdsToFetch));
                         if (profiles) {
                             const profileMap = new Map(profiles.map((p: any) => [p.id, p]));
-                            data = data.map((r: any) => {
-                                if (!r.profiles) {
-                                    const uid = getRecordUserId(r);
-                                    if (uid && profileMap.has(uid)) return { ...r, profiles: profileMap.get(uid) };
-                                }
-                                return r;
-                            });
+                            data = data.map((r: any) => { if (!r.profiles) { const uid = getRecordUserId(r); if (uid && profileMap.has(uid)) return { ...r, profiles: profileMap.get(uid) }; } return r; });
                         }
                     } catch (e) {}
                 }
-
                 return data.map((r: any) => {
                     const name = r.profiles?.name || 'Пользователь';
                     const avatar = r.profiles?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff`;
-                    return {
-                        id: r.id,
-                        businessId: r.business_id,
-                        rating: r.rating,
-                        text: r.text || r.comment || r.content || '',
-                        date: formatRelativeDate(r.created_at || r.date),
-                        authorName: name,
-                        authorAvatar: avatar
-                    };
+                    return { id: r.id, businessId: r.business_id, rating: r.rating, text: r.text || r.comment || r.content || '', date: formatRelativeDate(r.created_at || r.date), authorName: name, authorAvatar: avatar };
                 }).sort((a, b) => b.date.localeCompare(a.date));
             }
             return [];
@@ -189,263 +113,187 @@ export const socialService = {
     async addReview(businessId: string, rating: number, text: string): Promise<void> {
         const user = await authService.getCurrentUser();
         if (!user) throw new Error("Unauthorized");
-
         if (isSupabaseConfigured() && supabase) {
             const payload1 = { business_id: businessId, user_id: user.id, rating, text };
             const { error } = await supabase.from('reviews').insert(payload1);
-            if (error) {
-                 const payload2 = { business_id: businessId, author_id: user.id, rating, text };
-                 await supabase.from('reviews').insert(payload2);
-            }
+            if (error) { const payload2 = { business_id: businessId, author_id: user.id, rating, text }; await supabase.from('reviews').insert(payload2); }
             return;
         }
-
-        mockStore.reviews.unshift({
-            id: Math.random().toString(),
-            businessId,
-            authorName: user.name,
-            authorAvatar: user.avatar,
-            rating,
-            text,
-            date: 'Только что'
-        });
+        mockStore.reviews.unshift({ id: Math.random().toString(), businessId, authorName: user.name, authorAvatar: user.avatar, rating, text, date: 'Только что' });
     },
 
-    // --- CHAT & MESSAGES ---
+    // --- CHAT ---
     async getConversations(): Promise<Conversation[]> {
         const user = await authService.getCurrentUser();
         if (!user) return [];
-        
         if (isSupabaseConfigured() && supabase) {
             try {
-                const { data, error } = await supabase
-                    .from('conversations')
-                    .select('*')
-                    .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`)
-                    .order('updated_at', { ascending: false });
-
+                const { data, error } = await supabase.from('conversations').select('*, messages(text, created_at)').or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`).order('updated_at', { ascending: false });
                 if (error) throw error;
                 if (!data) return [];
-
                 const partnerIds = data.map((c: any) => c.participant1_id === user.id ? c.participant2_id : c.participant1_id);
                 let profiles: any[] = [];
-                try {
-                    if (partnerIds.length > 0) {
-                        const { data: profilesData } = await supabase.from('profiles').select('id, name, avatar').in('id', partnerIds);
-                        profiles = profilesData || [];
-                    }
-                } catch (e) {}
-
+                try { if (partnerIds.length > 0) { const { data: profilesData } = await supabase.from('profiles').select('id, name, avatar').in('id', partnerIds); profiles = profilesData || []; } } catch (e) {}
                 return data.map((c: any) => {
                     const partnerId = c.participant1_id === user.id ? c.participant2_id : c.participant1_id;
                     const profile = profiles.find((p: any) => p.id === partnerId);
-                    return {
-                        id: c.id,
-                        participant1Id: c.participant1_id,
-                        participant2Id: c.participant2_id,
-                        partnerName: profile?.name || 'Пользователь',
-                        partnerAvatar: profile?.avatar || `https://ui-avatars.com/api/?name=User&background=random`,
-                        lastMessageDate: formatRelativeDate(c.updated_at)
-                    };
+                    let lastMessageText = 'Нет сообщений';
+                    if (c.messages && Array.isArray(c.messages) && c.messages.length > 0) {
+                        c.messages.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                        const last = c.messages[0];
+                        const msgContent = last.text || last.content || '';
+                        if (msgContent) {
+                            if (msgContent.startsWith('http') || msgContent.includes('blob:')) lastMessageText = '📷 Фото';
+                            else if (msgContent.startsWith('{')) { try { const parsed = JSON.parse(msgContent); if (parsed.type === 'ad_inquiry') lastMessageText = '📄 Заявка: ' + parsed.title; else lastMessageText = 'Системное сообщение'; } catch { lastMessageText = msgContent; } } else lastMessageText = msgContent;
+                        }
+                    }
+                    return { id: c.id, participant1Id: c.participant1_id, participant2Id: c.participant2_id, partnerName: profile?.name || 'Пользователь', partnerAvatar: profile?.avatar || `https://ui-avatars.com/api/?name=User&background=random`, lastMessageDate: formatRelativeDate(c.updated_at), lastMessageText: lastMessageText };
                 });
-            } catch (e) {
-                console.error("Error fetching conversations", e);
-            }
+            } catch (e) { console.error("Error fetching conversations", e); }
         }
         return []; 
     },
-
     async getMessages(conversationId: string): Promise<Message[]> {
-        if (isSupabaseConfigured() && supabase) {
-            try {
-                const { data } = await supabase.from('messages').select('*').eq('conversation_id', conversationId).order('created_at', { ascending: true });
-                if (data) {
-                    return data.map((m: any) => ({
-                        id: m.id,
-                        conversationId: m.conversation_id,
-                        senderId: m.sender_id,
-                        text: m.content || m.text || m.message || m.body || '', 
-                        createdAt: m.created_at || new Date().toISOString(),
-                        isRead: m.is_read,
-                        status: m.is_read ? 'read' : 'sent'
-                    }));
-                }
-            } catch (e) {}
+        if (isSupabaseConfigured() && supabase) { 
+            try { 
+                const { data, error } = await supabase.from('messages').select('*').eq('conversation_id', conversationId).order('created_at', { ascending: true }); 
+                if (error) throw error;
+                if (data) return data.map((m: any) => ({ id: m.id, conversationId: m.conversation_id, senderId: m.sender_id, text: m.text || m.content || m.message || m.body || '', createdAt: m.created_at || new Date().toISOString(), isRead: m.is_read, status: m.is_read ? 'read' : 'sent' })); 
+            } catch (e) {
+                console.error("Error fetching messages:", e);
+            } 
         }
         return [];
     },
-
     async getUnreadChatsCount(): Promise<number> {
         const user = await authService.getCurrentUser();
         if (!user || !isSupabaseConfigured() || !supabase) return 0;
-        
-        try {
-            const { count } = await supabase
-                .from('messages')
-                .select('*', { count: 'exact', head: true })
-                .neq('sender_id', user.id)
-                .eq('is_read', false);
-            
-            return count || 0;
-        } catch (e) {
-            console.error(e);
-            return 0;
-        }
+        try { const { count } = await supabase.from('messages').select('*', { count: 'exact', head: true }).neq('sender_id', user.id).eq('is_read', false); return count || 0; } catch (e) { return 0; }
     },
-
     async sendMessage(conversationId: string, text: string): Promise<void> {
         const user = await authService.getCurrentUser();
         if (!user || !isSupabaseConfigured() || !supabase) return;
-
-        const payload = {
-            conversation_id: conversationId,
-            sender_id: user.id,
-            is_read: false, // Ensure explicitly false
-            content: text 
-        };
-
         try {
-            const { error } = await supabase.from('messages').insert(payload);
-            if (error) {
-                const { error: err2 } = await supabase.from('messages').insert({ 
-                    conversation_id: conversationId,
-                    sender_id: user.id,
-                    is_read: false,
-                    text: text 
-                });
-                if (err2) throw err2;
+            const { error } = await supabase
+                .from('messages')
+                .insert({ conversation_id: conversationId, sender_id: user.id, is_read: false, text: text });
+            
+            if (error) { 
+                console.error("SendMessage Error:", error);
+                // Fallback for schema variation
+                await supabase.from('messages').insert({ conversation_id: conversationId, sender_id: user.id, is_read: false, content: text }); 
             }
+            
             await supabase.from('conversations').update({ updated_at: new Date() }).eq('id', conversationId);
-        } catch (e) {
-            console.error("Send message failed", e);
-        }
+        } catch (e) { console.error("Send message failed", e); }
     },
-
-    // Marks all messages in a conversation as read (where I am NOT the sender)
     async markMessagesAsRead(conversationId: string): Promise<void> {
         const user = await authService.getCurrentUser();
-        if (!user || !isSupabaseConfigured() || !supabase) return;
-
-        try {
-            await supabase
-                .from('messages')
-                .update({ is_read: true })
-                .eq('conversation_id', conversationId)
-                .neq('sender_id', user.id) // Only mark incoming messages
-                .eq('is_read', false); // Only if currently unread
-        } catch (e) {
-            console.error("Failed to mark read", e);
+        if (!user) return;
+        if (isSupabaseConfigured() && supabase) {
+            try { 
+                const { error } = await supabase.from('messages')
+                    .update({ is_read: true })
+                    .eq('conversation_id', conversationId)
+                    .neq('sender_id', user.id) 
+                    .eq('is_read', false); 
+                
+                if (error) console.error("Mark read failed in DB:", error);
+            } catch (e) {
+                console.error("Mark read exception:", e);
+            }
         }
     },
-
     async subscribeToMessages(conversationId: string, callback: (msg: Message) => void) {
         if (!isSupabaseConfigured() || !supabase) return { unsubscribe: () => {} };
-
-        // Listen for both INSERT (new message) and UPDATE (read status change)
-        const subscription = supabase
-            .channel(`public:messages:conversation_id=eq.${conversationId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, (payload) => {
-                const m = payload.new as any;
-                if (!m) return;
-                
-                callback({
-                    id: m.id,
-                    conversationId: m.conversation_id,
-                    senderId: m.sender_id,
-                    text: m.content || m.text || m.message || m.body || '',
-                    createdAt: m.created_at,
-                    isRead: m.is_read,
-                    status: m.is_read ? 'read' : 'sent'
-                });
-            })
+        
+        const subscription = supabase.channel(`public:messages:conversation_id=eq.${conversationId}`)
+            .on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, 
+                (payload) => { 
+                    const m = payload.new as any; 
+                    if (!m) return; 
+                    callback({ 
+                        id: m.id, 
+                        conversationId: m.conversation_id, 
+                        senderId: m.sender_id, 
+                        text: m.text || m.content || m.message || m.body || '', 
+                        createdAt: m.created_at, 
+                        isRead: m.is_read, 
+                        status: m.is_read ? 'read' : 'sent' 
+                    }); 
+                }
+            )
             .subscribe();
-
+            
         return { unsubscribe: () => supabase?.removeChannel(subscription) };
     },
-
     async startChat(userId: string, context?: string): Promise<string> {
         const currentUser = await authService.getCurrentUser();
         if (!currentUser || !isSupabaseConfigured() || !supabase) return 'mock-chat-id';
-
-        const { data: existing } = await supabase.from('conversations')
-            .select('id')
-            .or(`and(participant1_id.eq.${currentUser.id},participant2_id.eq.${userId}),and(participant1_id.eq.${userId},participant2_id.eq.${currentUser.id})`)
-            .single();
-
-        if (existing) {
-            if (context) await this.sendMessage(existing.id, context);
-            return existing.id;
-        }
-
-        const { data: newConvo, error } = await supabase.from('conversations').insert({
-            participant1_id: currentUser.id,
-            participant2_id: userId,
-            updated_at: new Date()
-        }).select().single();
-
+        const { data: existing } = await supabase.from('conversations').select('id').or(`and(participant1_id.eq.${currentUser.id},participant2_id.eq.${userId}),and(participant1_id.eq.${userId},participant2_id.eq.${currentUser.id})`).single();
+        if (existing) { if (context) await this.sendMessage(existing.id, context); return existing.id; }
+        const { data: newConvo, error } = await supabase.from('conversations').insert({ participant1_id: currentUser.id, participant2_id: userId, updated_at: new Date() }).select().single();
         if (error || !newConvo) throw new Error("Could not create chat");
-        
         if (context) await this.sendMessage(newConvo.id, context);
         return newConvo.id;
     },
 
     // --- STORIES ---
-    async getStories(): Promise<Story[]> {
+    async getStories(status: 'published' | 'pending' = 'published'): Promise<Story[]> {
         if (isSupabaseConfigured() && supabase) {
             try {
-                // 1. Fetch stories
-                const { data: storiesData, error } = await supabase
+                let { data: storiesData, error } = await supabase
                     .from('stories')
                     .select('*')
+                    .eq('status', status)
                     .order('created_at', { ascending: false });
 
-                if (error || !storiesData) return [];
+                if (error) {
+                    const retry = await supabase.from('stories').select('*').order('created_at', { ascending: false });
+                    storiesData = retry.data;
+                    error = retry.error;
+                }
 
-                // 2. Collect IDs
+                if (error) {
+                    if (error.code === 'PGRST100' || error.code === '400') {
+                        return mockStore.stories.filter(s => (s.status || 'published') === status);
+                    }
+                    throw error;
+                }
+
+                if (!storiesData) return [];
+
+                const storyIds = storiesData.map((s: any) => s.id);
+                let viewsData: any[] = [];
+                if (storyIds.length > 0) {
+                    try {
+                        const { data: views } = await supabase.from('story_views').select('story_id, user_id');
+                        if (views) viewsData = views;
+                    } catch (e) {}
+                }
                 const userIds = new Set<string>();
                 const businessIds = new Set<string>();
-
-                storiesData.forEach((s: any) => {
-                    if (s.user_id) userIds.add(s.user_id);
-                    if (s.business_id) businessIds.add(s.business_id);
-                });
-
-                // 3. Fetch related data
+                const viewerUserIds = new Set<string>();
+                storiesData.forEach((s: any) => { if (s.user_id) userIds.add(s.user_id); if (s.business_id) businessIds.add(s.business_id); });
+                viewsData.forEach((v: any) => { if (v.user_id) viewerUserIds.add(v.user_id); });
+                
                 let profiles: any[] = [];
                 let businesses: any[] = [];
+                let viewersProfiles: any[] = [];
+                if (userIds.size > 0) { const { data } = await supabase.from('profiles').select('id, name, avatar').in('id', Array.from(userIds)); if (data) profiles = data; }
+                if (businessIds.size > 0) { const { data } = await supabase.from('businesses').select('id, name, image').in('id', Array.from(businessIds)); if (data) businesses = data; }
+                if (viewerUserIds.size > 0) { const { data } = await supabase.from('profiles').select('id, name, avatar').in('id', Array.from(viewerUserIds)); if (data) viewersProfiles = data; }
+                const viewerMap = new Map(viewersProfiles.map((p: any) => [p.id, p]));
 
-                if (userIds.size > 0) {
-                    const { data } = await supabase.from('profiles').select('id, name, avatar').in('id', Array.from(userIds));
-                    if (data) profiles = data;
-                }
-                if (businessIds.size > 0) {
-                    const { data } = await supabase.from('businesses').select('id, name, image').in('id', Array.from(businessIds));
-                    if (data) businesses = data;
-                }
-
-                // 4. Map
                 return storiesData.map((s: any) => {
                     let authorName = 'Пользователь';
                     let authorAvatar = '';
-
-                    if (s.business_id) {
-                        const biz = businesses.find(b => b.id === s.business_id);
-                        if (biz) {
-                            authorName = biz.name;
-                            authorAvatar = biz.image;
-                        }
-                    } else if (s.user_id) {
-                        const profile = profiles.find(p => p.id === s.user_id);
-                        if (profile) {
-                            authorName = profile.name;
-                            authorAvatar = profile.avatar;
-                        }
-                    }
-
-                    // Fallback avatar if fetch failed but we have IDs
-                    if (!authorAvatar) {
-                         authorAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=random&color=fff`;
-                    }
+                    if (s.business_id) { const biz = businesses.find(b => b.id === s.business_id); if (biz) { authorName = biz.name; authorAvatar = biz.image; } } 
+                    else if (s.user_id) { const profile = profiles.find(p => p.id === s.user_id); if (profile) { authorName = profile.name; authorAvatar = profile.avatar; } }
+                    if (!authorAvatar) authorAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=random&color=fff`;
+                    
+                    const storyViewers = viewsData.filter((v: any) => v.story_id === s.id).map((v: any) => { const p = viewerMap.get(v.user_id); return p ? { name: p.name, avatar: p.avatar } : null; }).filter(Boolean);
 
                     return {
                         id: s.id,
@@ -456,32 +304,48 @@ export const socialService = {
                         authorName: authorName,
                         authorAvatar: authorAvatar,
                         createdAt: s.created_at,
-                        viewers: []
+                        status: s.status || 'published',
+                        viewers: storyViewers
                     };
                 });
             } catch (e) {
-                console.error("Failed to fetch stories", e);
-                return [];
+                return mockStore.stories.filter(s => (s.status || 'published') === status);
             }
         }
-        return mockStore.stories;
+        return mockStore.stories.filter(s => (s.status || 'published') === status);
     },
 
     async createStory(media: string, caption: string, businessId?: string, config?: StoryConfig): Promise<void> {
         const user = await authService.getCurrentUser();
         if (!user) throw new Error("Unauthorized");
 
+        let status = 'pending';
+        let canPost = false;
+
+        if (user.role === 'ADMIN') canPost = true;
+        else if (businessId) {
+            const biz = await businessService.getBusinessById(businessId);
+            if (biz && biz.canPostStories) canPost = true;
+        }
+
+        if (canPost) status = 'published';
+
         if (isSupabaseConfigured() && supabase) {
             const payload: any = {
                 user_id: user.id,
                 media,
                 caption,
-                content_config: config
+                content_config: config,
+                status
             };
-            if (businessId) {
-                payload.business_id = businessId;
+            if (businessId) payload.business_id = businessId;
+            
+            const { error } = await supabase.from('stories').insert(payload);
+            if (error) {
+                delete payload.status;
+                const { error: retryError } = await supabase.from('stories').insert(payload);
+                if (retryError) throw retryError;
             }
-            await supabase.from('stories').insert(payload);
             return;
         }
 
@@ -493,8 +357,32 @@ export const socialService = {
             authorId: businessId || user.id, 
             authorName: user.name, 
             authorAvatar: user.avatar,
-            createdAt: new Date().toISOString() 
+            createdAt: new Date().toISOString(),
+            status: status as any
         });
+    },
+
+    async approveStory(id: string): Promise<void> {
+        if (isSupabaseConfigured() && supabase) {
+            await supabase.from('stories').update({ status: 'published' }).eq('id', id);
+            return;
+        }
+        const s = mockStore.stories.find(story => story.id === id);
+        if (s) s.status = 'published';
+    },
+
+    async rejectStory(id: string): Promise<void> {
+        if (isSupabaseConfigured() && supabase) {
+            await supabase.from('stories').delete().eq('id', id); 
+            return;
+        }
+        mockStore.stories = mockStore.stories.filter(s => s.id !== id);
+    },
+
+    async viewStory(storyId: string): Promise<void> {
+        const user = await authService.getCurrentUser();
+        if (!user || !isSupabaseConfigured() || !supabase) return;
+        try { await supabase.from('story_views').insert({ story_id: storyId, user_id: user.id }); } catch (e) {}
     },
 
     // --- COMMUNITIES ---
@@ -505,14 +393,8 @@ export const socialService = {
         mockStore.communities.push(newComm);
         return newComm;
     },
-    async joinCommunity(id: string): Promise<void> {
-        const comm = mockStore.communities.find(c => c.id === id);
-        if (comm) { comm.isMember = true; comm.membersCount++; }
-    },
-    async leaveCommunity(id: string): Promise<void> {
-        const comm = mockStore.communities.find(c => c.id === id);
-        if (comm) { comm.isMember = false; comm.membersCount = Math.max(0, comm.membersCount - 1); }
-    },
+    async joinCommunity(id: string): Promise<void> { const comm = mockStore.communities.find(c => c.id === id); if (comm) { comm.isMember = true; comm.membersCount++; } },
+    async leaveCommunity(id: string): Promise<void> { const comm = mockStore.communities.find(c => c.id === id); if (comm) { comm.isMember = false; comm.membersCount = Math.max(0, comm.membersCount - 1); } },
     async getCommunityPosts(communityId: string): Promise<CommunityPost[]> { return mockStore.communityPosts.filter(p => p.communityId === communityId); },
     async createCommunityPost(communityId: string, content: string, image?: string): Promise<CommunityPost> {
         const user = await authService.getCurrentUser();
@@ -521,87 +403,28 @@ export const socialService = {
         return newPost;
     },
 
-    // --- SUGGESTIONS (Updated) ---
+    // --- SUGGESTIONS ---
     async sendSuggestion(text: string): Promise<void> {
         const user = await authService.getCurrentUser();
-        
-        if (isSupabaseConfigured() && supabase) {
-            await supabase.from('suggestions').insert({ 
-                user_id: user?.id, 
-                text 
-            });
-            return;
-        }
-        
-        // Fallback to mock store
-        mockStore.suggestions.unshift({
-            id: Math.random().toString(),
-            text,
-            userId: user?.id,
-            userName: user?.name,
-            createdAt: new Date().toISOString(),
-            isRead: false
-        });
+        if (isSupabaseConfigured() && supabase) { await supabase.from('suggestions').insert({ user_id: user?.id, text }); return; }
+        mockStore.suggestions.unshift({ id: Math.random().toString(), text, userId: user?.id, userName: user?.name, createdAt: new Date().toISOString(), isRead: false });
     },
-
-    // --- ADMIN: GET SUGGESTIONS ---
     async getSuggestions(): Promise<Suggestion[]> {
         if (isSupabaseConfigured() && supabase) {
             try {
-                // Fetch suggestions first
-                const { data: suggestionsData, error } = await supabase
-                    .from('suggestions')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-                
+                const { data: suggestionsData, error } = await supabase.from('suggestions').select('*').order('created_at', { ascending: false });
                 if (error) throw error;
                 if (!suggestionsData) return [];
-
-                // Collect User IDs
-                const userIds = new Set<string>();
-                suggestionsData.forEach((s: any) => {
-                    if (s.user_id) userIds.add(s.user_id);
-                });
-
-                // Fetch profiles manually to avoid join errors if relation missing
+                const userIds = new Set<string>(); suggestionsData.forEach((s: any) => { if (s.user_id) userIds.add(s.user_id); });
                 let profilesMap = new Map();
-                if (userIds.size > 0) {
-                    const { data: profiles } = await supabase
-                        .from('profiles')
-                        .select('id, name, avatar')
-                        .in('id', Array.from(userIds));
-                    
-                    if (profiles) {
-                        profiles.forEach((p: any) => profilesMap.set(p.id, p));
-                    }
-                }
-
-                return suggestionsData.map((s: any) => {
-                    const profile = profilesMap.get(s.user_id);
-                    return {
-                        id: s.id,
-                        userId: s.user_id,
-                        userName: profile?.name || 'Аноним',
-                        userAvatar: profile?.avatar,
-                        text: s.text || s.content,
-                        createdAt: s.created_at,
-                        isRead: s.is_read
-                    };
-                });
-            } catch (e) {
-                console.warn("Could not fetch suggestions from DB, returning empty array", e);
-                return []; 
-            }
+                if (userIds.size > 0) { const { data: profiles } = await supabase.from('profiles').select('id, name, avatar').in('id', Array.from(userIds)); if (profiles) { profiles.forEach((p: any) => profilesMap.set(p.id, p)); } }
+                return suggestionsData.map((s: any) => { const profile = profilesMap.get(s.user_id); return { id: s.id, userId: s.user_id, userName: profile?.name || 'Аноним', userAvatar: profile?.avatar, text: s.text || s.content, createdAt: s.created_at, isRead: s.is_read }; });
+            } catch (e) { return []; }
         }
         return mockStore.suggestions;
     },
-
-    // --- ADMIN: DELETE SUGGESTION ---
     async deleteSuggestion(id: string): Promise<void> {
-        if (isSupabaseConfigured() && supabase) {
-            await supabase.from('suggestions').delete().eq('id', id);
-            return;
-        }
+        if (isSupabaseConfigured() && supabase) { await supabase.from('suggestions').delete().eq('id', id); return; }
         mockStore.suggestions = mockStore.suggestions.filter(s => s.id !== id);
     }
 };

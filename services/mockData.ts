@@ -1,6 +1,6 @@
 
 import { ADS_DATA, NEWS_DATA, BUSINESS_DATA, EVENTS_DATA } from '../constants';
-import { Ad, NewsItem, Business, Event, Order, Campaign, Story, RentalItem, Community, CommunityPost, LostFoundItem, Appeal, Ride, SmartDevice, Review, Comment, Suggestion, Report, Quest } from '../types';
+import { Ad, NewsItem, Business, Event, Order, Campaign, Story, RentalItem, Community, CommunityPost, LostFoundItem, Appeal, Ride, SmartDevice, Review, Comment, Suggestion, Report, Quest, AccessRequest } from '../types';
 
 export const mockStore = {
   ads: [...ADS_DATA] as Ad[],
@@ -15,6 +15,7 @@ export const mockStore = {
   communityPosts: [] as CommunityPost[],
   suggestions: [] as Suggestion[],
   reports: [] as Report[],
+  accessRequests: [] as AccessRequest[],
   
   // City Services
   lostFound: [] as LostFoundItem[],

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge, Button } from '../components/ui/Common';
-import { Calendar, ChevronRight, MapPin, CloudSun, Wind, Droplets, ExternalLink, Flame, Bus, Loader2, Plus, PenSquare, Sun, CloudRain, Snowflake, Cloud, PieChart, Check, Gauge, X, Crown, Heart, Sparkles } from 'lucide-react';
+import { Calendar, ChevronRight, MapPin, CloudSun, Wind, Droplets, ExternalLink, Flame, Bus, Loader2, Plus, PenSquare, Sun, CloudRain, Snowflake, Cloud, PieChart, Check, Gauge, X, Crown, Heart, Sparkles, AlertTriangle, Home as HomeIcon, Eye, Truck, ShoppingBag, Zap } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Ad, Event, NewsItem, Poll, UserRole } from '../types';
 import { api } from '../services/api';
@@ -134,10 +134,6 @@ export const Home: React.FC = () => {
     queryFn: api.getCurrentUser
   });
 
-  // Local state for optimistic updates if needed, but here we rely on React Query cache
-  // For favorites, we might want local state to avoid refetching everything or use optimistic updates
-  // For simplicity in this step, we'll fetch user to get latest favs
-  
   const userFavs = user?.favorites || [];
 
   const handleAdminToggleVip = async (ad: Ad, e: React.MouseEvent) => {
@@ -178,15 +174,13 @@ export const Home: React.FC = () => {
     );
   }
 
-  // Split ads into buckets
   const vipAds = ads.filter(ad => ad.isVip).slice(0, 5);
   const premiumAds = ads.filter(ad => !ad.isVip && ad.isPremium).slice(0, 8);
-  const regularAds = ads.filter(ad => !ad.isVip && !ad.isPremium);
 
   const isAdmin = user?.role === UserRole.ADMIN;
 
   return (
-    <div className="p-4 lg:p-10 max-w-7xl mx-auto space-y-6 lg:space-y-12">
+    <div className="p-4 lg:p-10 max-w-7xl mx-auto space-y-8 lg:space-y-12">
       
       <CreateNewsModal 
         isOpen={isNewsModalOpen}
@@ -198,13 +192,19 @@ export const Home: React.FC = () => {
 
       {/* Stories Rail */}
       <section className="mt-2 lg:mt-0">
+          <div className="flex items-center gap-2 mb-4 px-1">
+             <div className="p-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 rounded-lg">
+                <Zap className="w-5 h-5 fill-current" />
+             </div>
+             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Акции</h2>
+          </div>
           <StoriesRail />
       </section>
 
-      {/* Main Container - Full Width */}
+      {/* Main Container */}
       <div className="space-y-12">
         
-        {/* VIP Section (Limit 5) */}
+        {/* VIP Section */}
         {vipAds.length > 0 && (
             <div className="space-y-6">
                 <div className="flex items-center gap-3">
@@ -214,7 +214,6 @@ export const Home: React.FC = () => {
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">VIP Объявления</h2>
                 </div>
                 
-                {/* VIP Grid - 1 Col Mobile, 2 Col Tablet, 3 Col Desktop */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {vipAds.map(ad => (
                     <VipAdCard 
@@ -257,37 +256,11 @@ export const Home: React.FC = () => {
             </div>
         )}
 
-        {/* Regular Feed Grid */}
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Свежие объявления</h2>
-                    <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs px-2 py-1 rounded-full">{regularAds.length}</span>
-                </div>
-                <Link to="/classifieds" className="text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors">Смотреть всё</Link>
-            </div>
-            
-            {/* Feed Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {regularAds.length > 0 ? regularAds.slice(0, 12).map(ad => (
-                <GridAdCard 
-                    key={ad.id} 
-                    ad={ad} 
-                    onClick={() => navigate(`/ad/${ad.id}`)} 
-                    isAdmin={isAdmin}
-                    onToggleVip={(e) => handleAdminToggleVip(ad, e)}
-                    isFav={userFavs.includes(ad.id)}
-                    onToggleFav={(e) => handleToggleFav(ad.id, e)}
-                />
-                )) : (
-                    <div className="col-span-full text-center py-10 text-gray-400">
-                        Нет свежих объявлений.
-                    </div>
-                )}
-            </div>
-            <Link to="/classifieds" className="block mt-6">
-                <Button variant="secondary" className="w-full py-4 text-gray-500 hover:text-blue-600 rounded-2xl shadow-sm border-transparent bg-white hover:bg-white hover:shadow-md transition-all dark:bg-gray-800 dark:text-gray-400 dark:hover:text-white">
-                    Показать еще объявления
+        {/* All Ads Link Button (Replaces Regular Feed) */}
+        <div className="pt-4 pb-8">
+            <Link to="/classifieds" className="block">
+                <Button className="w-full py-5 text-lg font-bold shadow-lg shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-3">
+                    <ShoppingBag className="w-6 h-6" /> Перейти ко всем объявлениям
                 </Button>
             </Link>
         </div>

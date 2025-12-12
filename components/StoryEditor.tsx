@@ -175,7 +175,7 @@ export const StoryEditor: React.FC<StoryEditorProps> = ({ initialMedia, onSave, 
         <div className="fixed inset-0 z-[120] bg-black text-white flex flex-col items-center justify-center">
             
             {/* Top Toolbar */}
-            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 to-transparent">
+            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-[60] bg-gradient-to-b from-black/80 to-transparent">
                 <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20"><X className="w-6 h-6" /></button>
                 <div className="flex gap-4">
                     <button 
@@ -307,7 +307,7 @@ export const StoryEditor: React.FC<StoryEditorProps> = ({ initialMedia, onSave, 
 
             {/* Input Overlays */}
             {showTextOptions && (
-                <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/80 z-[130] flex items-center justify-center p-4">
                     <div className="w-full max-w-sm">
                         <input 
                             autoFocus
@@ -325,7 +325,7 @@ export const StoryEditor: React.FC<StoryEditorProps> = ({ initialMedia, onSave, 
             )}
 
             {showLinkOptions && (
-                <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/80 z-[130] flex items-center justify-center p-4">
                     <div className="bg-gray-800 p-6 rounded-2xl w-full max-w-sm space-y-4">
                         <h3 className="font-bold text-lg">Добавить кнопку-ссылку</h3>
                         <div>

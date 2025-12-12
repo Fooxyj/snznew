@@ -73,7 +73,18 @@ export const authService = {
 
   async getCurrentUser(): Promise<User | null> {
     if (isSupabaseConfigured() && supabase) {
-        const { data } = await supabase.auth.getUser();
+        const { data, error } = await supabase.auth.getUser();
+        
+        // Handle auth errors gracefully
+        if (error || !data.user) {
+            // If session is invalid/expired (often causes 403 loops), force signout locally
+            if (error?.status === 403 || error?.message?.includes('invalid claim')) {
+                console.warn("Session invalid, clearing local auth state");
+                await supabase.auth.signOut();
+            }
+            return null;
+        }
+
         if (data.user) {
             const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
             const user: User = { 

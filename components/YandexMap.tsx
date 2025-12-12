@@ -1,5 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
+import { YANDEX_MAPS_API_KEY } from '../config';
 
 declare global {
   interface Window {
@@ -28,8 +29,8 @@ const loadYandexMaps = (): Promise<void> => {
     if (!ymapsLoadPromise) {
         ymapsLoadPromise = new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            // Using package.standard to reduce size and avoid "bundle full" errors
-            script.src = "https://api-maps.yandex.ru/2.1/?lang=ru_RU&load=package.standard";
+            const apiKeyParam = YANDEX_MAPS_API_KEY ? `&apikey=${YANDEX_MAPS_API_KEY}` : '';
+            script.src = `https://api-maps.yandex.ru/2.1/?lang=ru_RU&load=package.standard${apiKeyParam}`;
             script.type = "text/javascript";
             script.async = true;
             script.onload = () => resolve();
@@ -131,7 +132,7 @@ export const YandexMap: React.FC<YandexMapProps> = ({
         {status === 'error' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 z-10 text-gray-400 text-center p-4">
                 <p className="text-xs font-medium">Карта временно недоступна</p>
-                <p className="text-[10px] mt-1 opacity-70">Проверьте соединение или VPN</p>
+                <p className="text-[10px] mt-1 opacity-70">Проверьте соединение или API ключ</p>
             </div>
         )}
     </div>

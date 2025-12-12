@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { NewsItem, Comment, User } from '../types';
 import { Button } from '../components/ui/Common';
@@ -20,6 +20,7 @@ export const NewsDetail: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadData = async () => {
@@ -90,8 +91,8 @@ export const NewsDetail: React.FC = () => {
       />
 
       <div className="flex items-center justify-between mb-6">
-        <Link to="/" className="inline-flex items-center text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
-            <ChevronLeft className="w-4 h-4 mr-1" /> На главную
+        <Link to="/news" className="inline-flex items-center text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
+            <ChevronLeft className="w-4 h-4 mr-1" /> К списку новостей
         </Link>
         <button onClick={handleShare} className="text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 p-2 rounded-full transition-colors">
             <Share2 className="w-5 h-5" />
