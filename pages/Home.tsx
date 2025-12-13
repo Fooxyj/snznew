@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge, Button } from '../components/ui/Common';
 import { Calendar, ChevronRight, MapPin, CloudSun, Wind, Droplets, ExternalLink, Flame, Bus, Loader2, Plus, PenSquare, Sun, CloudRain, Snowflake, Cloud, PieChart, Check, Gauge, X, Crown, Heart, Sparkles, AlertTriangle, Home as HomeIcon, Eye, Truck, ShoppingBag, Zap } from 'lucide-react';
@@ -115,8 +115,14 @@ export const EventsPage: React.FC = () => {
 // Modified Home Component
 export const Home: React.FC = () => {
   const [isNewsModalOpen, setNewsModalOpen] = useState(false);
+  const [shuffleSeed, setShuffleSeed] = useState(0);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Trigger re-shuffle on mount
+  useEffect(() => {
+      setShuffleSeed(Math.random());
+  }, []);
 
   // Queries
   const { data: news = [] } = useQuery({
@@ -133,6 +139,27 @@ export const Home: React.FC = () => {
     queryKey: ['user'],
     queryFn: api.getCurrentUser
   });
+
+  // Randomize VIP and Premium ads using Fisher-Yates shuffle
+  const { vipAds, premiumAds } = useMemo(() => {
+      const vips = ads.filter(ad => ad.isVip);
+      const premiums = ads.filter(ad => !ad.isVip && ad.isPremium);
+
+      const shuffle = (array: Ad[]) => {
+          const newArr = [...array];
+          for (let i = newArr.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+          }
+          return newArr;
+      };
+
+      // We depend on shuffleSeed to force re-calculation on mount even if ads are cached
+      return {
+          vipAds: shuffle(vips).slice(0, 5),
+          premiumAds: shuffle(premiums).slice(0, 8)
+      };
+  }, [ads, shuffleSeed]);
 
   const userFavs = user?.favorites || [];
 
@@ -173,9 +200,6 @@ export const Home: React.FC = () => {
       </div>
     );
   }
-
-  const vipAds = ads.filter(ad => ad.isVip).slice(0, 5);
-  const premiumAds = ads.filter(ad => !ad.isVip && ad.isPremium).slice(0, 8);
 
   const isAdmin = user?.role === UserRole.ADMIN;
 
@@ -221,9 +245,9 @@ export const Home: React.FC = () => {
                         ad={ad} 
                         onClick={() => navigate(`/ad/${ad.id}`)} 
                         isAdmin={isAdmin}
-                        onToggleVip={(e) => handleAdminToggleVip(ad, e)}
+                        onToggleVip={(e: React.MouseEvent) => handleAdminToggleVip(ad, e)}
                         isFav={userFavs.includes(ad.id)}
-                        onToggleFav={(e) => handleToggleFav(ad.id, e)}
+                        onToggleFav={(e: React.MouseEvent) => handleToggleFav(ad.id, e)}
                     />
                     ))}
                 </div>
@@ -247,9 +271,9 @@ export const Home: React.FC = () => {
                         ad={ad} 
                         onClick={() => navigate(`/ad/${ad.id}`)} 
                         isAdmin={isAdmin}
-                        onToggleVip={(e) => handleAdminToggleVip(ad, e)}
+                        onToggleVip={(e: React.MouseEvent) => handleAdminToggleVip(ad, e)}
                         isFav={userFavs.includes(ad.id)}
-                        onToggleFav={(e) => handleToggleFav(ad.id, e)}
+                        onToggleFav={(e: React.MouseEvent) => handleToggleFav(ad.id, e)}
                     />
                     ))}
                 </div>

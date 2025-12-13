@@ -314,7 +314,7 @@ export interface Story {
   authorName?: string;
   authorAvatar?: string;
   status?: 'published' | 'pending' | 'rejected';
-  viewers?: { name: string; avatar: string }[]; 
+  viewers?: { id: string; name: string; avatar: string }[]; 
 }
 
 export interface Suggestion {

@@ -115,6 +115,34 @@ export const api = {
   ...socialService,
   ...cityService,
 
+  // --- PUBLIC PROFILE ---
+  async getUserById(userId: string): Promise<User | null> {
+      if (isSupabaseConfigured() && supabase) {
+          try {
+              const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
+              if (profile) {
+                  return {
+                      id: profile.id,
+                      name: profile.name,
+                      avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}`,
+                      role: profile.role || UserRole.USER,
+                      xp: profile.xp || 0,
+                      email: '', // Don't expose email publicly
+                      favorites: [],
+                      badges: profile.badges || [],
+                      createdAt: profile.created_at
+                  };
+              }
+          } catch (e) {
+              console.error("Error fetching user", e);
+          }
+      }
+      // Mock fallback
+      if (userId === 'u2') return { id: 'u2', name: 'Иван Иванов', avatar: 'https://ui-avatars.com/api/?name=Ivan', role: UserRole.USER, xp: 500, email: '', favorites: [] };
+      if (userId === 'u7') return { id: 'u7', name: 'Мария Кулинар', avatar: 'https://ui-avatars.com/api/?name=Maria', role: UserRole.USER, xp: 1200, email: '', favorites: [] };
+      return null;
+  },
+
   // --- ADMIN HELPER ---
   async getAdminUserId(): Promise<string | null> {
       const ADMIN_EMAIL = 'fooxyj@yandex.ru';
@@ -843,13 +871,25 @@ export const api = {
   async createPoll(q: string, o: string[]) {},
   async toggleFavorite(id: string, t: string) { 
       const user = await authService.getCurrentUser();
-      if (!user || !isSupabaseConfigured() || !supabase) return false;
+      if (!user) return false;
       
-      const favorites = user.favorites || [];
-      const exists = favorites.includes(id);
-      const newFavs = exists ? favorites.filter(f => f !== id) : [...favorites, id];
-      
-      await supabase.from('profiles').update({ favorites: newFavs }).eq('id', user.id);
-      return !exists; 
+      if (isSupabaseConfigured() && supabase) {
+          const favorites = user.favorites || [];
+          const exists = favorites.includes(id);
+          const newFavs = exists ? favorites.filter(f => f !== id) : [...favorites, id];
+          
+          await supabase.from('profiles').update({ favorites: newFavs }).eq('id', user.id);
+          return !exists;
+      } else {
+          // Mock mode logic to update local user state for immediate feedback
+          const favorites = user.favorites || [];
+          const index = favorites.indexOf(id);
+          if (index === -1) {
+              user.favorites.push(id);
+          } else {
+              user.favorites.splice(index, 1);
+          }
+          return index === -1;
+      }
   }
 };

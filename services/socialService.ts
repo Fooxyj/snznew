@@ -293,7 +293,10 @@ export const socialService = {
                     else if (s.user_id) { const profile = profiles.find(p => p.id === s.user_id); if (profile) { authorName = profile.name; authorAvatar = profile.avatar; } }
                     if (!authorAvatar) authorAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=random&color=fff`;
                     
-                    const storyViewers = viewsData.filter((v: any) => v.story_id === s.id).map((v: any) => { const p = viewerMap.get(v.user_id); return p ? { name: p.name, avatar: p.avatar } : null; }).filter(Boolean);
+                    const storyViewers = viewsData.filter((v: any) => v.story_id === s.id).map((v: any) => { 
+                        const p = viewerMap.get(v.user_id); 
+                        return p ? { id: p.id, name: p.name, avatar: p.avatar } : null; // Added id
+                    }).filter(Boolean);
 
                     return {
                         id: s.id,

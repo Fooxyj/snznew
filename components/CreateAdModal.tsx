@@ -5,6 +5,7 @@ import { Button } from './ui/Common';
 import { api } from '../services/api';
 import { Ad } from '../types';
 import { useQuery } from '@tanstack/react-query';
+import { AD_CATEGORIES } from '../constants';
 
 interface CreateAdModalProps {
   isOpen: boolean;
@@ -158,7 +159,7 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
                         value={formData.category}
                         onChange={e => setFormData({...formData, category: e.target.value})}
                     >
-                        {['Личные вещи', 'Транспорт', 'Недвижимость', 'Работа', 'Услуги', 'Хобби и отдых', 'Для дома и дачи', 'Электроника', 'Животные'].map(c => (
+                        {AD_CATEGORIES.map(c => (
                             <option key={c} value={c}>{c}</option>
                         ))}
                     </select>

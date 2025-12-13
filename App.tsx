@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -22,6 +23,7 @@ const EventsPage = lazy(() => import('./pages/Home').then(m => ({ default: m.Eve
 const Classifieds = lazy(() => import('./pages/Classifieds').then(m => ({ default: m.Classifieds })));
 const BusinessDirectory = lazy(() => import('./pages/BusinessDirectory').then(m => ({ default: m.BusinessDirectory })));
 const Profile = lazy(() => import('./pages/Dashboards').then(m => ({ default: m.Profile })));
+const PublicProfile = lazy(() => import('./pages/PublicProfile').then(m => ({ default: m.PublicProfile }))); // New
 const AdminDashboard = lazy(() => import('./pages/Dashboards').then(m => ({ default: m.AdminDashboard })));
 const ConnectBusiness = lazy(() => import('./pages/ConnectBusiness').then(m => ({ default: m.ConnectBusiness })));
 const AuthPage = lazy(() => import('./pages/Auth').then(m => ({ default: m.AuthPage })));
@@ -99,6 +101,7 @@ const App: React.FC = () => {
                     <Route path="/news/:id" element={<NewsDetail />} />
                     <Route path="/classifieds" element={<Classifieds />} />
                     <Route path="/ad/:id" element={<AdDetail />} />
+                    <Route path="/user/:id" element={<PublicProfile />} /> {/* New Public Profile Route */}
                     <Route path="/events" element={<EventsPage />} />
                     <Route path="/event/:id" element={<EventDetail />} />
                     <Route path="/weather" element={<Weather />} />

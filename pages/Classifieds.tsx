@@ -8,6 +8,7 @@ import { api } from '../services/api';
 import { CreateAdModal } from '../components/CreateAdModal';
 import { useNavigate } from 'react-router-dom';
 import { AdGridSkeleton, CardSkeleton } from '../components/ui/Skeleton';
+import { AD_CATEGORIES } from '../constants';
 
 // New Payment Modal with Selection
 const PromoteModal: React.FC<{ isOpen: boolean; onClose: () => void; onConfirm: (level: 'vip' | 'premium') => void }> = ({ isOpen, onClose, onConfirm }) => {
@@ -125,7 +126,7 @@ export const Classifieds: React.FC = () => {
       queryFn: api.getCurrentUser
   });
 
-  const categories = ['Все', 'Транспорт', 'Недвижимость', 'Работа', 'Услуги', 'Личные вещи', 'Хобби', 'Электроника', 'Животные'];
+  const categories = ['Все', ...AD_CATEGORIES];
 
   const userFavs = user?.favorites || [];
   const currentUserId = user?.id || null;
@@ -236,6 +237,10 @@ export const Classifieds: React.FC = () => {
                   onAdminToggleVip={() => handleAdminToggleVip(ad)}
                   onClick={() => navigate(`/ad/${ad.id}`)}
                   onWrite={(e) => handleWrite(ad, e)}
+                  onAuthorClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/user/${ad.authorId}`);
+                  }}
               />
           ))}
       </div>
@@ -382,9 +387,10 @@ interface AdCardProps {
     onAdminToggleVip: () => void;
     onClick: () => void;
     onWrite: (e: any) => void;
+    onAuthorClick?: (e: any) => void;
 }
 
-const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onToggleFav, onPromote, onAdminToggleVip, onClick, onWrite }) => {
+const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onToggleFav, onPromote, onAdminToggleVip, onClick, onWrite, onAuthorClick }) => {
   // 3-Tier Visual Logic
   let containerClass = "bg-white dark:bg-gray-800 border dark:border-gray-700";
   let badge = null;
@@ -445,7 +451,10 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
             <div className="flex items-center space-x-4">
               <Badge color={ad.isVip ? "orange" : ad.isPremium ? "blue" : "gray"}>{ad.category}</Badge>
               <LocationBadge location={ad.location} />
-              <div className="flex items-center text-xs text-gray-400 gap-1">
+              <div 
+                className="flex items-center text-xs text-gray-400 gap-1 hover:text-blue-500 cursor-pointer"
+                onClick={onAuthorClick}
+              >
                   {ad.authorAvatar ? (
                       <img src={ad.authorAvatar} alt="" className="w-4 h-4 rounded-full object-cover" />
                   ) : (
@@ -521,7 +530,10 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
           </div>
         </div>
         <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-600 flex items-center justify-between">
-          <div className="flex items-center gap-1 text-[10px] text-gray-400">
+          <div 
+            className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-blue-500 cursor-pointer"
+            onClick={onAuthorClick}
+          >
              {ad.authorAvatar && <img src={ad.authorAvatar} className="w-4 h-4 rounded-full" />}
              <span className="truncate max-w-[60px]">{ad.authorName}</span>
           </div>

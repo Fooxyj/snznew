@@ -9,6 +9,20 @@ const getPastDate = (days: number, hours: number = 0) => {
   return d.toISOString();
 };
 
+export const AD_CATEGORIES = [
+  'Личные вещи', 
+  'Транспорт', 
+  'Недвижимость', 
+  'Работа', 
+  'Услуги', 
+  'Хобби и отдых', 
+  'Для дома и дачи', 
+  'Электроника', 
+  'Животные',
+  'Хендмейд / Авторское', // Renamed
+  'Домашняя еда' 
+];
+
 export const WORK_SCHEDULES = [
   "08:00 - 17:00",
   "08:00 - 20:00",
@@ -143,6 +157,32 @@ export const ADS_DATA: Ad[] = [
     description: 'В отличном состоянии, после одного ребенка.',
     location: 'ул. Мира',
     status: 'approved'
+  },
+  {
+    id: 'a6',
+    title: 'Домашние пельмени ручной лепки',
+    price: 450,
+    currency: '₽/кг',
+    category: 'Домашняя еда',
+    image: 'https://picsum.photos/seed/dumplings/400/300',
+    date: getPastDate(0, 4),
+    authorId: 'u7',
+    description: 'Вкусные домашние пельмени. Свинина-говядина. Также есть вареники.',
+    location: 'мкр. 19',
+    status: 'approved'
+  },
+  {
+    id: 'a7',
+    title: 'Вязаные игрушки амигуруми',
+    price: 1200,
+    currency: '₽',
+    category: 'Хендмейд / Авторское', // Updated
+    image: 'https://picsum.photos/seed/knitting/400/300',
+    date: getPastDate(1, 0),
+    authorId: 'u8',
+    description: 'Милые игрушки для детей. Гипоаллергенная пряжа. В наличии и под заказ.',
+    location: 'Центр',
+    status: 'approved'
   }
 ];
 
@@ -191,6 +231,21 @@ export const BUSINESS_DATA: Business[] = [
     lng: 60,
     phone: '+7 (351) 462-22-22',
     workHours: '10:00 - 02:00'
+  },
+  {
+    id: 'b4',
+    name: 'Медицинский центр "Санита"',
+    category: 'Медицинские центры',
+    rating: 4.7,
+    reviewsCount: 154,
+    address: 'ул. Дзержинского, 39',
+    image: 'https://picsum.photos/seed/sanita/400/300',
+    coverImage: 'https://picsum.photos/seed/sanitacover/800/400',
+    description: 'Многопрофильная клиника для всей семьи. Прием ведут квалифицированные специалисты. УЗИ, анализы, процедуры.',
+    lat: 56.086,
+    lng: 60.739,
+    phone: '+7 (35146) 3-62-02',
+    workHours: 'Пн-Пт 08:00-20:00'
   }
 ];
 

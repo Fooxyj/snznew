@@ -35,7 +35,7 @@ export const authService = {
     }
     await delay();
     if (email === 'fail@test.com') throw new Error("Неверный логин или пароль");
-    return CURRENT_USER;
+    return { ...CURRENT_USER };
   },
 
   async signUp(email: string, password: string, name: string): Promise<User> {
@@ -64,7 +64,7 @@ export const authService = {
         return { ...CURRENT_USER, id: data.user?.id || 'u1', name, email };
     }
     await delay();
-    return CURRENT_USER;
+    return { ...CURRENT_USER };
   },
 
   async signOut(): Promise<void> {
@@ -113,7 +113,8 @@ export const authService = {
         }
         return null;
     }
-    return CURRENT_USER; 
+    // Return a shallow copy to trigger React Query updates when mutations occur on the constant
+    return { ...CURRENT_USER }; 
   },
 
   async updateProfile(data: Partial<User>): Promise<User> {

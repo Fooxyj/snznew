@@ -6,7 +6,7 @@ import { Plus, X, Upload, Loader2, Eye, ChevronDown, Link as LinkIcon, ExternalL
 import { Link } from 'react-router-dom';
 import { StoryEditor } from './StoryEditor';
 
-const ViewersList: React.FC<{ viewers: {name: string, avatar: string}[]; onClose: () => void }> = ({ viewers, onClose }) => {
+const ViewersList: React.FC<{ viewers: {id: string, name: string, avatar: string}[]; onClose: () => void }> = ({ viewers, onClose }) => {
     return (
         <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center pointer-events-none">
             <div className="absolute inset-0" onClick={onClose}></div>
@@ -20,7 +20,7 @@ const ViewersList: React.FC<{ viewers: {name: string, avatar: string}[]; onClose
                         <p className="text-gray-500 text-center py-4">Пока никто не смотрел</p>
                     ) : (
                         viewers.map((v, i) => (
-                            <Link to="/profile" key={i} className="flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors">
+                            <Link to={`/user/${v.id}`} key={i} className="flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors">
                                 <img src={v.avatar} className="w-10 h-10 rounded-full object-cover bg-gray-200" alt="" />
                                 <span className="font-medium text-gray-900 dark:text-white">{v.name}</span>
                             </Link>
