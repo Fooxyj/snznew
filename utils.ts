@@ -85,3 +85,11 @@ export const compressImage = async (file: File): Promise<Blob> => {
     reader.onerror = (err) => reject(err);
   });
 };
+
+export const getLevelInfo = (points: number) => {
+  if (points < 50) return { level: 1, nextLevelPoints: 50, name: 'Новичок' };
+ if (points < 150) return { level: 2, nextLevelPoints: 150, name: 'Участник' };
+  if (points < 400) return { level: 3, nextLevelPoints: 400, name: 'Активист' };
+  if (points < 800) return { level: 4, nextLevelPoints: 800, name: 'Эксперт' };
+  return { level: 5, nextLevelPoints: Infinity, name: 'Мастер' };
+};
