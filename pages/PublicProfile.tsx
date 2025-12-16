@@ -3,9 +3,9 @@ import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Button, XPBar, Badge } from '../components/ui/Common';
-import { Loader2, MessageCircle, Star, Shield, Zap, Crown, User as UserIcon, Calendar, MapPin, ChevronLeft } from 'lucide-react';
-import { Ad } from '../types';
+import { XPBar } from '../components/ui/Common';
+import { Loader2, Star, Shield, Zap, Crown, User as UserIcon, Calendar, MapPin, ChevronLeft } from 'lucide-react';
+import { Button } from '../components/ui/Common';
 
 // Helper for Badges
 const BadgeIcon: React.FC<{ name: string }> = ({ name }) => {

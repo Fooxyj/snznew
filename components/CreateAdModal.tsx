@@ -63,19 +63,6 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const cost = tier === 'vip' ? 100 : tier === 'premium' ? 50 : 0;
-    
-    if (cost > 0) {
-        if (!user) {
-            alert("Необходимо войти для платного размещения");
-            return;
-        }
-        if ((user.balance || 0) < cost) {
-            alert(`Недостаточно средств. Ваш баланс: ${user.balance} ₽. Требуется: ${cost} ₽`);
-            return;
-        }
-    }
-
     setIsLoading(true);
 
     try {
@@ -264,11 +251,6 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
                         {tier === 'vip' && <div className="absolute top-2 right-2 text-orange-600"><CheckCircle2 className="w-4 h-4" /></div>}
                     </div>
                 </div>
-                {tier !== 'regular' && user && (
-                    <div className="mt-2 text-xs text-center text-gray-500">
-                        Ваш баланс: <span className={(user.balance || 0) < (tier === 'vip' ? 100 : 50) ? 'text-red-500 font-bold' : 'text-green-600 font-bold'}>{user.balance || 0} ₽</span>
-                    </div>
-                )}
             </div>
 
             </form>

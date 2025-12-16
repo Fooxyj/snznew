@@ -231,7 +231,10 @@ export const AdDetail: React.FC = () => {
                 <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{ad.description}</p>
             </div>
 
-            <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-6 flex items-center justify-between">
+            <div 
+                className="mt-6 bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 p-6 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                onClick={() => navigate(`/user/${ad.authorId}`)}
+            >
                 <div className="flex items-center gap-4">
                     {ad.authorAvatar ? (
                         <img src={ad.authorAvatar} alt="" className="w-12 h-12 rounded-full object-cover" />
@@ -245,6 +248,7 @@ export const AdDetail: React.FC = () => {
                         <div className="font-bold dark:text-white text-lg">{ad.authorName}</div>
                     </div>
                 </div>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
             </div>
         </div>
     );

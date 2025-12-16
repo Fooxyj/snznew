@@ -77,9 +77,8 @@ export const authService = {
         
         // Handle auth errors gracefully
         if (error || !data.user) {
-            // If session is invalid/expired (often causes 403 loops), force signout locally
-            if (error?.status === 403 || error?.message?.includes('invalid claim')) {
-                console.warn("Session invalid, clearing local auth state");
+            if (error?.status === 403 || error?.message?.includes('invalid claim') || error?.message?.includes('invalid session')) {
+                console.warn("Session invalid (403), clearing local auth state");
                 await supabase.auth.signOut();
             }
             return null;
@@ -92,7 +91,6 @@ export const authService = {
                 id: data.user.id, 
                 email: data.user.email || '',
                 xp: 0,
-                balance: 0,
                 role: UserRole.USER,
                 name: 'Пользователь',
                 avatar: '',
@@ -103,17 +101,19 @@ export const authService = {
                 user.name = profile.name || user.name;
                 user.avatar = profile.avatar || user.avatar;
                 user.role = (profile.role as UserRole) || user.role;
-                user.favorites = profile.favorites || user.favorites;
                 user.xp = profile.xp !== undefined ? profile.xp : 0;
-                user.balance = profile.balance !== undefined ? profile.balance : 0;
                 user.badges = profile.badges || [];
-                user.phone = profile.phone || ''; // Mapped phone from DB
+                user.phone = profile.phone || ''; 
+                
+                // Safe merging of favorites (DB + LocalStorage fallback)
+                const dbFavs = profile.favorites || [];
+                const localFavs = JSON.parse(localStorage.getItem(`favs_${user.id}`) || '[]');
+                user.favorites = Array.from(new Set([...dbFavs, ...localFavs]));
             }
             return user;
         }
         return null;
     }
-    // Return a shallow copy to trigger React Query updates when mutations occur on the constant
     return { ...CURRENT_USER }; 
   },
 

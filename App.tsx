@@ -56,7 +56,6 @@ const CityMonitor = lazy(() => import('./pages/CityMonitor').then(m => ({ defaul
 const DeliveryPage = lazy(() => import('./pages/Delivery').then(m => ({ default: m.DeliveryPage })));
 const HousingPage = lazy(() => import('./pages/Housing').then(m => ({ default: m.HousingPage })));
 const SmartCity = lazy(() => import('./pages/SmartCity').then(m => ({ default: m.SmartCity })));
-const WalletPage = lazy(() => import('./pages/Wallet').then(m => ({ default: m.WalletPage })));
 
 const App: React.FC = () => {
   const [appReady, setAppReady] = useState(false);
@@ -135,11 +134,10 @@ const App: React.FC = () => {
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/chat" element={<ChatPage />} />
                       <Route path="/business-connect" element={<ConnectBusiness />} />
-                      <Route path="/wallet" element={<WalletPage />} />
                     </Route>
 
-                    {/* Business Routes */}
-                    <Route element={<ProtectedRoute allowedRoles={[UserRole.BUSINESS, UserRole.ADMIN]} />}>
+                    {/* Business Routes - Allow USER as they might own a business without the explicit role yet */}
+                    <Route element={<ProtectedRoute allowedRoles={[UserRole.USER, UserRole.BUSINESS, UserRole.ADMIN]} />}>
                       <Route path="/business-crm" element={<BusinessCRM />} />
                     </Route>
 

@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { Business } from '../../types';
 import { Button } from '../ui/Common';
-import { Loader2, Film, Lock, CheckCircle2, Send, PenTool, Palette, FileText, Key, MessageCircle, Crown, ShieldCheck, Mail, ArrowRight, Clock } from 'lucide-react';
+import { Loader2, Film, Lock, CheckCircle2, Send, PenTool, Palette, FileText, Key, MessageCircle, Crown, ShieldCheck, Mail, ArrowRight, Clock, Globe, AlertTriangle, XCircle } from 'lucide-react';
 import { useToast } from '../ToastProvider';
 import { PhoneInput } from '../ui/PhoneInput';
 import { StoryEditor } from '../StoryEditor';
@@ -180,7 +180,22 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
 
     return (
         <div className="max-w-3xl animate-in fade-in pb-10 space-y-8">
-            <h1 className="text-2xl font-bold dark:text-white mb-6">Настройки: {business.name}</h1>
+            <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-bold dark:text-white">Настройки: {business.name}</h1>
+                
+                {/* Verification Badge */}
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold border ${
+                    business.verificationStatus === 'verified' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800' :
+                    business.verificationStatus === 'rejected' ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800' :
+                    'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800'
+                }`}>
+                    {business.verificationStatus === 'verified' && <CheckCircle2 className="w-4 h-4" />}
+                    {business.verificationStatus === 'rejected' && <XCircle className="w-4 h-4" />}
+                    {business.verificationStatus === 'pending' && <Clock className="w-4 h-4" />}
+                    {business.verificationStatus === 'verified' ? 'Подтверждено' : 
+                     business.verificationStatus === 'rejected' ? 'Ошибка данных' : 'Проверка...'}
+                </div>
+            </div>
             
             {/* Story Editor Modal */}
             {isStoryEditorOpen && (
@@ -364,6 +379,18 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
                         className="w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-700 dark:text-white focus:bg-white dark:focus:bg-gray-600 transition-colors outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 resize-none" 
                         {...register('description')}
                     />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Адрес сайта</label>
+                    <div className="relative">
+                        <Globe className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input 
+                            className="w-full border rounded-xl pl-10 pr-3 py-3 bg-gray-50 dark:bg-gray-700 dark:text-white focus:bg-white dark:focus:bg-gray-600 transition-colors outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600"
+                            placeholder="https://mysite.ru"
+                            {...register('website')}
+                        />
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

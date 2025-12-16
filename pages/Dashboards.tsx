@@ -8,7 +8,7 @@ import {
     Briefcase, ShoppingBag, Check, X, 
     Trophy, MapPin, Building2, Crown,
     LayoutDashboard, FileText, BarChart3, Users,
-    Edit3, Trash2, ChevronDown, List, Upload, Pencil, Star, Shield, Zap, TrendingUp, PieChart as PieChartIcon, Film, Lightbulb, MessageSquare, AlertTriangle, ExternalLink, Bus, Key, Wallet, Sparkles, Calendar, Navigation
+    Edit3, Trash2, ChevronDown, List, Upload, Pencil, Star, Shield, Zap, TrendingUp, PieChart as PieChartIcon, Film, Lightbulb, MessageSquare, AlertTriangle, ExternalLink, Bus, Key, Wallet, Sparkles, Calendar, Navigation, Heart
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { EditAdModal } from '../components/EditAdModal';
@@ -79,6 +79,7 @@ export const Profile: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
+    const [activeTab, setActiveTab] = useState<'my_ads' | 'favorites'>('my_ads');
     const [editingAd, setEditingAd] = useState<Ad | null>(null);
     const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
     const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
@@ -92,6 +93,12 @@ export const Profile: React.FC = () => {
     const { data: userContent } = useQuery({
         queryKey: ['userContent', user?.id],
         queryFn: () => user ? api.getUserContent(user.id) : { ads: [] },
+        enabled: !!user
+    });
+
+    const { data: favorites = { ads: [], businesses: [] } } = useQuery({
+        queryKey: ['favorites', user?.favorites],
+        queryFn: () => user ? api.getFavorites(user.favorites || []) : { ads: [], businesses: [] },
         enabled: !!user
     });
 
@@ -116,6 +123,15 @@ export const Profile: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['userContent'] });
             queryClient.invalidateQueries({ queryKey: ['ads'] });
         }
+    };
+
+    const handleRemoveFavorite = async (id: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!user) return;
+        await api.toggleFavorite(id, 'ad');
+        queryClient.invalidateQueries({ queryKey: ['user'] });
+        queryClient.invalidateQueries({ queryKey: ['favorites'] });
     };
 
     const handleEditAd = (ad: Ad, e: React.MouseEvent) => {
@@ -189,23 +205,8 @@ export const Profile: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
-                            <XPBar xp={user.xp} />
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl flex items-center justify-between">
-                            <div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-1">Баланс</div>
-                                <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-1">
-                                    {user.balance?.toLocaleString()} ₽
-                                </div>
-                            </div>
-                            <Link to="/wallet">
-                                <Button size="sm" className="h-8">
-                                    <Plus className="w-4 h-4" />
-                                </Button>
-                            </Link>
-                        </div>
+                    <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl mb-4">
+                        <XPBar xp={user.xp} />
                     </div>
 
                     {user.role === UserRole.ADMIN && (
@@ -261,51 +262,136 @@ export const Profile: React.FC = () => {
                 )}
             </div>
 
-            {/* My Ads */}
+            {/* Ads & Favorites Tabs */}
             <div>
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">
-                        <ShoppingBag className="w-5 h-5 text-green-600" /> Мои объявления
-                    </h2>
-                    <Link to="/classifieds">
-                        <Button size="sm" variant="secondary"><Plus className="w-4 h-4 mr-1" /> Подать</Button>
-                    </Link>
+                <div className="flex border-b dark:border-gray-700 mb-6">
+                    <button 
+                        onClick={() => setActiveTab('my_ads')}
+                        className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'my_ads' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                    >
+                        <ShoppingBag className="w-4 h-4" /> Мои объявления
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('favorites')}
+                        className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'favorites' ? 'border-red-500 text-red-600 dark:text-red-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                    >
+                        <Heart className="w-4 h-4" /> Избранное
+                    </button>
                 </div>
 
-                {myAds.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {myAds.map(ad => (
-                            <div key={ad.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-all group">
-                                <div className="relative h-40">
-                                    <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
-                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={(e) => handleEditAd(ad, e)} className="p-1.5 bg-white text-gray-700 rounded-lg shadow-sm hover:text-blue-600">
-                                            <Edit3 className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={(e) => handleDeleteAd(ad.id, e)} className="p-1.5 bg-white text-gray-700 rounded-lg shadow-sm hover:text-red-600">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                    {ad.isVip && <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded font-bold">VIP</div>}
-                                </div>
-                                <div className="p-3">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <h3 className="font-medium text-gray-900 dark:text-white truncate flex-1 pr-2">{ad.title}</h3>
-                                        <span className="font-bold text-blue-600 dark:text-blue-400">{ad.price} ₽</span>
-                                    </div>
-                                    <div className="flex justify-between items-center mt-2">
-                                        <div className={`text-xs px-2 py-1 rounded-full ${ad.status === 'approved' ? 'bg-green-100 text-green-700' : ad.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                            {ad.status === 'approved' ? 'Активно' : ad.status === 'rejected' ? 'Отклонено' : 'На проверке'}
+                {activeTab === 'my_ads' && (
+                    <>
+                        <div className="flex justify-end mb-4">
+                            <Link to="/classifieds">
+                                <Button size="sm" variant="secondary"><Plus className="w-4 h-4 mr-1" /> Подать</Button>
+                            </Link>
+                        </div>
+                        {myAds.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {myAds.map(ad => (
+                                    <div key={ad.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-all group cursor-pointer">
+                                        <div className="relative h-40">
+                                            <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
+                                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => handleEditAd(ad, e)} className="p-1.5 bg-white text-gray-700 rounded-lg shadow-sm hover:text-blue-600">
+                                                    <Edit3 className="w-4 h-4" />
+                                                </button>
+                                                <button onClick={(e) => handleDeleteAd(ad.id, e)} className="p-1.5 bg-white text-gray-700 rounded-lg shadow-sm hover:text-red-600">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                            {ad.isVip && <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded font-bold">VIP</div>}
                                         </div>
-                                        <span className="text-xs text-gray-400">{ad.views || 0} просмотров</span>
+                                        <div className="p-3">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h3 className="font-medium text-gray-900 dark:text-white truncate flex-1 pr-2">{ad.title}</h3>
+                                                <span className="font-bold text-blue-600 dark:text-blue-400">{ad.price} ₽</span>
+                                            </div>
+                                            <div className="flex justify-between items-center mt-2">
+                                                <div className={`text-xs px-2 py-1 rounded-full ${ad.status === 'approved' ? 'bg-green-100 text-green-700' : ad.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                    {ad.status === 'approved' ? 'Активно' : ad.status === 'rejected' ? 'Отклонено' : 'На проверке'}
+                                                </div>
+                                                <span className="text-xs text-gray-400">{ad.views || 0} просмотров</span>
+                                            </div>
+                                        </div>
                                     </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-10 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed dark:border-gray-700">
+                                У вас пока нет активных объявлений
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {activeTab === 'favorites' && (
+                    <div className="space-y-6 animate-in fade-in">
+                        {/* Favorite Ads */}
+                        {favorites.ads.length > 0 && (
+                            <div>
+                                <h3 className="font-bold text-gray-500 dark:text-gray-400 uppercase text-xs mb-3 tracking-wider">Объявления</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {favorites.ads.map(ad => (
+                                        <div key={ad.id} onClick={() => navigate(`/ad/${ad.id}`)} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-all group cursor-pointer">
+                                            <div className="relative h-40">
+                                                <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
+                                                <button 
+                                                    onClick={(e) => handleRemoveFavorite(ad.id, e)}
+                                                    className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-full shadow-sm hover:bg-red-500 hover:text-white transition-colors"
+                                                    title="Убрать из избранного"
+                                                >
+                                                    <Heart className="w-4 h-4 fill-current" />
+                                                </button>
+                                                {ad.isVip && <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded font-bold">VIP</div>}
+                                            </div>
+                                            <div className="p-3">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <h3 className="font-medium text-gray-900 dark:text-white truncate flex-1 pr-2">{ad.title}</h3>
+                                                    <span className="font-bold text-blue-600 dark:text-blue-400">{ad.price} ₽</span>
+                                                </div>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{ad.location}</p>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-10 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed dark:border-gray-700">
-                        У вас пока нет активных объявлений
+                        )}
+
+                        {/* Favorite Businesses */}
+                        {favorites.businesses.length > 0 && (
+                            <div>
+                                <h3 className="font-bold text-gray-500 dark:text-gray-400 uppercase text-xs mb-3 tracking-wider">Организации</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {favorites.businesses.map(biz => (
+                                        <div key={biz.id} onClick={() => navigate(`/business/${biz.id}`)} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex gap-3 p-3 items-center">
+                                            <img src={biz.image} alt={biz.name} className="w-16 h-16 rounded-lg object-cover bg-gray-100" />
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-bold text-gray-900 dark:text-white truncate">{biz.name}</h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">{biz.category}</p>
+                                                <p className="text-xs text-gray-400 truncate mt-1">{biz.address}</p>
+                                            </div>
+                                            <button 
+                                                onClick={(e) => handleRemoveFavorite(biz.id, e)}
+                                                className="text-red-300 hover:text-red-500 transition-colors p-2"
+                                            >
+                                                <Heart className="w-5 h-5 fill-current" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {favorites.ads.length === 0 && favorites.businesses.length === 0 && (
+                            <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed dark:border-gray-700">
+                                <Heart className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                                <p>Список избранного пуст</p>
+                                <Link to="/classifieds">
+                                    <Button variant="ghost" size="sm" className="mt-2">Перейти к объявлениям</Button>
+                                </Link>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

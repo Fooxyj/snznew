@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CATEGORIES } from '../constants';
@@ -12,8 +12,14 @@ import { BusinessCardSkeleton } from '../components/ui/Skeleton';
 export const BusinessDirectory: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [showMap, setShowMap] = useState(false);
+  const [shuffleSeed, setShuffleSeed] = useState(0);
   const navigate = useNavigate();
   
+  // Set random seed on mount to randomize list order
+  useEffect(() => {
+      setShuffleSeed(Math.random());
+  }, []);
+
   const categoryLabel = CATEGORIES.find(c => c.id === id)?.label || 'Каталог организаций';
 
   const { data: businesses = [], isLoading } = useQuery({
@@ -21,7 +27,20 @@ export const BusinessDirectory: React.FC = () => {
       queryFn: () => api.getBusinesses(id)
   });
 
-  const mapMarkers = businesses.map(b => ({
+  // Randomize businesses list based on seed
+  const displayedBusinesses = useMemo(() => {
+      const shuffle = (array: typeof businesses) => {
+          const newArr = [...array];
+          for (let i = newArr.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+          }
+          return newArr;
+      };
+      return shuffle(businesses);
+  }, [businesses, shuffleSeed]);
+
+  const mapMarkers = displayedBusinesses.map(b => ({
       lat: b.lat,
       lng: b.lng,
       title: b.name,
@@ -57,7 +76,7 @@ export const BusinessDirectory: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                   {[1, 2, 3, 4, 5, 6].map(i => <BusinessCardSkeleton key={i} />)}
               </div>
-          ) : businesses.length === 0 ? (
+          ) : displayedBusinesses.length === 0 ? (
             <div className="text-center py-20 text-gray-500 dark:text-gray-400 flex flex-col items-center">
                 <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
                     <List className="w-8 h-8 opacity-30" />
@@ -66,7 +85,7 @@ export const BusinessDirectory: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {businesses.map(biz => {
+                {displayedBusinesses.map(biz => {
                     const cleanPhone = formatPhone(biz.phone);
                     const cleanAddress = formatAddress(biz.address);
 

@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge, Button, LocationBadge } from '../components/ui/Common';
 import { Filter, Search, Grid, List, Heart, MessageCircle, Loader2, Sparkles, CreditCard, ShoppingBag, Crown, Star, User as UserIcon } from 'lucide-react';
@@ -23,13 +23,8 @@ const PromoteModal: React.FC<{ isOpen: boolean; onClose: () => void; onConfirm: 
     if (!isOpen) return null;
 
     const price = selectedLevel === 'vip' ? 100 : 50;
-    const canAfford = (user?.balance || 0) >= price;
 
     const handlePay = () => {
-        if (!canAfford) {
-            alert("Недостаточно средств на кошельке. Пополните баланс в профиле.");
-            return;
-        }
         setLoading(true);
         // Simulate slight delay for UX
         setTimeout(() => {
@@ -83,20 +78,12 @@ const PromoteModal: React.FC<{ isOpen: boolean; onClose: () => void; onConfirm: 
                     </div>
                 </div>
 
-                <div className="text-center mb-4 text-sm">
-                    <span className="text-gray-500">Ваш баланс: </span>
-                    <span className={`font-bold ${canAfford ? 'text-green-600' : 'text-red-600'}`}>
-                        {user?.balance || 0} ₽
-                    </span>
-                    {!canAfford && <div className="text-xs text-red-500 mt-1">Недостаточно средств</div>}
-                </div>
-
                 <div className="flex gap-3">
                     <Button variant="outline" className="flex-1 dark:border-gray-600 dark:text-gray-300" onClick={onClose} disabled={loading}>Отмена</Button>
                     <Button 
-                        className={`flex-[2] ${canAfford ? 'bg-gray-900 dark:bg-white dark:text-black text-white hover:bg-gray-800' : 'bg-gray-300 cursor-not-allowed text-gray-500'}`} 
+                        className="flex-[2] bg-gray-900 dark:bg-white dark:text-black text-white hover:bg-gray-800"
                         onClick={handlePay} 
-                        disabled={loading || !canAfford}
+                        disabled={loading}
                     >
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : `Оплатить ${price} ₽`}
                     </Button>
@@ -112,9 +99,15 @@ export const Classifieds: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [promoteId, setPromoteId] = useState<string | null>(null);
+  const [shuffleSeed, setShuffleSeed] = useState(0);
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Initial shuffle on mount
+  useEffect(() => {
+      setShuffleSeed(Math.random());
+  }, []);
 
   const { data: ads = [], isLoading } = useQuery({
       queryKey: ['ads'],
@@ -211,14 +204,29 @@ export const Classifieds: React.FC = () => {
       );
   }, [ads, selectedCategory, searchTerm]);
 
-  // Performance Optimization: Memoize grouped ads
+  // Group ads and Shuffle
   const { vipAds, premiumAds, regularAds } = useMemo(() => {
-      return {
-          vipAds: filteredAds.filter(ad => ad.isVip),
-          premiumAds: filteredAds.filter(ad => !ad.isVip && ad.isPremium),
-          regularAds: filteredAds.filter(ad => !ad.isVip && !ad.isPremium)
+      const shuffle = (array: Ad[]) => {
+          const newArr = [...array];
+          for (let i = newArr.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+          }
+          return newArr;
       };
-  }, [filteredAds]);
+
+      const vips = filteredAds.filter(ad => ad.isVip);
+      const premiums = filteredAds.filter(ad => !ad.isVip && ad.isPremium);
+      const regulars = filteredAds.filter(ad => !ad.isVip && !ad.isPremium);
+
+      // Shuffle using the seed to prevent jitter on re-renders, but allow randomness on load
+      // Note: Passing shuffleSeed to dependencies allows us to re-shuffle if needed
+      return {
+          vipAds: shuffle(vips),
+          premiumAds: shuffle(premiums),
+          regularAds: shuffle(regulars)
+      };
+  }, [filteredAds, shuffleSeed]);
 
   const isAdmin = currentUserRole === UserRole.ADMIN;
 
@@ -365,7 +373,7 @@ export const Classifieds: React.FC = () => {
             {regularAds.length > 0 && (
                 <div className="space-y-4">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Свежие объявления</h2>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Частные объявления</h2>
                     </div>
                     {renderAdList(regularAds)}
                 </div>
@@ -418,13 +426,13 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
         onClick={onClick}
         className={`p-4 rounded-xl shadow-sm flex gap-4 hover:shadow-md transition-all group cursor-pointer ${containerClass}`}
       >
-        <div className="w-48 h-32 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden shrink-0 relative">
-          <img src={ad.image} alt={ad.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+        <div className="w-48 h-32 rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden shrink-0 relative">
+          <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
           {badge}
-          <div className="absolute top-2 right-2 flex flex-col gap-1">
+          <div className="absolute top-2 right-2 flex flex-col gap-1 z-20">
             <button 
                 onClick={onToggleFav}
-                className={`p-1.5 rounded-full hover:bg-white shadow-sm transition-all ${isFav ? 'bg-white text-red-500' : 'bg-white/80 text-gray-500 hover:text-red-500'}`}
+                className={`p-1.5 rounded-full backdrop-blur-sm shadow-sm transition-all hover:bg-white ${isFav ? 'bg-white/90 text-red-500' : 'bg-white/80 text-gray-500 hover:text-red-500'}`}
             >
               <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
             </button>
@@ -490,20 +498,20 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
     );
   }
 
-  // GRID VIEW
+  // GRID VIEW (Uniform cards)
   return (
     <div 
         onClick={onClick}
-        className={`rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition-all group flex flex-col cursor-pointer relative ${containerClass}`}
+        className={`rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition-all group flex flex-col cursor-pointer relative h-full ${containerClass}`}
     >
-      <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+      <div className="aspect-square relative overflow-hidden bg-gray-100 dark:bg-gray-800">
         <img src={ad.image} alt={ad.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
         {badge}
         
-        <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
+        <div className="absolute top-2 right-2 z-20 flex flex-col gap-1">
             <button 
                 onClick={onToggleFav}
-                className={`p-1.5 rounded-full shadow-sm transition-all ${isFav ? 'bg-white text-red-500' : 'bg-white/80 text-gray-500 hover:text-red-500'}`}
+                className={`p-1.5 rounded-full shadow-sm transition-all hover:bg-white ${isFav ? 'bg-white/90 text-red-500' : 'bg-white/80 text-gray-500 hover:text-red-500'}`}
             >
               <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
             </button>
@@ -517,7 +525,7 @@ const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onTog
                 </button>
             )}
         </div>
-        <div className="absolute bottom-2 left-2">
+        <div className="absolute bottom-2 left-2 z-10">
            <Badge color={ad.isVip ? "orange" : ad.isPremium ? "blue" : "gray"}>{ad.category}</Badge>
         </div>
       </div>

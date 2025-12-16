@@ -16,7 +16,6 @@ export interface User {
   phone?: string;
   favorites: string[]; // IDs of ads or businesses
   badges?: string[];
-  balance?: number;
   createdAt?: string;
 }
 
@@ -74,10 +73,12 @@ export interface Business {
   lat: number;
   lng: number;
   phone: string;
+  website?: string; // NEW: Website URL
   workHours: string;
   authorId?: string;
   inn?: string;
   ogrn?: string;
+  verificationStatus?: 'pending' | 'verified' | 'rejected'; // NEW: Auto-verification status
   canPostStories?: boolean; // Permission flag
 }
 

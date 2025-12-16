@@ -15,6 +15,7 @@ import { authService } from './authService';
 import { businessService } from './businessService';
 import { socialService } from './socialService';
 import { cityService } from './cityService';
+import { CURRENT_USER } from '../constants';
 
 const delay = (ms: number = 500) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -92,7 +93,6 @@ const compressImage = async (file: File): Promise<File> => {
 
             canvas.toBlob((blob) => {
                 if (blob) {
-                    // Create new file with same name but JPEG type and 0.8 quality
                     const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { 
                         type: 'image/jpeg', 
                         lastModified: Date.now() 
@@ -127,7 +127,7 @@ export const api = {
                       avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}`,
                       role: profile.role || UserRole.USER,
                       xp: profile.xp || 0,
-                      email: '', // Don't expose email publicly
+                      email: '', 
                       favorites: [],
                       badges: profile.badges || [],
                       createdAt: profile.created_at
@@ -137,21 +137,17 @@ export const api = {
               console.error("Error fetching user", e);
           }
       }
-      // Mock fallback
       if (userId === 'u2') return { id: 'u2', name: 'Иван Иванов', avatar: 'https://ui-avatars.com/api/?name=Ivan', role: UserRole.USER, xp: 500, email: '', favorites: [] };
       if (userId === 'u7') return { id: 'u7', name: 'Мария Кулинар', avatar: 'https://ui-avatars.com/api/?name=Maria', role: UserRole.USER, xp: 1200, email: '', favorites: [] };
       return null;
   },
 
-  // --- ADMIN HELPER ---
   async getAdminUserId(): Promise<string | null> {
       const ADMIN_EMAIL = 'fooxyj@yandex.ru';
-      
       if (isSupabaseConfigured() && supabase) {
           try {
               const { data } = await supabase.from('profiles').select('id').eq('email', ADMIN_EMAIL).single();
               if (data) return data.id;
-              
               const { data: adminRole } = await supabase.from('profiles').select('id').eq('role', 'ADMIN').limit(1).single();
               if (adminRole) return adminRole.id;
           } catch (e) {
@@ -176,6 +172,63 @@ export const api = {
     }
     const allAds = await this.getAds();
     return { ads: allAds.filter(a => a.authorId === userId) };
+  },
+
+  async getFavorites(ids: string[]): Promise<{ ads: Ad[], businesses: Business[] }> {
+      if (!ids || ids.length === 0) return { ads: [], businesses: [] };
+
+      if (isSupabaseConfigured() && supabase) {
+          try {
+              // Fetch Ads
+              const { data: adsData } = await supabase.from('ads').select('*').in('id', ids);
+              let ads: Ad[] = [];
+              if (adsData) {
+                  const authorIds = [...new Set(adsData.map((a: any) => a.author_id))];
+                  let profiles: any[] = [];
+                  if (authorIds.length > 0) {
+                      const { data: profilesData } = await supabase.from('profiles').select('id, name, avatar').in('id', authorIds);
+                      profiles = profilesData || [];
+                  }
+                  ads = adsData.map((d: any) => {
+                      const profile = profiles.find(p => p.id === d.author_id);
+                      return mapAdFromDB(d, profile);
+                  });
+              }
+
+              // Fetch Businesses
+              const { data: bizData } = await supabase.from('businesses').select('*').in('id', ids);
+              let businesses: Business[] = [];
+              if (bizData) {
+                  businesses = bizData.map((b: any) => ({
+                      id: b.id,
+                      name: b.name,
+                      category: b.category,
+                      rating: 0, // Simplified
+                      reviewsCount: 0,
+                      address: b.address,
+                      image: b.image,
+                      coverImage: b.cover_image,
+                      description: b.description,
+                      lat: b.lat,
+                      lng: b.lng,
+                      phone: b.phone,
+                      workHours: b.work_hours,
+                      authorId: b.author_id,
+                      verificationStatus: b.verification_status
+                  }));
+              }
+
+              return { ads, businesses };
+          } catch (e) {
+              console.error("Error fetching favorites", e);
+              return { ads: [], businesses: [] };
+          }
+      }
+
+      // Mock fallback
+      const ads = mockStore.ads.filter(a => ids.includes(a.id));
+      const businesses = mockStore.businesses.filter(b => ids.includes(b.id));
+      return { ads, businesses };
   },
 
   async getExploreData() {
@@ -221,14 +274,13 @@ export const api = {
       return [...enrichedBusinesses, ...enrichedQuests, ...enrichedAppeals];
   },
 
-  async claimDailyBonus(xp: number, money: number): Promise<void> {
+  async claimDailyBonus(xp: number): Promise<void> {
       const user = await this.getCurrentUser();
       if (!user) return;
 
       if (isSupabaseConfigured() && supabase) {
           const { error } = await supabase.from('profiles').update({
-              xp: (user.xp || 0) + xp,
-              balance: (user.balance || 0) + money
+              xp: (user.xp || 0) + xp
           }).eq('id', user.id);
           
           if (error) throw error;
@@ -236,7 +288,6 @@ export const api = {
       localStorage.setItem(`daily_bonus_${user.id}`, new Date().toDateString());
   },
 
-  // --- REPORTING ---
   async sendReport(targetId: string, targetType: string, reason: string): Promise<void> {
       const user = await this.getCurrentUser();
       if (!user) throw new Error("Необходимо войти в систему");
@@ -251,7 +302,6 @@ export const api = {
           });
           return;
       }
-      
       mockStore.reports.push({
           id: Math.random().toString(),
           userId: user.id,
@@ -324,7 +374,6 @@ export const api = {
       mockStore.reports = mockStore.reports.filter(r => r.id !== id);
   },
 
-  // --- ADS (Public) ---
   async getAds(): Promise<Ad[]> {
     if (isSupabaseConfigured() && supabase) {
         try {
@@ -427,7 +476,6 @@ export const api = {
       }
   },
 
-  // --- ADMIN METHODS ---
   async getAllAdsForAdmin(): Promise<Ad[]> {
       if (isSupabaseConfigured() && supabase) {
           try {
@@ -514,7 +562,6 @@ export const api = {
       if (isSupabaseConfigured() && supabase) await supabase.from('ads').update({ is_vip: isVip }).eq('id', id);
   },
 
-  // --- STORIES ---
   async deleteStory(id: string): Promise<void> {
       if (isSupabaseConfigured() && supabase) {
           const { error } = await supabase.from('stories').delete().eq('id', id);
@@ -524,7 +571,6 @@ export const api = {
       mockStore.stories = mockStore.stories.filter(s => s.id !== id);
   },
 
-  // --- NEWS ---
   async getNews(): Promise<NewsItem[]> {
     if (isSupabaseConfigured() && supabase) {
         const { data } = await supabase.from('news').select('*').order('date', { ascending: false });
@@ -568,7 +614,6 @@ export const api = {
       }
   },
 
-  // --- EVENTS ---
   async getEvents(): Promise<Event[]> {
       if (isSupabaseConfigured() && supabase) {
           const { data } = await supabase.from('events').select('*').order('created_at', { ascending: false });
@@ -619,7 +664,6 @@ export const api = {
   async getBookedSeats(eid: string) { return []; },
   async buyTicket(eid: string, r: number, c: number, p: number) {},
 
-  // --- RENTALS ---
   async getRentals(): Promise<RentalItem[]> { 
       if (isSupabaseConfigured() && supabase) {
           const { data } = await supabase.from('rentals').select('*').eq('is_available', true);
@@ -644,6 +688,15 @@ export const api = {
           return;
       }
       mockStore.rentals.push({...data, id: Math.random().toString()}); 
+  },
+
+  async deleteRental(id: string): Promise<void> {
+      if (isSupabaseConfigured() && supabase) {
+          const { error } = await supabase.from('rentals').delete().eq('id', id);
+          if (error) throw error;
+          return;
+      }
+      mockStore.rentals = mockStore.rentals.filter(r => r.id !== id);
   },
 
   async getMyRentals(): Promise<RentalBooking[]> { 
@@ -700,11 +753,9 @@ export const api = {
       }
   },
 
-  // --- STORAGE ---
   async uploadImage(file: File): Promise<string> {
       if (isSupabaseConfigured() && supabase) {
           let fileToUpload = file;
-          // Optimize image if it is an image type
           if (file.type.startsWith('image/')) {
               try {
                   fileToUpload = await compressImage(file);
@@ -722,14 +773,12 @@ export const api = {
               return data.publicUrl;
           } catch (error) {
               console.warn("Supabase Storage upload failed, falling back to local preview:", error);
-              // Fall through to local blob
           }
       }
       await delay(800);
       return URL.createObjectURL(file);
   },
 
-  // --- NOTIFICATIONS (Real Implementation) ---
   async getNotifications(): Promise<Notification[]> {
       const user = await authService.getCurrentUser();
       if (!user || !isSupabaseConfigured() || !supabase) return [];
@@ -796,12 +845,9 @@ export const api = {
       }
   },
 
-  // --- ECONOMY & MISC ---
   async getCoupons(): Promise<Coupon[]> { return []; },
   async getMyCoupons(): Promise<UserCoupon[]> { return []; },
   async buyCoupon(id: string): Promise<void> { },
-  async topUpWallet(amount: number): Promise<void> { },
-  async transferMoney(contact: string, amount: number): Promise<void> { },
   async getTransactions(): Promise<Transaction[]> { return []; },
 
   async getCampaigns(): Promise<Campaign[]> { 
@@ -815,7 +861,7 @@ export const api = {
   async createCampaign(data: any) { 
       const user = await authService.getCurrentUser();
       if (isSupabaseConfigured() && supabase && user) {
-          await supabase.from('campaigns').insert({ ...data, author_id: user.id, target_amount: data.targetAmount, organizer_name: data.organizerName });
+          await supabase.from('campaigns').insert({ ...data, author_id: user.id, target_amount: data.targetAmount, organizer_name: data.organizer_name });
       }
   },
   
@@ -869,27 +915,44 @@ export const api = {
   async payUtilityBill(id: string, a: number) {},
   
   async createPoll(q: string, o: string[]) {},
+  
   async toggleFavorite(id: string, t: string) { 
       const user = await authService.getCurrentUser();
-      if (!user) return false;
+      if (!user) throw new Error("Необходимо войти в систему");
       
+      const favorites = user.favorites || [];
+      const exists = favorites.includes(id);
+      const newFavs = exists ? favorites.filter(f => f !== id) : [...favorites, id];
+      
+      // Update local storage for immediate optimistic UI update
+      // This is crucial if the DB column is missing
+      localStorage.setItem(`favs_${user.id}`, JSON.stringify(newFavs));
+
       if (isSupabaseConfigured() && supabase) {
-          const favorites = user.favorites || [];
-          const exists = favorites.includes(id);
-          const newFavs = exists ? favorites.filter(f => f !== id) : [...favorites, id];
-          
-          await supabase.from('profiles').update({ favorites: newFavs }).eq('id', user.id);
-          return !exists;
-      } else {
-          // Mock mode logic to update local user state for immediate feedback
-          const favorites = user.favorites || [];
-          const index = favorites.indexOf(id);
-          if (index === -1) {
-              user.favorites.push(id);
-          } else {
-              user.favorites.splice(index, 1);
+          try {
+              const { error } = await supabase.from('profiles').update({ favorites: newFavs }).eq('id', user.id);
+              if (error) {
+                  // Fallback if column is missing in DB schema
+                  if (error.code === 'PGRST204' || error.message.includes('favorites')) {
+                      console.warn("Favorites column missing in DB, using local storage fallback.");
+                      return !exists;
+                  }
+                  throw error;
+              }
+          } catch (e: any) {
+              console.error("Toggle favorite DB failed, falling back to local", e);
+              // Return success because we updated local storage
+              return !exists;
           }
-          return index === -1;
+      } else {
+          // Mock mode logic: Update CURRENT_USER directly
+          const index = CURRENT_USER.favorites.indexOf(id);
+          if (index === -1) {
+              CURRENT_USER.favorites.push(id);
+          } else {
+              CURRENT_USER.favorites.splice(index, 1);
+          }
       }
+      return !exists;
   }
 };

@@ -8,7 +8,7 @@ import { Gift, X, Sparkles, Coins, Trophy } from 'lucide-react';
 export const DailyBonus: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [step, setStep] = useState<'offer' | 'claiming' | 'claimed'>('offer');
-  const [reward, setReward] = useState({ xp: 50, money: 10 });
+  const [reward, setReward] = useState({ xp: 50 });
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -24,8 +24,7 @@ export const DailyBonus: React.FC = () => {
       if (lastClaim !== today) {
         // Simple logic: randomize reward slightly
         const randomXP = Math.floor(Math.random() * 50) + 50; // 50-100 XP
-        const randomMoney = Math.floor(Math.random() * 20) + 10; // 10-30 RUB
-        setReward({ xp: randomXP, money: randomMoney });
+        setReward({ xp: randomXP });
         
         // Delay appearance slightly for UX
         setTimeout(() => setIsVisible(true), 2000);
@@ -35,7 +34,7 @@ export const DailyBonus: React.FC = () => {
   }, []);
 
   const claimMutation = useMutation({
-    mutationFn: () => api.claimDailyBonus(reward.xp, reward.money),
+    mutationFn: () => api.claimDailyBonus(reward.xp),
     onMutate: () => setStep('claiming'),
     onSuccess: () => {
       setStep('claimed');
@@ -70,17 +69,13 @@ export const DailyBonus: React.FC = () => {
                     </div>
                     <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Ежедневный бонус!</h2>
                     <p className="text-gray-500 dark:text-gray-400 mb-6">
-                        Заходите каждый день, чтобы получать опыт и монеты на покупки.
+                        Заходите каждый день, чтобы получать опыт.
                     </p>
                     
                     <div className="flex justify-center gap-4 mb-8">
                         <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl min-w-[100px]">
                             <Trophy className="w-6 h-6 text-blue-600 mx-auto mb-1" />
                             <div className="font-bold text-blue-700 dark:text-blue-300">+{reward.xp} XP</div>
-                        </div>
-                        <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-xl min-w-[100px]">
-                            <Coins className="w-6 h-6 text-green-600 mx-auto mb-1" />
-                            <div className="font-bold text-green-700 dark:text-green-300">+{reward.money} ₽</div>
                         </div>
                     </div>
 

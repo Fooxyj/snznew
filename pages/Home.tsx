@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge, Button } from '../components/ui/Common';
@@ -297,20 +296,22 @@ export const Home: React.FC = () => {
 const VipAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, onToggleFav }) => (
     <div onClick={onClick} className="bg-gradient-to-br from-white to-orange-50 dark:from-gray-800 dark:to-gray-800/80 rounded-3xl shadow-lg hover:shadow-2xl transition-all relative group cursor-pointer overflow-hidden border-2 border-orange-400 dark:border-orange-500/60 ring-4 ring-orange-100 dark:ring-orange-900/20 flex flex-col h-full">
         {/* Large Image Area - Square Aspect for massive size */}
-        <div className="aspect-square relative overflow-hidden">
+        <div className="aspect-square relative overflow-hidden bg-gray-100 dark:bg-gray-800">
+            {/* Revert to object-cover to remove frames, even if it crops a bit */}
             <img src={ad.image} alt={ad.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60"></div>
             
-            <div className="absolute top-4 left-4 bg-gradient-to-r from-orange-500 to-yellow-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg z-10 uppercase tracking-widest flex items-center gap-1.5">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 pointer-events-none z-20"></div>
+            
+            <div className="absolute top-4 left-4 bg-gradient-to-r from-orange-500 to-yellow-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg z-30 uppercase tracking-widest flex items-center gap-1.5">
                 <Crown className="w-3.5 h-3.5 fill-current" /> VIP
             </div>
 
             {/* Hover Controls */}
-            <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
+            <div className="absolute top-4 right-4 flex flex-col gap-2 z-30">
                  {onToggleFav && (
                     <button
                         onClick={onToggleFav}
-                        className={`p-2 rounded-full backdrop-blur-md shadow-sm transition-all ${isFav ? 'bg-white text-red-500' : 'bg-black/30 text-white hover:bg-white hover:text-red-500'}`}
+                        className={`p-2 rounded-full backdrop-blur-md shadow-sm transition-all ${isFav ? 'bg-black/30 text-red-500' : 'bg-black/30 text-white hover:text-red-500'}`}
                     >
                         <Heart className={`w-5 h-5 ${isFav ? 'fill-current' : ''}`} />
                     </button>
@@ -326,7 +327,7 @@ const VipAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, on
                 )}
             </div>
 
-            <div className="absolute bottom-4 left-4 right-4">
+            <div className="absolute bottom-4 left-4 right-4 z-30">
                  <span className="text-xs font-bold text-white/90 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg">
                     {ad.category}
                  </span>
@@ -334,7 +335,7 @@ const VipAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, on
         </div>
 
         {/* Content Area */}
-        <div className="p-5 flex flex-col flex-1">
+        <div className="p-5 flex flex-col flex-1 relative z-30">
             <div className="mb-2">
                 <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-red-600 dark:from-orange-400 dark:to-yellow-400">
                     {ad.price.toLocaleString()} {ad.currency}
@@ -365,13 +366,13 @@ const GridAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, o
         borderClass = "border-2 border-blue-400 dark:border-blue-500 shadow-md";
         bgClass = "bg-blue-50/10 dark:bg-blue-900/10";
         badge = (
-            <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm z-10 flex items-center gap-1">
+            <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm z-20 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 fill-current" /> PRO
             </div>
         );
     } else {
         badge = (
-            <div className="absolute top-2 left-2 bg-white/90 dark:bg-black/50 backdrop-blur text-xs px-2 py-1 rounded-lg font-medium text-gray-700 dark:text-gray-200">
+            <div className="absolute top-2 left-2 bg-white/90 dark:bg-black/50 backdrop-blur text-xs px-2 py-1 rounded-lg font-medium text-gray-700 dark:text-gray-200 z-20">
                {ad.category}
             </div>
         );
@@ -383,14 +384,15 @@ const GridAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, o
             className={`${bgClass} rounded-2xl shadow-sm hover:shadow-lg transition-all group flex flex-col cursor-pointer overflow-hidden relative ${borderClass}`}
         >
           {/* Image */}
-            <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+            <div className="aspect-square bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
+                {/* Revert to object-cover to avoid frames */}
                 <img src={ad.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 {badge}
                 <div className="absolute top-2 right-2 flex flex-col gap-2 z-20">
                     {onToggleFav && (
                         <button
                             onClick={onToggleFav}
-                            className={`p-1.5 rounded-full backdrop-blur shadow-sm transition-all ${isFav ? 'bg-white text-red-500' : 'bg-white/70 text-gray-500 hover:text-red-500'}`}
+                            className={`p-1.5 rounded-full backdrop-blur-sm shadow-sm transition-all hover:bg-white ${isFav ? 'bg-white/80 text-red-500' : 'bg-white/70 text-gray-500 hover:text-red-500'}`}
                         >
                             <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
                         </button>
@@ -407,7 +409,7 @@ const GridAdCard: React.FC<any> = ({ ad, onClick, isAdmin, onToggleVip, isFav, o
                 </div>
             </div>
           {/* Content */}
-            <div className="p-4 flex-1 flex flex-col">
+            <div className="p-4 flex-1 flex flex-col relative z-20">
                 <div className="flex-1">
                 <div className="flex justify-between items-start mb-1">
                     <p className="text-lg font-extrabold text-gray-900 dark:text-white">{ad.price.toLocaleString()} {ad.currency}</p>

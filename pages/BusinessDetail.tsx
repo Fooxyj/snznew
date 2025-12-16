@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Product, Service, Event, UserRole } from '../types';
 import { Button, formatAddress, formatPhone } from '../components/ui/Common';
-import { MapPin, Phone, Clock, Loader2, Star, ChevronLeft, ShoppingBag, Plus, X, Calendar, Clock4, ShoppingCart, Trash2, Film, CreditCard } from 'lucide-react';
+import { MapPin, Phone, Clock, Loader2, Star, ChevronLeft, ShoppingBag, Plus, X, Calendar, Clock4, ShoppingCart, Trash2, Film, CreditCard, Globe, ExternalLink } from 'lucide-react';
 import { useCart } from '../components/CartProvider';
 import { YandexMap } from '../components/YandexMap';
 import { CreateEventModal } from '../components/CreateEventModal';
@@ -429,6 +429,11 @@ export const BusinessDetail: React.FC = () => {
                             </div>
                             
                             <div className="flex flex-wrap gap-2 text-sm">
+                                {business.website && (
+                                    <a href={business.website} target="_blank" rel="noopener noreferrer" className="flex items-center text-gray-700 dark:text-white font-bold bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-4 py-2 rounded-xl transition-colors shadow-sm">
+                                        <Globe className="w-4 h-4 mr-2" /> Сайт
+                                    </a>
+                                )}
                                 {cleanPhone && (
                                     <button onClick={handleCall} className="flex items-center text-white font-bold bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl transition-colors shadow-sm">
                                         <Phone className="w-4 h-4 mr-2" /> Позвонить

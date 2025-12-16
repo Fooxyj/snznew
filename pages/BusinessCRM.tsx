@@ -26,17 +26,18 @@ export const BusinessCRM: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
-    const { data: businesses = [], isLoading } = useQuery({
+    const { data: businesses = [], isLoading, isFetching } = useQuery({
         queryKey: ['myBusinesses'],
-        queryFn: api.getMyBusinesses
+        queryFn: api.getMyBusinesses,
+        staleTime: 0 // Ensure fresh data on mount to catch updates
     });
 
     // Set default selected business on load if not set
     useEffect(() => {
-        if (businesses.length > 0 && !selectedBusinessId) {
+        if (!isLoading && businesses.length > 0 && !selectedBusinessId) {
             setSelectedBusinessId(businesses[0].id);
         }
-    }, [businesses, selectedBusinessId]);
+    }, [businesses, selectedBusinessId, isLoading]);
 
     // Find the currently selected business object
     const selectedBusiness = businesses.find(b => b.id === selectedBusinessId) || businesses[0];
@@ -82,13 +83,16 @@ export const BusinessCRM: React.FC = () => {
     const refetchRentals = () => queryClient.invalidateQueries({ queryKey: ['rentals', selectedBusiness?.id] });
     const refetchEvents = () => queryClient.invalidateQueries({ queryKey: ['cinemaEvents', selectedBusiness?.authorId] });
 
-    if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    if (isLoading || (isFetching && !selectedBusiness)) {
+        return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+    }
     
     if (!selectedBusiness) {
         return (
             <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] p-6 text-center">
                 <h2 className="text-xl font-bold mb-4 dark:text-white">У вас нет бизнеса</h2>
-                <button onClick={() => navigate('/business-connect')} className="bg-blue-600 text-white px-6 py-2 rounded-xl">
+                <p className="text-gray-500 mb-6">Создайте компанию, чтобы управлять ей здесь.</p>
+                <button onClick={() => navigate('/business-connect')} className="bg-blue-600 text-white px-6 py-2 rounded-xl hover:bg-blue-700 transition-colors">
                     Создать бизнес
                 </button>
             </div>
@@ -303,7 +307,7 @@ export const BusinessCRM: React.FC = () => {
                         type="rentals" 
                         label="Аренда" 
                         onAdd={() => setModal('rental')} 
-                        onDelete={async (id) => {/* impl delete rental */}} 
+                        onDelete={async (id) => { await api.deleteRental(id); refetchRentals(); }} 
                     />
                 )}
 
