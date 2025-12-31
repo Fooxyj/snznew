@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Loader2, Upload } from 'lucide-react';
 import { Button } from './ui/Common';
 import { api } from '../services/api';
@@ -9,9 +9,10 @@ interface CreateNewsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (news: NewsItem) => void;
+  item?: NewsItem | null; // Если передан item, значит режим редактирования
 }
 
-export const CreateNewsModal: React.FC<CreateNewsModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const CreateNewsModal: React.FC<CreateNewsModalProps> = ({ isOpen, onClose, onSuccess, item }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [formData, setFormData] = useState({
@@ -20,6 +21,24 @@ export const CreateNewsModal: React.FC<CreateNewsModalProps> = ({ isOpen, onClos
     content: '',
     image: ''
   });
+
+  useEffect(() => {
+    if (item && isOpen) {
+        setFormData({
+            title: item.title,
+            category: item.category,
+            content: item.content,
+            image: item.image
+        });
+    } else if (!item && isOpen) {
+        setFormData({
+            title: '',
+            category: 'Город',
+            content: '',
+            image: ''
+        });
+    }
+  }, [item, isOpen]);
 
   if (!isOpen) return null;
 
@@ -32,7 +51,6 @@ export const CreateNewsModal: React.FC<CreateNewsModalProps> = ({ isOpen, onClos
         const url = await api.uploadImage(file);
         setFormData(prev => ({ ...prev, image: url }));
     } catch (error: any) {
-        console.error(error);
         alert('Ошибка загрузки фото: ' + error.message);
     } finally {
         setIsUploading(false);
@@ -43,18 +61,17 @@ export const CreateNewsModal: React.FC<CreateNewsModalProps> = ({ isOpen, onClos
     e.preventDefault();
     setIsLoading(true);
     try {
-      const newItem = await api.createNews({
-        ...formData,
-        image: formData.image || 'https://picsum.photos/seed/news/800/400'
-      });
-      onSuccess(newItem);
+      if (item) {
+          await api.updateNews(item.id, { ...formData });
+          onSuccess(item);
+      } else {
+          const newItem = await api.createNews({
+            ...formData,
+            image: formData.image || 'https://picsum.photos/seed/news/800/400'
+          });
+          onSuccess(newItem);
+      }
       onClose();
-      setFormData({
-        title: '',
-        category: 'Город',
-        content: '',
-        image: ''
-      });
     } catch (error: any) {
       alert("Ошибка: " + error.message);
     } finally {
@@ -66,7 +83,7 @@ export const CreateNewsModal: React.FC<CreateNewsModalProps> = ({ isOpen, onClos
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden slide-in-from-top h-[85vh] overflow-y-auto">
         <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 dark:border-gray-700 sticky top-0 z-10">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Добавить новость</h3>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{item ? 'Редактировать новость' : 'Добавить новость'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
             <X className="w-5 h-5" />
           </button>
@@ -111,7 +128,7 @@ export const CreateNewsModal: React.FC<CreateNewsModalProps> = ({ isOpen, onClos
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Обложка новости</label>
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center text-gray-500 dark:text-gray-400 text-sm bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
                 {formData.image ? (
                     <div className="relative group">
                         <img src={formData.image} alt="Preview" className="h-32 mx-auto rounded object-cover" />
@@ -146,7 +163,7 @@ export const CreateNewsModal: React.FC<CreateNewsModalProps> = ({ isOpen, onClos
 
           <div className="pt-2">
             <Button disabled={isLoading || isUploading} className="w-full py-2.5">
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Опубликовать'}
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : item ? 'Сохранить изменения' : 'Опубликовать'}
             </Button>
           </div>
         </form>

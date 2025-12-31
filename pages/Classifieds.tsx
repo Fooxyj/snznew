@@ -1,561 +1,181 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Badge, Button, LocationBadge } from '../components/ui/Common';
-import { Filter, Search, Grid, List, Heart, MessageCircle, Loader2, Sparkles, CreditCard, ShoppingBag, Crown, Star, User as UserIcon } from 'lucide-react';
-import { Ad, UserRole } from '../types';
+import { Badge, Button } from '../components/ui/Common';
+import { Search, Grid, List, ShoppingBag, Crown, Megaphone, Users, ArrowRight, MapPin, Wand2 } from 'lucide-react';
+import { Ad, PromoAd } from '../types';
 import { api } from '../services/api';
 import { CreateAdModal } from '../components/CreateAdModal';
 import { useNavigate } from 'react-router-dom';
-import { AdGridSkeleton, CardSkeleton } from '../components/ui/Skeleton';
+import { CardSkeleton } from '../components/ui/Skeleton';
 import { AD_CATEGORIES } from '../constants';
-
-// New Payment Modal with Selection
-const PromoteModal: React.FC<{ isOpen: boolean; onClose: () => void; onConfirm: (level: 'vip' | 'premium') => void }> = ({ isOpen, onClose, onConfirm }) => {
-    const [loading, setLoading] = useState(false);
-    const [selectedLevel, setSelectedLevel] = useState<'vip' | 'premium'>('premium');
-    
-    const { data: user } = useQuery({
-        queryKey: ['user'],
-        queryFn: api.getCurrentUser
-    });
-
-    if (!isOpen) return null;
-
-    const price = selectedLevel === 'vip' ? 100 : 50;
-
-    const handlePay = () => {
-        setLoading(true);
-        // Simulate slight delay for UX
-        setTimeout(() => {
-            setLoading(false);
-            onConfirm(selectedLevel);
-            onClose();
-        }, 1000);
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-sm shadow-2xl p-6 animate-in zoom-in duration-200">
-                <div className="text-center mb-6">
-                    <h3 className="text-2xl font-bold dark:text-white">Ускорить продажу</h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Выберите способ продвижения</p>
-                </div>
-
-                <div className="space-y-4 mb-6">
-                    {/* VIP Option */}
-                    <div 
-                        onClick={() => setSelectedLevel('vip')}
-                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${selectedLevel === 'vip' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-orange-300'}`}
-                    >
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${selectedLevel === 'vip' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                            <Crown className="w-6 h-6 fill-current" />
-                        </div>
-                        <div className="flex-1 text-left">
-                            <div className="flex justify-between items-center">
-                                <span className="font-bold text-gray-900 dark:text-white">VIP Статус</span>
-                                <span className="font-bold text-orange-600 dark:text-orange-400">100 ₽</span>
-                            </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Закрепление вверху, золотая рамка, значок короны.</p>
-                        </div>
-                    </div>
-
-                    {/* Premium Option */}
-                    <div 
-                        onClick={() => setSelectedLevel('premium')}
-                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-4 ${selectedLevel === 'premium' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'}`}
-                    >
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${selectedLevel === 'premium' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                            <Sparkles className="w-6 h-6 fill-current" />
-                        </div>
-                        <div className="flex-1 text-left">
-                            <div className="flex justify-between items-center">
-                                <span className="font-bold text-gray-900 dark:text-white">Premium</span>
-                                <span className="font-bold text-blue-600 dark:text-blue-400">50 ₽</span>
-                            </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Синяя рамка, выделение в ленте, значок.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex gap-3">
-                    <Button variant="outline" className="flex-1 dark:border-gray-600 dark:text-gray-300" onClick={onClose} disabled={loading}>Отмена</Button>
-                    <Button 
-                        className="flex-[2] bg-gray-900 dark:bg-white dark:text-black text-white hover:bg-gray-800"
-                        onClick={handlePay} 
-                        disabled={loading}
-                    >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : `Оплатить ${price} ₽`}
-                    </Button>
-                </div>
-            </div>
-        </div>
-    );
-};
+import { BannerSlot } from '../components/BannerSlot';
 
 export const Classifieds: React.FC = () => {
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [activeTab, setActiveTab] = useState<'partners' | 'residents'>('residents');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [promoteId, setPromoteId] = useState<string | null>(null);
-  const [shuffleSeed, setShuffleSeed] = useState(0);
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Initial shuffle on mount
-  useEffect(() => {
-      setShuffleSeed(Math.random());
-  }, []);
+  const { data: ads = [], isLoading: adsLoading } = useQuery({ queryKey: ['ads'], queryFn: () => api.getAds() });
+  const { data: promoAds = [], isLoading: promoLoading } = useQuery({ queryKey: ['promoAds'], queryFn: () => api.getPromoAds() });
+  const { data: user } = useQuery({ queryKey: ['user'], queryFn: api.getCurrentUser });
 
-  const { data: ads = [], isLoading } = useQuery({
-      queryKey: ['ads'],
-      queryFn: api.getAds
-  });
+  const handleCreateClick = () => { if (!user) navigate('/auth'); else setIsCreateModalOpen(true); };
 
-  const { data: user } = useQuery({
-      queryKey: ['user'],
-      queryFn: api.getCurrentUser
-  });
-
-  const categories = ['Все', ...AD_CATEGORIES];
-
-  const userFavs = user?.favorites || [];
-  const currentUserId = user?.id || null;
-  const currentUserRole = user?.role || null;
-
-  const handleCreateClick = () => {
-      if (!user) {
-          if (confirm("Необходимо войти в систему, чтобы подать объявление. Перейти на страницу входа?")) {
-              navigate('/auth');
-          }
-          return;
-      }
-      setIsCreateModalOpen(true);
-  };
-
-  const handleAdCreated = (newAd: Ad) => {
-    // Invalidate ads to refetch
-    queryClient.invalidateQueries({ queryKey: ['ads'] });
-  };
-
-  const toggleFav = async (id: string, e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      try {
-        await api.toggleFavorite(id, 'ad');
-        queryClient.invalidateQueries({ queryKey: ['user'] });
-      } catch (err: any) {
-        alert(err.message || "Ошибка");
-      }
-  };
-
-  const handleWrite = async (ad: Ad, e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!currentUserId) return navigate('/auth');
-      try {
-          const payload = JSON.stringify({
-                type: 'ad_inquiry',
-                adId: ad.id,
-                title: ad.title,
-                price: `${ad.price.toLocaleString()} ${ad.currency}`,
-                image: ad.image,
-                description: ad.description,
-                text: "Здравствуйте! Меня интересует это объявление."
-          });
-          const chatId = await api.startChat(ad.authorId, payload);
-          navigate(`/chat?id=${chatId}`);
-      } catch (e: any) {
-          alert(e.message);
-      }
-  };
-
-  const handlePromoteConfirm = async (level: 'vip' | 'premium') => {
-      if (promoteId) {
-          try {
-            await api.promoteAd(promoteId, level);
-            setPromoteId(null);
-            queryClient.invalidateQueries({ queryKey: ['ads'] });
-            queryClient.invalidateQueries({ queryKey: ['user'] }); // update balance
-            alert("Услуга успешно активирована!");
-          } catch (e: any) {
-            alert(e.message || "Ошибка оплаты");
-          }
-      }
-  };
-
-  const handleAdminToggleVip = async (ad: Ad) => {
-      if (!confirm(`Админ: ${ad.isVip ? 'Снять' : 'Назначить'} VIP статус для "${ad.title}"?`)) return;
-      try {
-          await api.adminToggleVip(ad.id, !!ad.isVip);
-          queryClient.invalidateQueries({ queryKey: ['ads'] });
-      } catch (e: any) {
-          alert(e.message);
-      }
-  };
-
-  // Performance Optimization: Memoize filtered results to prevent recalculation on every render
   const filteredAds = useMemo(() => {
-      return ads.filter(ad => 
-        (selectedCategory === 'Все' || ad.category === selectedCategory) &&
-        ad.title.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      return ads.filter(ad => (selectedCategory === 'Все' || ad.category === selectedCategory) && ad.title.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [ads, selectedCategory, searchTerm]);
 
-  // Group ads and Shuffle
-  const { vipAds, premiumAds, regularAds } = useMemo(() => {
-      const shuffle = (array: Ad[]) => {
-          const newArr = [...array];
-          for (let i = newArr.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
-          }
-          return newArr;
+  const { vipAds, proAds, regularAds } = useMemo(() => {
+      return { 
+          vipAds: filteredAds.filter(ad => ad.isVip), 
+          proAds: filteredAds.filter(ad => ad.isPremium && !ad.isVip),
+          regularAds: filteredAds.filter(ad => !ad.isVip && !ad.isPremium) 
       };
-
-      const vips = filteredAds.filter(ad => ad.isVip);
-      const premiums = filteredAds.filter(ad => !ad.isVip && ad.isPremium);
-      const regulars = filteredAds.filter(ad => !ad.isVip && !ad.isPremium);
-
-      // Shuffle using the seed to prevent jitter on re-renders, but allow randomness on load
-      // Note: Passing shuffleSeed to dependencies allows us to re-shuffle if needed
-      return {
-          vipAds: shuffle(vips),
-          premiumAds: shuffle(premiums),
-          regularAds: shuffle(regulars)
-      };
-  }, [filteredAds, shuffleSeed]);
-
-  const isAdmin = currentUserRole === UserRole.ADMIN;
-
-  const renderAdList = (adList: Ad[]) => (
-      <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-1'}`}>
-          {adList.map(ad => (
-              <AdCard 
-                  key={ad.id} 
-                  ad={ad} 
-                  mode={viewMode} 
-                  isFav={userFavs.includes(ad.id)} 
-                  isMine={currentUserId === ad.authorId}
-                  isAdmin={isAdmin}
-                  onToggleFav={(e) => toggleFav(ad.id, e)}
-                  onPromote={() => setPromoteId(ad.id)}
-                  onAdminToggleVip={() => handleAdminToggleVip(ad)}
-                  onClick={() => navigate(`/ad/${ad.id}`)}
-                  onWrite={(e) => handleWrite(ad, e)}
-                  onAuthorClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/user/${ad.authorId}`);
-                  }}
-              />
-          ))}
-      </div>
-  );
+  }, [filteredAds]);
 
   return (
-    <div className="p-4 lg:p-8 max-w-7xl mx-auto">
-      <PromoteModal 
-         isOpen={!!promoteId} 
-         onClose={() => setPromoteId(null)} 
-         onConfirm={handlePromoteConfirm} 
-      />
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+    <div className="p-4 lg:p-8 max-w-[1600px] mx-auto space-y-8 pb-32">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <ShoppingBag className="w-7 h-7 text-blue-600" /> Доска объявлений
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-             {isLoading ? 'Загрузка...' : `Найдено ${filteredAds.length} объявлений`}
-          </p>
+            <h1 className="text-3xl font-black text-gray-900 dark:text-white flex items-center gap-3 uppercase tracking-tighter">
+                <ShoppingBag className="w-10 h-10 text-blue-600" /> Объявления
+            </h1>
         </div>
-        <Button size="md" variant="secondary" onClick={handleCreateClick}>
-          Подать объявление
-        </Button>
+        <Button size="md" variant="primary" onClick={handleCreateClick} className="rounded-lg px-8 uppercase font-black text-xs tracking-widest shadow-lg">Подать объявление</Button>
       </div>
 
-      <CreateAdModal 
-        isOpen={isCreateModalOpen} 
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={handleAdCreated}
-      />
+      <CreateAdModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['ads'] })} />
+      
+      <BannerSlot position="classifieds_top" />
 
-      {/* Filters & Search */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm mb-6 space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input 
-              type="text" 
-              placeholder="Поиск по объявлениям..." 
-              className="w-full pl-10 pr-4 py-2 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none dark:bg-gray-700 dark:text-white"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-              <button 
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-white dark:bg-gray-600 shadow' : 'text-gray-500 dark:text-gray-400'}`}
-              >
-                <Grid className="w-5 h-5" />
-              </button>
-              <button 
-                onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-white dark:bg-gray-600 shadow' : 'text-gray-500 dark:text-gray-400'}`}
-              >
-                <List className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex flex-wrap gap-2">
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                selectedCategory === cat 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+      <div className="flex gap-4 border-b dark:border-gray-800">
+          <button 
+            onClick={() => setActiveTab('residents')}
+            className={`pb-4 px-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${activeTab === 'residents' ? 'text-orange-600 border-b-4 border-orange-600' : 'text-gray-400'}`}
+          >
+              <Users className="w-4 h-4" /> От жителей
+          </button>
+          <button 
+            onClick={() => setActiveTab('partners')}
+            className={`pb-4 px-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${activeTab === 'partners' ? 'text-blue-600 border-b-4 border-blue-600' : 'text-gray-400'}`}
+          >
+              <Megaphone className="w-4 h-4" /> Партнеры
+          </button>
       </div>
 
-      {/* Content */}
-      {isLoading ? (
-        <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-1'}`}>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                viewMode === 'grid' ? <AdGridSkeleton key={i} /> : <CardSkeleton key={i} />
-            ))}
-        </div>
-      ) : filteredAds.length === 0 ? (
-        <div className="col-span-full text-center py-12 text-gray-500">
-            По вашему запросу ничего не найдено.
-        </div>
+      {activeTab === 'partners' ? (
+          <div className="space-y-8 animate-in fade-in">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {promoAds.map(ad => (
+                      <a key={ad.id} href={ad.link_url || '#'} target="_blank" rel="noopener noreferrer" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col group">
+                          <div className="relative aspect-[16/9] overflow-hidden bg-gray-50 dark:bg-gray-900">
+                              <img src={ad.image_url} className="w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-700" alt="" />
+                              <div className="absolute top-4 left-4"><Badge color="blue" className="px-2 py-0.5 rounded font-black text-[8px] uppercase tracking-widest shadow-md">Партнер</Badge></div>
+                              {ad.price && <div className="absolute bottom-4 right-4 bg-orange-600 text-white px-3 py-1 rounded font-black text-sm shadow-xl">от {ad.price.toLocaleString()} ₽</div>}
+                          </div>
+                          <div className="p-6">
+                              <h3 className="text-xl font-black dark:text-white mb-2 uppercase tracking-tight group-hover:text-blue-600 transition-colors">{ad.title}</h3>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-4">{ad.description}</p>
+                              <div className="flex items-center justify-between pt-4 border-t dark:border-gray-700">
+                                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Перейти</span>
+                                  <ArrowRight className="w-5 h-5 text-blue-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                              </div>
+                          </div>
+                      </a>
+                  ))}
+              </div>
+          </div>
       ) : (
-        <div className="space-y-10">
-            {/* VIP Section */}
-            {vipAds.length > 0 && (
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg">
-                            <Crown className="w-5 h-5 fill-current" />
-                        </div>
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">VIP Объявления</h2>
-                    </div>
-                    {renderAdList(vipAds)}
-                </div>
-            )}
+          <div className="space-y-6 animate-in fade-in">
+              <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <input type="text" placeholder="Поиск по объявлениям..." className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border-none rounded-lg outline-none dark:text-white text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                      {['Все', ...AD_CATEGORIES].map(cat => (
+                          <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-orange-600 text-white shadow-md' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>{cat}</button>
+                      ))}
+                  </div>
+              </div>
 
-            {/* PRO Section */}
-            {premiumAds.length > 0 && (
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
-                            <Sparkles className="w-5 h-5 fill-current" />
-                        </div>
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">PRO Объявления</h2>
-                    </div>
-                    {renderAdList(premiumAds)}
-                </div>
-            )}
+              {adsLoading ? (
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                      {[1,2,3,4,5,6].map(i => <div key={i} className="aspect-[3/4] bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />)}
+                  </div>
+              ) : (
+                  <div className="space-y-12">
+                      {/* VIP Section */}
+                      {vipAds.length > 0 && (
+                          <div className="space-y-4">
+                              <div className="flex items-center gap-2 px-1"><Crown className="w-5 h-5 text-orange-500 fill-current" /><h2 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">VIP Размещение</h2></div>
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
+                                  {vipAds.map(ad => <AdCard key={ad.id} ad={ad} onClick={() => navigate(`/ad/${ad.id}`)} />)}
+                              </div>
+                          </div>
+                      )}
 
-            {/* Fresh/Regular Section */}
-            {regularAds.length > 0 && (
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Частные объявления</h2>
-                    </div>
-                    {renderAdList(regularAds)}
-                </div>
-            )}
-        </div>
+                      {/* PRO Section */}
+                      {proAds.length > 0 && (
+                          <div className="space-y-4">
+                              <div className="flex items-center gap-2 px-1"><Wand2 className="w-5 h-5 text-indigo-500" /><h2 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">PRO Предложения</h2></div>
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
+                                  {proAds.map(ad => <AdCard key={ad.id} ad={ad} onClick={() => navigate(`/ad/${ad.id}`)} />)}
+                              </div>
+                          </div>
+                      )}
+
+                      {/* Regular Section */}
+                      <div className="space-y-4 px-1">
+                          <h2 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">Все свежее</h2>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
+                              {regularAds.length === 0 && vipAds.length === 0 && proAds.length === 0 ? (
+                                  <p className="col-span-full text-center py-10 text-gray-400 font-bold uppercase text-xs">Нет объявлений</p>
+                              ) : (
+                                  regularAds.map(ad => <AdCard key={ad.id} ad={ad} onClick={() => navigate(`/ad/${ad.id}`)} />)
+                              )}
+                          </div>
+                      </div>
+                  </div>
+              )}
+          </div>
       )}
     </div>
   );
 };
 
-interface AdCardProps { 
-    ad: Ad; 
-    mode: 'grid' | 'list'; 
-    isFav: boolean; 
-    isMine: boolean;
-    isAdmin: boolean;
-    onToggleFav: (e: any) => void; 
-    onPromote: () => void;
-    onAdminToggleVip: () => void;
-    onClick: () => void;
-    onWrite: (e: any) => void;
-    onAuthorClick?: (e: any) => void;
-}
-
-const AdCard: React.FC<AdCardProps> = ({ ad, mode, isFav, isMine, isAdmin, onToggleFav, onPromote, onAdminToggleVip, onClick, onWrite, onAuthorClick }) => {
-  // 3-Tier Visual Logic
-  let containerClass = "bg-white dark:bg-gray-800 border dark:border-gray-700";
-  let badge = null;
-
-  if (ad.isVip) {
-      containerClass = "bg-orange-50/30 dark:bg-orange-900/10 border-2 border-orange-400 dark:border-orange-500 shadow-md ring-2 ring-orange-100 dark:ring-orange-900/20";
-      badge = (
-        <div className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-yellow-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm z-10 flex items-center gap-1">
-            <Crown className="w-3 h-3 fill-current" /> VIP
-        </div>
-      );
-  } else if (ad.isPremium) {
-      containerClass = "bg-blue-50/30 dark:bg-blue-900/10 border-2 border-blue-400 dark:border-blue-500 shadow-sm";
-      badge = (
-        <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm z-10 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 fill-current" /> PREMIUM
-        </div>
-      );
-  }
-
-  // LIST VIEW
-  if (mode === 'list') {
-    return (
-      <div 
-        onClick={onClick}
-        className={`p-4 rounded-xl shadow-sm flex gap-4 hover:shadow-md transition-all group cursor-pointer ${containerClass}`}
-      >
-        <div className="w-48 h-32 rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden shrink-0 relative">
-          <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
-          {badge}
-          <div className="absolute top-2 right-2 flex flex-col gap-1 z-20">
-            <button 
-                onClick={onToggleFav}
-                className={`p-1.5 rounded-full backdrop-blur-sm shadow-sm transition-all hover:bg-white ${isFav ? 'bg-white/90 text-red-500' : 'bg-white/80 text-gray-500 hover:text-red-500'}`}
-            >
-              <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
-            </button>
-            {isAdmin && (
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onAdminToggleVip(); }}
-                    className="p-1.5 rounded-full hover:bg-white shadow-sm transition-all bg-white/80 text-gray-500 hover:text-orange-500"
-                    title="Админ: Toggle VIP"
-                >
-                    <Crown className="w-4 h-4" />
-                </button>
-            )}
-          </div>
-        </div>
-        <div className="flex-1 min-w-0 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-start">
-              <h3 className={`text-lg font-bold truncate pr-4 ${ad.isVip ? 'text-orange-900 dark:text-orange-100' : 'text-gray-900 dark:text-white'}`}>{ad.title}</h3>
-              <p className="text-lg font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">{ad.price.toLocaleString()} {ad.currency}</p>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{ad.description}</p>
-          </div>
-          <div className="flex items-center justify-between mt-2">
-            <div className="flex items-center space-x-4">
-              <Badge color={ad.isVip ? "orange" : ad.isPremium ? "blue" : "gray"}>{ad.category}</Badge>
-              <LocationBadge location={ad.location} />
-              <div 
-                className="flex items-center text-xs text-gray-400 gap-1 hover:text-blue-500 cursor-pointer"
-                onClick={onAuthorClick}
-              >
-                  {ad.authorAvatar ? (
-                      <img src={ad.authorAvatar} alt="" className="w-4 h-4 rounded-full object-cover" />
-                  ) : (
-                      <UserIcon className="w-3 h-3" />
-                  )}
-                  {ad.authorName}
-              </div>
-            </div>
-            <div className="flex gap-2">
-                {!isMine && (
-                    <Button 
-                        size="sm" 
-                        className="h-8 text-xs px-3 bg-blue-600 hover:bg-blue-700 text-white" 
-                        onClick={onWrite}
-                    >
-                        <MessageCircle className="w-3 h-3 mr-1" /> Написать
-                    </Button>
-                )}
-                {isMine && !ad.isVip && (
-                    <Button 
-                        size="sm"
-                        variant="ghost"
-                        className="bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600 h-8 text-xs px-3 dark:bg-gray-700 dark:text-gray-300" 
-                        onClick={(e) => { e.stopPropagation(); onPromote(); }}
-                    >
-                        <Sparkles className="w-3 h-3 mr-1" /> Продвинуть
-                    </Button>
-                )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // GRID VIEW (Uniform cards)
+const AdCard: React.FC<{ ad: Ad, onClick: () => void }> = ({ ad, onClick }) => {
+  const containerClass = ad.isVip 
+    ? "border border-orange-500/30 shadow-orange-500/5 shadow-lg" 
+    : ad.isPremium
+        ? "border border-indigo-500/30 shadow-indigo-500/5 shadow-md"
+        : "border border-gray-100 dark:border-gray-800 shadow-sm";
+    
   return (
-    <div 
-        onClick={onClick}
-        className={`rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition-all group flex flex-col cursor-pointer relative h-full ${containerClass}`}
-    >
-      <div className="aspect-square relative overflow-hidden bg-gray-100 dark:bg-gray-800">
-        <img src={ad.image} alt={ad.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-        {badge}
-        
-        <div className="absolute top-2 right-2 z-20 flex flex-col gap-1">
-            <button 
-                onClick={onToggleFav}
-                className={`p-1.5 rounded-full shadow-sm transition-all hover:bg-white ${isFav ? 'bg-white/90 text-red-500' : 'bg-white/80 text-gray-500 hover:text-red-500'}`}
-            >
-              <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
-            </button>
-            {isAdmin && (
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onAdminToggleVip(); }}
-                    className="p-1.5 rounded-full shadow-sm transition-all bg-white/80 text-gray-500 hover:text-orange-500"
-                    title="Админ: Toggle VIP"
-                >
-                    <Crown className="w-4 h-4" />
-                </button>
-            )}
-        </div>
-        <div className="absolute bottom-2 left-2 z-10">
-           <Badge color={ad.isVip ? "orange" : ad.isPremium ? "blue" : "gray"}>{ad.category}</Badge>
-        </div>
+    <div onClick={onClick} className={`bg-white dark:bg-gray-800 rounded-lg overflow-hidden hover:shadow-xl transition-all duration-300 group flex flex-col cursor-pointer relative h-full ${containerClass}`}>
+      <div className="aspect-[3/4] relative overflow-hidden bg-gray-50 dark:bg-gray-900 shrink-0">
+        <img src={ad.image} alt={ad.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.01]" />
+        {ad.isVip && <div className="absolute top-2 left-2 bg-orange-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded z-10 shadow-lg">VIP</div>}
+        {!ad.isVip && ad.isPremium && <div className="absolute top-2 left-2 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded z-10 shadow-lg">PRO</div>}
       </div>
-      <div className="p-3 flex-1 flex flex-col">
-        <div className="flex-1">
-          <h3 className={`font-bold line-clamp-1 mb-1 text-sm ${ad.isVip ? 'text-orange-900 dark:text-orange-100' : 'text-gray-900 dark:text-white'}`}>{ad.title}</h3>
-          <p className="text-base font-bold text-blue-600 dark:text-blue-400 mb-1">{ad.price.toLocaleString()} {ad.currency}</p>
-          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-             <span className="truncate">{ad.location}</span>
-          </div>
+      <div className="p-4 flex-1 flex flex-col justify-between">
+        <div>
+            <p className={`text-base sm:text-lg font-black leading-none mb-1.5 ${ad.isVip ? 'text-orange-600' : ad.isPremium ? 'text-indigo-600' : 'text-blue-600'}`}>
+                {ad.price.toLocaleString()} {ad.currency}
+            </p>
+            <h3 className="font-bold line-clamp-2 text-[11px] sm:text-[12px] dark:text-white leading-tight group-hover:text-blue-600 transition-colors uppercase tracking-tight">{ad.title}</h3>
         </div>
-        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-600 flex items-center justify-between">
-          <div 
-            className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-blue-500 cursor-pointer"
-            onClick={onAuthorClick}
-          >
-             {ad.authorAvatar && <img src={ad.authorAvatar} className="w-4 h-4 rounded-full" />}
-             <span className="truncate max-w-[60px]">{ad.authorName}</span>
+        <div className="pt-2 mt-3 border-t border-gray-50 dark:border-gray-700 flex items-center justify-between text-[8px] text-gray-400 font-black uppercase tracking-widest">
+          <div className="flex items-center gap-1 min-w-0">
+            <MapPin className="w-2.5 h-2.5 shrink-0 text-gray-400" />
+            <span className="truncate">{ad.location}</span>
           </div>
-          
-          {isMine && !ad.isVip && (
-               <Button 
-                size="sm" 
-                variant="ghost"
-                className="bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-700 h-6 text-[10px] px-2 dark:bg-gray-700 dark:text-gray-300" 
-                onClick={(e) => { e.stopPropagation(); onPromote(); }}
-               >
-                   <Sparkles className="w-3 h-3 mr-1" /> Продвинуть
-               </Button>
-          )}
+          <span className="shrink-0">{ad.date.split(',')[0]}</span>
         </div>
       </div>
     </div>

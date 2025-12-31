@@ -1,775 +1,545 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { User, Ad, Business, UserRole, Story, TransportSchedule, AccessRequest } from '../types';
-import { Button, XPBar, Badge } from '../components/ui/Common';
+import { User, Ad, Business, UserRole, Story, TransportSchedule, Banner, Report, Suggestion, NewsItem, Event, Campaign, Quest, Ride, AccessRequest, PromoAd, ExclusivePage } from '../types';
+import { Button, XPBar, Badge, Rating } from '../components/ui/Common';
+import { Img } from '../components/ui/Image';
 import { 
-    User as UserIcon, Settings, LogOut, Loader2, Plus, 
-    Briefcase, ShoppingBag, Check, X, 
-    Trophy, MapPin, Building2, Crown,
-    LayoutDashboard, FileText, BarChart3, Users,
-    Edit3, Trash2, ChevronDown, List, Upload, Pencil, Star, Shield, Zap, TrendingUp, PieChart as PieChartIcon, Film, Lightbulb, MessageSquare, AlertTriangle, ExternalLink, Bus, Key, Wallet, Sparkles, Calendar, Navigation, Heart
+    User as UserIcon, Settings, Loader2, Plus, 
+    ShoppingBag, Check, X, 
+    Trophy, MapPin, Shield, Star, Crown, Zap,
+    BarChart3, FileText, Calendar, Bus, Image as ImageIcon, Heart, AlertTriangle, Lightbulb, CheckCircle2, Trash2, Pencil, Car, ChevronRight, RefreshCw, UserCircle,
+    ArrowRight, Users, ShieldCheck, Key, Megaphone, Flag, Info, Building2, Clock, Wallet, Layout as LayoutIcon, MessageSquare
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import { EditAdModal } from '../components/EditAdModal';
-import { 
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, 
-    PieChart, Pie, Cell 
-} from 'recharts';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { SuggestIdeaModal } from '../components/SuggestIdeaModal';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CreateNewsModal } from '../components/CreateNewsModal';
 import { CreateEventModal } from '../components/CreateEventModal';
+import { CreateQuestModal, CreateAdminCampaignModal, CreateBannerModal, CreateTransportModal, CreatePromoAdModal, CreateExclusivePageModal } from '../components/AdminModals';
+import { EditAdModal } from '../components/EditAdModal';
 
-// Helper for Badges
 const BadgeIcon: React.FC<{ name: string }> = ({ name }) => {
     switch(name) {
         case 'verified': return <div className="text-blue-500 bg-blue-50 p-1.5 rounded-full" title="Проверенный"><Star className="w-3.5 h-3.5 fill-current" /></div>;
         case 'admin': return <div className="text-red-500 bg-red-50 p-1.5 rounded-full" title="Администратор"><Shield className="w-3.5 h-3.5 fill-current" /></div>;
-        case 'quest_master': return <div className="text-purple-500 bg-purple-50 p-1.5 rounded-full" title="Мастер квестов"><Zap className="w-3.5 h-3.5 fill-current" /></div>;
-        case 'early_adopter': return <div className="text-orange-500 bg-orange-50 p-1.5 rounded-full" title="Старожил"><Crown className="w-3.5 h-3.5 fill-current" /></div>;
-        default: return <div className="text-gray-500 bg-gray-50 p-1.5 rounded-full"><Star className="w-3.5 h-3.5" /></div>;
+        case 'quest_master': return <div className="text-purple-500 bg-purple-100 p-1.5 rounded-full" title="Мастер квестов"><Zap className="w-3.5 h-3.5 fill-current" /></div>;
+        case 'early_adopter': return <div className="text-orange-500 bg-orange-100 p-1.5 rounded-full" title="Старожил"><Crown className="w-3.5 h-3.5 fill-current" /></div>;
+        default: return null;
     }
-};
-
-const EditProfileModal: React.FC<{ user: User; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ user, isOpen, onClose, onSuccess }) => {
-    const [name, setName] = useState(user.name);
-    const [loading, setLoading] = useState(false);
-
-    if (!isOpen) return null;
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            await api.updateProfile({ name });
-            onSuccess();
-            onClose();
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-sm p-6 shadow-2xl">
-                <h3 className="font-bold text-lg mb-4 dark:text-white">Редактировать профиль</h3>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="text-sm text-gray-500 dark:text-gray-400">Имя</label>
-                        <input 
-                            className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                        />
-                    </div>
-                    <Button className="w-full" disabled={loading}>
-                        {loading ? <Loader2 className="animate-spin" /> : 'Сохранить'}
-                    </Button>
-                    <Button type="button" variant="ghost" className="w-full" onClick={onClose}>Отмена</Button>
-                </form>
-            </div>
-        </div>
-    );
 };
 
 export const Profile: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-
-    const [activeTab, setActiveTab] = useState<'my_ads' | 'favorites'>('my_ads');
     const [editingAd, setEditingAd] = useState<Ad | null>(null);
-    const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-    const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'my-ads' | 'favorites' | 'rides'>('my-ads');
+    
+    const { data: user, isLoading: userLoading } = useQuery({ queryKey: ['user'], queryFn: api.getCurrentUser });
+    const { data: myContent, isLoading: contentLoading } = useQuery({ queryKey: ['myContent', user?.id], queryFn: () => api.getUserContent(user?.id!), enabled: !!user?.id });
+    const { data: myRides = [], isLoading: ridesLoading } = useQuery({ queryKey: ['myRides', user?.id], queryFn: () => api.getMyRides(), enabled: !!user?.id });
+    const { data: favoriteItems, isLoading: loadingFavs } = useQuery({ queryKey: ['favoritesData', user?.favorites], queryFn: () => api.getFavorites(user?.favorites || []), enabled: !!user?.id });
 
-    // Queries
-    const { data: user, isLoading: userLoading } = useQuery({
-        queryKey: ['user'],
-        queryFn: api.getCurrentUser
-    });
-
-    const { data: userContent } = useQuery({
-        queryKey: ['userContent', user?.id],
-        queryFn: () => user ? api.getUserContent(user.id) : { ads: [] },
-        enabled: !!user
-    });
-
-    const { data: favorites = { ads: [], businesses: [] } } = useQuery({
-        queryKey: ['favorites', user?.favorites],
-        queryFn: () => user ? api.getFavorites(user.favorites || []) : { ads: [], businesses: [] },
-        enabled: !!user
-    });
-
-    const { data: myBusinesses = [] } = useQuery({
-        queryKey: ['myBusinesses'],
-        queryFn: api.getMyBusinesses,
-        enabled: !!user
-    });
-
-    const myAds = userContent?.ads || [];
-
-    const handleLogout = async () => {
-        await api.signOut();
-        navigate('/auth');
-    };
-
-    const handleDeleteAd = async (id: string, e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (confirm("Удалить объявление?")) {
-            await api.deleteAd(id);
-            queryClient.invalidateQueries({ queryKey: ['userContent'] });
-            queryClient.invalidateQueries({ queryKey: ['ads'] });
-        }
-    };
-
-    const handleRemoveFavorite = async (id: string, e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!user) return;
-        await api.toggleFavorite(id, 'ad');
-        queryClient.invalidateQueries({ queryKey: ['user'] });
-        queryClient.invalidateQueries({ queryKey: ['favorites'] });
-    };
-
-    const handleEditAd = (ad: Ad, e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setEditingAd(ad);
-    };
+    useEffect(() => {
+        if (activeTab === 'rides' && myRides.length === 0 && !ridesLoading) setActiveTab('my-ads');
+    }, [myRides.length, activeTab, ridesLoading]);
 
     if (userLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
-    
-    if (!user) {
-        navigate('/auth');
-        return null;
-    }
+    if (!user) return <div className="p-10 text-center font-bold">Войдите в аккаунт</div>;
+
+    const myAds = myContent?.ads || [];
+    const favAds = favoriteItems?.ads || [];
+    const favBusinesses = favoriteItems?.businesses || [];
+    const displayFavCount = favoriteItems ? (favAds.length + favBusinesses.length) : (user.favorites?.length || 0);
+
+    const handleRemoveFavorite = async (id: string, e: React.MouseEvent) => {
+        e.preventDefault(); e.stopPropagation();
+        await api.toggleFavorite(id, 'ad');
+        queryClient.invalidateQueries({ queryKey: ['user'] });
+        queryClient.invalidateQueries({ queryKey: ['favoritesData'] });
+    };
+
+    const handleDeleteRide = async (id: string) => {
+        if (!confirm("Удалить поездку? Все брони будут отменены.")) return;
+        await api.deleteRide(id);
+        queryClient.invalidateQueries({ queryKey: ['myRides'] });
+    };
 
     return (
         <div className="max-w-6xl mx-auto p-4 lg:p-8 pb-24">
-            <SuggestIdeaModal isOpen={isIdeaModalOpen} onClose={() => setIsIdeaModalOpen(false)} />
-            
-            {editingAd && (
-                <EditAdModal 
-                    ad={editingAd} 
-                    isOpen={!!editingAd} 
-                    onClose={() => setEditingAd(null)} 
-                    onSuccess={() => { 
-                        setEditingAd(null); 
-                        queryClient.invalidateQueries({ queryKey: ['userContent'] }); 
-                        queryClient.invalidateQueries({ queryKey: ['ads'] });
-                    }} 
-                />
-            )}
+            {editingAd && <EditAdModal ad={editingAd} isOpen={!!editingAd} onClose={() => setEditingAd(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['myContent', user.id] })} />}
 
-            {isEditProfileOpen && (
-                <EditProfileModal 
-                    user={user} 
-                    isOpen={isEditProfileOpen} 
-                    onClose={() => setIsEditProfileOpen(false)} 
-                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ['user'] })} 
-                />
-            )}
-
-            <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 lg:p-8 shadow-sm border border-gray-100 dark:border-gray-700 mb-8 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 lg:p-12 shadow-sm border dark:border-gray-700 mb-12 flex flex-col md:flex-row items-center gap-10">
                 <div className="relative">
-                    <img src={user.avatar} alt={user.name} className="w-32 h-32 rounded-full object-cover border-4 border-white dark:border-gray-700 shadow-lg" />
-                    <button 
-                        onClick={() => setIsEditProfileOpen(true)}
-                        className="absolute bottom-0 right-0 p-2 bg-blue-600 rounded-full text-white hover:bg-blue-700 transition-colors shadow-md"
-                    >
-                        <Edit3 className="w-4 h-4" />
-                    </button>
+                    <img src={user.avatar} className="w-40 h-40 rounded-[2.5rem] object-cover border-8 border-gray-50 dark:border-gray-700 shadow-2xl bg-gray-200" alt="" />
+                    <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-2xl shadow-lg border-4 border-white dark:border-gray-800"><Zap className="w-5 h-5 fill-current" /></div>
                 </div>
-                
-                <div className="flex-1 text-center md:text-left z-10 w-full">
-                    <div className="flex flex-col md:flex-row items-center md:justify-between gap-4 mb-4">
+                <div className="flex-1 text-center md:text-left w-full">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
                         <div>
-                            <h1 className="text-2xl font-bold dark:text-white flex items-center justify-center md:justify-start gap-2">
+                            <h1 className="text-4xl font-black dark:text-white flex items-center justify-center md:justify-start gap-3">
                                 {user.name}
-                                {user.badges?.map(b => <BadgeIcon key={b} name={b} />)}
+                                <div className="flex gap-1">{user.badges?.map(b => <BadgeIcon key={b} name={b} />)}</div>
                             </h1>
-                            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{user.email}</p>
+                            <p className="text-gray-500 dark:text-gray-400 text-lg mt-1">{user.email}</p>
                         </div>
-                        <div className="flex gap-2">
-                            <Link to="/settings">
-                                <Button variant="outline" size="sm" className="dark:border-gray-600 dark:text-gray-300">
-                                    <Settings className="w-4 h-4 mr-2" /> Настройки
-                                </Button>
-                            </Link>
-                            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
-                                <LogOut className="w-4 h-4" />
-                            </Button>
+                        <div className="flex gap-3">
+                             {user.role === UserRole.ADMIN && <Link to="/admin"><Button variant="danger">Админка</Button></Link>}
+                             <Button variant="outline" onClick={() => navigate('/settings')} className="rounded-2xl"><Settings className="w-5 h-5 mr-2" /> Настройки</Button>
                         </div>
                     </div>
-
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl mb-4">
-                        <XPBar xp={user.xp} />
-                    </div>
-
-                    {user.role === UserRole.ADMIN && (
-                        <div className="mt-4 pt-4 border-t dark:border-gray-700">
-                            <Link to="/admin" className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-105 font-medium text-sm">
-                                <LayoutDashboard className="w-4 h-4 mr-2" /> Панель администратора
-                            </Link>
-                        </div>
-                    )}
+                    <div className="max-w-md"><XPBar xp={user.xp} /></div>
                 </div>
             </div>
 
-            {/* My Businesses */}
-            <div className="mb-10">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">
-                        <Briefcase className="w-5 h-5 text-blue-600" /> Мой бизнес
-                    </h2>
-                    {!myBusinesses.length && (
-                        <Link to="/business-connect">
-                            <Button size="sm" variant="secondary">Подключить</Button>
-                        </Link>
-                    )}
-                </div>
+            <div className="flex border-b dark:border-gray-700 mb-8 gap-8 px-2 overflow-x-auto scrollbar-hide">
+                <button onClick={() => setActiveTab('my-ads')} className={`pb-4 text-sm font-black uppercase tracking-widest relative flex items-center gap-2 whitespace-nowrap ${activeTab === 'my-ads' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>
+                    <ShoppingBag className="w-4 h-4" /> Мои объявления <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full text-[10px] ml-1 font-bold">{myAds.length}</span>
+                </button>
+                <button onClick={() => setActiveTab('favorites')} className={`pb-4 text-sm font-black uppercase tracking-widest relative flex items-center gap-2 whitespace-nowrap ${activeTab === 'favorites' ? 'text-red-500 border-b-2 border-red-500' : 'text-gray-400'}`}>
+                    <Heart className="w-4 h-4" /> Избранное <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full text-[10px] ml-1 font-bold">{displayFavCount}</span>
+                </button>
+                <button onClick={() => setActiveTab('rides')} className={`pb-4 text-sm font-black uppercase tracking-widest relative flex items-center gap-2 whitespace-nowrap ${activeTab === 'rides' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>
+                    <Car className="w-4 h-4" /> Мои поездки <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full text-[10px] ml-1 font-bold">{myRides.length}</span>
+                </button>
+            </div>
 
-                {myBusinesses.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {myBusinesses.map(biz => (
-                            <div key={biz.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl border dark:border-gray-700 shadow-sm hover:shadow-md transition-all group relative">
-                                <div className="flex items-start gap-4">
-                                    <img src={biz.image} alt={biz.name} className="w-16 h-16 rounded-xl object-cover bg-gray-100" />
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-lg dark:text-white truncate">{biz.name}</h3>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{biz.address}</p>
-                                        <Link to="/business-crm">
-                                            <Button size="sm" className="w-full">
-                                                Управление (CRM)
-                                            </Button>
-                                        </Link>
+            <section className="animate-in fade-in duration-300">
+                {activeTab === 'my-ads' && (
+                    myAds.length === 0 ? <div className="text-center py-20 text-gray-400 font-bold uppercase tracking-widest border-4 border-dashed rounded-[2rem] dark:border-gray-700">У вас нет объявлений</div> :
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {myAds.map(ad => (
+                            <div key={ad.id} className="bg-white dark:bg-gray-800 rounded-3xl border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col group relative">
+                                <div className="aspect-[4/3] overflow-hidden"><Img src={ad.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /></div>
+                                <div className="p-6">
+                                    <h3 className="font-bold text-lg dark:text-white line-clamp-1">{ad.title}</h3>
+                                    <p className="text-blue-600 font-black text-xl mt-2">{ad.price} ₽</p>
+                                    <div className="mt-4 flex gap-2">
+                                        <Button size="sm" variant="outline" className="flex-1 rounded-xl" onClick={() => setEditingAd(ad)}><Pencil className="w-4 h-4 mr-2" /> Правка</Button>
+                                        <Button size="sm" variant="danger" className="rounded-xl" onClick={() => { if(confirm("Удалить?")) api.deleteEntity('ads', ad.id).then(() => queryClient.invalidateQueries({queryKey:['myContent']})); }}><Trash2 className="w-4 h-4" /></Button>
                                     </div>
                                 </div>
                             </div>
                         ))}
                     </div>
-                ) : (
-                    <div className="bg-gray-50 dark:bg-gray-800/50 border border-dashed border-gray-300 dark:border-gray-700 rounded-2xl p-8 text-center">
-                        <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                        <p className="text-gray-600 dark:text-gray-400 mb-4">У вас еще нет бизнеса в системе</p>
-                        <Link to="/business-connect">
-                            <Button>Стать партнером</Button>
-                        </Link>
-                    </div>
-                )}
-            </div>
-
-            {/* Ads & Favorites Tabs */}
-            <div>
-                <div className="flex border-b dark:border-gray-700 mb-6">
-                    <button 
-                        onClick={() => setActiveTab('my_ads')}
-                        className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'my_ads' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                    >
-                        <ShoppingBag className="w-4 h-4" /> Мои объявления
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('favorites')}
-                        className={`px-6 py-3 font-medium transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'favorites' ? 'border-red-500 text-red-600 dark:text-red-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                    >
-                        <Heart className="w-4 h-4" /> Избранное
-                    </button>
-                </div>
-
-                {activeTab === 'my_ads' && (
-                    <>
-                        <div className="flex justify-end mb-4">
-                            <Link to="/classifieds">
-                                <Button size="sm" variant="secondary"><Plus className="w-4 h-4 mr-1" /> Подать</Button>
-                            </Link>
-                        </div>
-                        {myAds.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {myAds.map(ad => (
-                                    <div key={ad.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-all group cursor-pointer">
-                                        <div className="relative h-40">
-                                            <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
-                                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={(e) => handleEditAd(ad, e)} className="p-1.5 bg-white text-gray-700 rounded-lg shadow-sm hover:text-blue-600">
-                                                    <Edit3 className="w-4 h-4" />
-                                                </button>
-                                                <button onClick={(e) => handleDeleteAd(ad.id, e)} className="p-1.5 bg-white text-gray-700 rounded-lg shadow-sm hover:text-red-600">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                            {ad.isVip && <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded font-bold">VIP</div>}
-                                        </div>
-                                        <div className="p-3">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <h3 className="font-medium text-gray-900 dark:text-white truncate flex-1 pr-2">{ad.title}</h3>
-                                                <span className="font-bold text-blue-600 dark:text-blue-400">{ad.price} ₽</span>
-                                            </div>
-                                            <div className="flex justify-between items-center mt-2">
-                                                <div className={`text-xs px-2 py-1 rounded-full ${ad.status === 'approved' ? 'bg-green-100 text-green-700' : ad.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                                    {ad.status === 'approved' ? 'Активно' : ad.status === 'rejected' ? 'Отклонено' : 'На проверке'}
-                                                </div>
-                                                <span className="text-xs text-gray-400">{ad.views || 0} просмотров</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-10 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed dark:border-gray-700">
-                                У вас пока нет активных объявлений
-                            </div>
-                        )}
-                    </>
                 )}
 
                 {activeTab === 'favorites' && (
-                    <div className="space-y-6 animate-in fade-in">
-                        {/* Favorite Ads */}
-                        {favorites.ads.length > 0 && (
-                            <div>
-                                <h3 className="font-bold text-gray-500 dark:text-gray-400 uppercase text-xs mb-3 tracking-wider">Объявления</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {favorites.ads.map(ad => (
-                                        <div key={ad.id} onClick={() => navigate(`/ad/${ad.id}`)} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-all group cursor-pointer">
-                                            <div className="relative h-40">
-                                                <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
-                                                <button 
-                                                    onClick={(e) => handleRemoveFavorite(ad.id, e)}
-                                                    className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-full shadow-sm hover:bg-red-500 hover:text-white transition-colors"
-                                                    title="Убрать из избранного"
-                                                >
-                                                    <Heart className="w-4 h-4 fill-current" />
-                                                </button>
-                                                {ad.isVip && <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded font-bold">VIP</div>}
-                                            </div>
-                                            <div className="p-3">
-                                                <div className="flex justify-between items-start mb-1">
-                                                    <h3 className="font-medium text-gray-900 dark:text-white truncate flex-1 pr-2">{ad.title}</h3>
-                                                    <span className="font-bold text-blue-600 dark:text-blue-400">{ad.price} ₽</span>
-                                                </div>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{ad.location}</p>
-                                            </div>
+                    loadingFavs ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600" /></div> :
+                    (favAds.length === 0 && favBusinesses.length === 0) ? <div className="text-center py-20 text-gray-400 font-bold uppercase tracking-widest border-4 border-dashed rounded-[2rem] dark:border-gray-700">В избранном пока пусто</div> :
+                    <div className="space-y-8">
+                        {favAds.length > 0 && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {favAds.map(ad => (
+                                    <Link to={`/ad/${ad.id}`} key={ad.id} className="bg-white dark:bg-gray-800 rounded-3xl border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col group relative">
+                                        <div className="aspect-[4/3] overflow-hidden"><img src={ad.image} className="w-full h-full object-cover" /></div>
+                                        <div className="p-5">
+                                            <h4 className="font-bold dark:text-white line-clamp-1">{ad.title}</h4>
+                                            <p className="text-blue-600 font-black mt-1">{ad.price} ₽</p>
                                         </div>
-                                    ))}
-                                </div>
+                                        <button onClick={(e) => handleRemoveFavorite(ad.id, e)} className="absolute top-3 right-3 p-2 bg-red-500 text-white rounded-full shadow-lg hover:scale-110 transition-transform"><Heart className="w-4 h-4 fill-current" /></button>
+                                    </Link>
+                                ))}
                             </div>
                         )}
-
-                        {/* Favorite Businesses */}
-                        {favorites.businesses.length > 0 && (
-                            <div>
-                                <h3 className="font-bold text-gray-500 dark:text-gray-400 uppercase text-xs mb-3 tracking-wider">Организации</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {favorites.businesses.map(biz => (
-                                        <div key={biz.id} onClick={() => navigate(`/business/${biz.id}`)} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex gap-3 p-3 items-center">
-                                            <img src={biz.image} alt={biz.name} className="w-16 h-16 rounded-lg object-cover bg-gray-100" />
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-bold text-gray-900 dark:text-white truncate">{biz.name}</h3>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">{biz.category}</p>
-                                                <p className="text-xs text-gray-400 truncate mt-1">{biz.address}</p>
-                                            </div>
-                                            <button 
-                                                onClick={(e) => handleRemoveFavorite(biz.id, e)}
-                                                className="text-red-300 hover:text-red-500 transition-colors p-2"
-                                            >
-                                                <Heart className="w-5 h-5 fill-current" />
-                                            </button>
+                        {favBusinesses.length > 0 && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {favBusinesses.map(biz => (
+                                    <Link to={`/business/${biz.id}`} key={biz.id} className="bg-white dark:bg-gray-800 p-4 rounded-3xl border dark:border-gray-700 shadow-sm flex items-center gap-4 group">
+                                        <img src={biz.image} className="w-16 h-16 rounded-2xl object-cover" />
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold dark:text-white truncate">{biz.name}</h4>
+                                            <div className="flex items-center gap-2 mt-1"><Rating value={biz.rating} /><span className="text-[10px] text-gray-400 uppercase font-black">{biz.category}</span></div>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {favorites.ads.length === 0 && favorites.businesses.length === 0 && (
-                            <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed dark:border-gray-700">
-                                <Heart className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-                                <p>Список избранного пуст</p>
-                                <Link to="/classifieds">
-                                    <Button variant="ghost" size="sm" className="mt-2">Перейти к объявлениям</Button>
-                                </Link>
+                                        <button onClick={(e) => handleRemoveFavorite(biz.id, e)} className="p-2 text-red-500"><Heart className="w-5 h-5 fill-current" /></button>
+                                    </Link>
+                                ))}
                             </div>
                         )}
                     </div>
                 )}
-            </div>
 
-            <div className="mt-8 text-center">
-                <button onClick={() => setIsIdeaModalOpen(true)} className="text-sm text-blue-600 hover:underline dark:text-blue-400 flex items-center justify-center gap-1 w-full">
-                    <Lightbulb className="w-4 h-4" /> Предложить идею разработчикам
-                </button>
-            </div>
+                {activeTab === 'rides' && (
+                    ridesLoading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600" /></div> :
+                    myRides.length === 0 ? <div className="text-center py-20 text-gray-400 font-bold uppercase tracking-widest border-4 border-dashed rounded-[2rem] dark:border-gray-700">У вас нет активных поездок</div> :
+                    <div className="space-y-6">
+                        {myRides.map(ride => (
+                            <div key={ride.id} className="bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
+                                <div className="p-6 sm:p-8 flex flex-col md:flex-row gap-8 items-start">
+                                    <div className="flex-1 space-y-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-blue-600"><Car className="w-6 h-6" /></div>
+                                            <div className="flex items-center gap-4 font-black text-xl lg:text-2xl dark:text-white">
+                                                <span>{ride.fromCity}</span>
+                                                <ArrowRight className="w-5 h-5 text-gray-300" />
+                                                <span>{ride.toCity}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-2xl">
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Дата и Время</p>
+                                                <p className="font-bold text-sm dark:text-white flex items-center gap-2"><Calendar className="w-3.5 h-3.5" /> {new Date(ride.date).toLocaleDateString()} в {ride.time}</p>
+                                            </div>
+                                            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-2xl">
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Автомобиль</p>
+                                                <p className="font-bold text-sm dark:text-white truncate">{ride.carModel || 'Не указан'}</p>
+                                            </div>
+                                            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-2xl">
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Места</p>
+                                                <p className="font-bold text-sm text-blue-600 flex items-center gap-2"><Users className="w-3.5 h-3.5" /> Свободно: {ride.seats}</p>
+                                            </div>
+                                            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-2xl">
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Цена</p>
+                                                <p className="font-bold text-sm text-green-600 flex items-center gap-2"><Wallet className="w-3.5 h-3.5" /> {ride.price} ₽</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="w-full md:w-auto shrink-0 flex md:flex-col gap-3">
+                                        <Button variant="danger" className="flex-1 md:w-full rounded-2xl py-3" onClick={() => handleDeleteRide(ride.id)}>
+                                            <Trash2 className="w-4 h-4 mr-2" /> Удалить поездку
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-50 dark:bg-gray-900/50 p-6 border-t dark:border-gray-700">
+                                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Пассажиры поездки</h4>
+                                    <div className="flex flex-wrap gap-3">
+                                        {ride.passengerDetails && ride.passengerDetails.length > 0 ? (
+                                            ride.passengerDetails.map(p => (
+                                                <Link 
+                                                    key={p.id} 
+                                                    to={`/user/${p.id}`}
+                                                    className="flex items-center gap-2 bg-white dark:bg-gray-800 p-1.5 pr-4 rounded-full border dark:border-gray-700 shadow-sm hover:scale-105 transition-all"
+                                                >
+                                                    <img src={p.avatar} className="w-8 h-8 rounded-full object-cover" alt="" />
+                                                    <span className="text-xs font-bold dark:text-white">{p.name}</span>
+                                                </Link>
+                                            ))
+                                        ) : (
+                                            <div className="text-xs text-gray-400 font-medium italic py-2 flex items-center gap-2">
+                                                <Info className="w-4 h-4" /> Пока никто не забронировал места
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </section>
         </div>
     );
 };
 
-// Admin Dashboard
 export const AdminDashboard: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'moderation' | 'requests' | 'content' | 'transport'>('overview');
-    const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
-    const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'stats' | 'moderation' | 'feedback' | 'city-data' | 'promotions'>('stats');
+    const [feedbackSubTab, setFeedbackSubTab] = useState<'reports' | 'ideas'>('reports');
+    const [citySubTab, setCitySubTab] = useState<'banners' | 'exclusive_pages' | 'news' | 'events' | 'transport' | 'quests' | 'campaigns'>('banners');
+    const [modal, setModal] = useState<'banner' | 'transport' | 'quest' | 'campaign' | 'news' | 'event' | 'promo' | 'exclusive' | null>(null);
+    const [editingItem, setEditingItem] = useState<any | null>(null);
+    
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
-    // Stats
-    const { data: stats = { users: 0, ads: 0, businesses: 0, news: 0, stories: 0 } } = useQuery({
-        queryKey: ['adminStats'],
-        queryFn: api.getSystemStats
-    });
+    const { data: stats } = useQuery({ queryKey: ['adminStats'], queryFn: api.getSystemStats });
+    const { data: pending = [] } = useQuery({ queryKey: ['pendingContent'], queryFn: api.getAllPendingContent });
+    const { data: reports = [] } = useQuery({ queryKey: ['adminReports'], queryFn: api.getAdminReports });
+    const { data: suggestions = [] } = useQuery({ queryKey: ['adminSuggestions'], queryFn: api.getAdminSuggestions });
 
-    // Content Queries
-    const { data: pendingAds = [] } = useQuery({ queryKey: ['ads', 'pending'], queryFn: api.getPendingAds });
-    const { data: pendingStories = [] } = useQuery({ queryKey: ['stories', 'pending'], queryFn: () => api.getStories('pending'), staleTime: 0 });
-    const { data: accessRequests = [] } = useQuery({ queryKey: ['accessRequests'], queryFn: api.getAccessRequests, staleTime: 0 });
-    const { data: reports = [] } = useQuery({ queryKey: ['reports'], queryFn: api.getReports });
-    const { data: suggestions = [] } = useQuery({ queryKey: ['suggestions'], queryFn: api.getSuggestions });
-    
-    // Content & Transport Queries
-    const { data: newsList = [] } = useQuery({ queryKey: ['news'], queryFn: api.getNews });
-    const { data: eventList = [] } = useQuery({ queryKey: ['events'], queryFn: api.getEvents });
-    const { data: transportList = [] } = useQuery({ queryKey: ['transport'], queryFn: api.getTransportSchedules });
+    // City Data Queries
+    const { data: banners = [] } = useQuery({ queryKey: ['banners'], queryFn: api.getBanners });
+    const { data: exclusivePages = [] } = useQuery({ queryKey: ['exclusivePages'], queryFn: api.getExclusivePages });
+    const { data: transport = [] } = useQuery({ queryKey: ['transport'], queryFn: api.getTransportSchedules });
+    const { data: promoAds = [] } = useQuery({ queryKey: ['promoAds'], queryFn: api.getPromoAds });
+    const { data: news = [] } = useQuery({ queryKey: ['news'], queryFn: api.getNews });
+    const { data: events = [] } = useQuery({ queryKey: ['events'], queryFn: api.getEvents });
 
-    // Mutations
-    const approveAdMutation = useMutation({ mutationFn: api.approveAd, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ads', 'pending'] }) });
-    const rejectAdMutation = useMutation({ mutationFn: api.rejectAd, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ads', 'pending'] }) });
-    const approveStoryMutation = useMutation({ mutationFn: api.approveStory, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stories'] }) });
-    const rejectStoryMutation = useMutation({ mutationFn: api.rejectStory, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stories'] }) });
-    
-    const approveAccessMutation = useMutation({
-        mutationFn: async (req: AccessRequest) => { await api.grantStoryAccess(req.businessId); await api.deleteAccessRequest(req.id); },
-        onSuccess: () => { alert("Права выданы!"); queryClient.invalidateQueries({ queryKey: ['accessRequests'] }); }
-    });
-    const deleteRequestMutation = useMutation({ mutationFn: api.deleteAccessRequest, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accessRequests'] }) });
-    
-    // Extra Delete Mutations
-    const deleteNewsMutation = useMutation({ mutationFn: api.deleteNews, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['news'] }) });
-    const deleteEventMutation = useMutation({ mutationFn: api.deleteEvent, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['events'] }) });
-    const deleteTransportMutation = useMutation({ mutationFn: api.deleteTransportSchedule, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transport'] }) });
-    const deleteReportMutation = useMutation({ mutationFn: api.deleteReport, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reports'] }) });
-    const deleteSuggestionMutation = useMutation({ mutationFn: api.deleteSuggestion, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['suggestions'] }) });
+    const handleApprove = async (item: any) => {
+        await api.approveContent(item._table, item.id);
+        queryClient.invalidateQueries({ queryKey: ['pendingContent'] });
+    };
+
+    const handleReject = async (item: any) => {
+        if (!confirm("Отклонить?")) return;
+        await api.rejectContent(item._table, item.id);
+        queryClient.invalidateQueries({ queryKey: ['pendingContent'] });
+    };
+
+    const handleDeleteEntity = async (table: string, id: string, queryKey: string) => {
+        if (!confirm("Удалить навсегда?")) return;
+        await api.deleteEntity(table, id);
+        queryClient.invalidateQueries({ queryKey: [queryKey] });
+    };
+
+    const openEditModal = (type: any, item: any) => {
+        setEditingItem(item);
+        setModal(type);
+    };
+
+    const closeModals = () => {
+        setModal(null);
+        setEditingItem(null);
+    };
 
     return (
-        <div className="max-w-6xl mx-auto p-4 lg:p-8 pb-24">
-            <h1 className="text-2xl lg:text-3xl font-bold mb-6 lg:mb-8 dark:text-white flex items-center gap-3">
-                <LayoutDashboard className="w-8 h-8 text-blue-600" /> Администрирование
-            </h1>
+        <div className="max-w-7xl mx-auto p-4 lg:p-8 pb-24">
+            <CreateBannerModal item={editingItem} isOpen={modal === 'banner'} onClose={closeModals} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['banners'] })} />
+            <CreateTransportModal item={editingItem} isOpen={modal === 'transport'} onClose={closeModals} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['transport'] })} />
+            <CreatePromoAdModal item={editingItem} isOpen={modal === 'promo'} onClose={closeModals} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['promoAds'] })} />
+            <CreateNewsModal item={editingItem} isOpen={modal === 'news'} onClose={closeModals} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['news'] })} />
+            <CreateEventModal item={editingItem} isOpen={modal === 'event'} onClose={closeModals} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['events'] })} />
+            <CreateExclusivePageModal item={editingItem} isOpen={modal === 'exclusive'} onClose={closeModals} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['exclusivePages'] })} />
 
-            <CreateNewsModal isOpen={isNewsModalOpen} onClose={() => setIsNewsModalOpen(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['news'] })} />
-            <CreateEventModal isOpen={isEventModalOpen} onClose={() => setIsEventModalOpen(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['events'] })} />
-
-            {/* Tabs */}
-            <div className="flex border-b dark:border-gray-700 mb-8 overflow-x-auto">
-                <button onClick={() => setActiveTab('overview')} className={`px-4 py-3 font-medium border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'overview' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}><BarChart3 className="w-4 h-4" /> Обзор</button>
-                <button onClick={() => setActiveTab('moderation')} className={`px-4 py-3 font-medium border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'moderation' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}><Shield className="w-4 h-4" /> Объявления ({pendingAds.length})</button>
-                <button onClick={() => setActiveTab('requests')} className={`px-4 py-3 font-medium border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'requests' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}><Film className="w-4 h-4" /> Заявки ({pendingStories.length + accessRequests.length + reports.length + suggestions.length})</button>
-                <button onClick={() => setActiveTab('content')} className={`px-4 py-3 font-medium border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'content' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}><FileText className="w-4 h-4" /> Контент</button>
-                <button onClick={() => setActiveTab('transport')} className={`px-4 py-3 font-medium border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'transport' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}><Bus className="w-4 h-4" /> Транспорт</button>
+            <div className="flex justify-between items-center mb-10">
+                <h1 className="text-3xl font-black dark:text-white uppercase tracking-tight flex items-center gap-3">
+                    <ShieldCheck className="w-10 h-10 text-red-600" /> Центр Управления
+                </h1>
             </div>
 
-            {/* Overview */}
-            {activeTab === 'overview' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm">
-                        <div className="text-gray-500 mb-1 text-sm">Пользователи</div>
-                        <div className="text-3xl font-bold dark:text-white">{stats.users}</div>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm">
-                        <div className="text-gray-500 mb-1 text-sm">Объявления</div>
-                        <div className="text-3xl font-bold text-blue-600">{stats.ads}</div>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm">
-                        <div className="text-gray-500 mb-1 text-sm">Бизнесы</div>
-                        <div className="text-3xl font-bold text-purple-600">{stats.businesses}</div>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border dark:border-gray-700 shadow-sm">
-                        <div className="text-gray-500 mb-1 text-sm">Истории</div>
-                        <div className="text-3xl font-bold text-pink-600">{stats.stories}</div>
-                    </div>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <div className="lg:col-span-1 space-y-2">
+                    {[
+                        { id: 'stats', label: 'Статистика', icon: BarChart3, color: 'bg-blue-600' },
+                        { id: 'promotions', label: 'Реклама', icon: Megaphone, color: 'bg-orange-600' },
+                        { id: 'moderation', label: 'Модерация', icon: Shield, color: 'bg-indigo-600', badge: pending.length },
+                        { id: 'feedback', label: 'Обратная связь', icon: MessageSquare, color: 'bg-red-600', badge: reports.length + (suggestions.filter(s => !s.isRead).length) },
+                        { id: 'city-data', label: 'Данные города', icon: Settings, color: 'bg-gray-700' },
+                    ].map(item => (
+                        <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === item.id ? `${item.color} text-white shadow-lg` : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 border dark:border-gray-700'}`}>
+                            <div className="flex items-center gap-3"><item.icon className="w-5 h-5" /> {item.label}</div>
+                            {item.badge && item.badge > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black">{item.badge}</span>}
+                        </button>
+                    ))}
                 </div>
-            )}
 
-            {/* Content Tab */}
-            {activeTab === 'content' && (
-                <div className="animate-in fade-in space-y-8">
-                    {/* News Section */}
-                    <div>
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold dark:text-white">Новости ({newsList.length})</h2>
-                            <Button size="sm" onClick={() => setIsNewsModalOpen(true)}>
-                                <Plus className="w-4 h-4 mr-2" /> Добавить
-                            </Button>
+                <div className="lg:col-span-3">
+                    {activeTab === 'promotions' && (
+                        <div className="space-y-6 animate-in fade-in">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-black dark:text-white uppercase">Рекламные предложения</h2>
+                                <Button size="sm" onClick={() => setModal('promo')}><Plus className="w-4 h-4 mr-2"/> Добавить акцию</Button>
+                            </div>
+                            <div className="grid grid-cols-1 gap-4">
+                                {promoAds.map(ad => (
+                                    <div key={ad.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border dark:border-gray-700 flex items-center gap-4 group">
+                                        <img src={ad.image_url} className="w-24 h-24 rounded-xl object-cover" />
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold dark:text-white truncate">{ad.title}</h4>
+                                            <p className="text-xs text-gray-500 line-clamp-2">{ad.description}</p>
+                                            <div className="mt-2 flex gap-2">
+                                                <Badge color="blue">{ad.price ? `${ad.price} ₽` : 'Без цены'}</Badge>
+                                                <Badge color="gray">{ad.link_url ? 'Есть ссылка' : 'Без ссылки'}</Badge>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <button onClick={() => openEditModal('promo', ad)} className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl"><Pencil className="w-5 h-5"/></button>
+                                            <button onClick={() => handleDeleteEntity('promo_ads', ad.id, 'promoAds')} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl"><Trash2 className="w-5 h-5"/></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                            {newsList.length === 0 ? <p className="p-4 text-gray-500">Новостей нет</p> : 
-                                newsList.map(item => (
-                                    <div key={item.id} className="p-4 border-b dark:border-gray-700 flex justify-between items-center last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                        <div className="flex items-center gap-3">
-                                            <img src={item.image} className="w-10 h-10 rounded-lg object-cover" alt=""/>
-                                            <div>
-                                                <div className="font-bold text-sm dark:text-white line-clamp-1">{item.title}</div>
-                                                <div className="text-xs text-gray-500">{item.date} • {item.category}</div>
-                                            </div>
-                                        </div>
-                                        <button onClick={() => { if(confirm('Удалить новость?')) deleteNewsMutation.mutate(item.id) }} className="text-gray-400 hover:text-red-500 p-2"><Trash2 className="w-4 h-4"/></button>
-                                    </div>
-                                ))
-                            }
+                    )}
+
+                    {activeTab === 'stats' && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-in fade-in">
+                            {[
+                                { label: 'Жители', val: stats?.users, icon: Users, col: 'text-blue-500' },
+                                { label: 'Реклама', val: promoAds.length, icon: Megaphone, col: 'text-orange-500' },
+                                { label: 'Компании', val: stats?.businesses, icon: Building2, col: 'text-teal-500' },
+                                { label: 'Новости', val: stats?.news, icon: FileText, col: 'text-indigo-500' },
+                            ].map((s, i) => (
+                                <div key={i} className="bg-white dark:bg-gray-800 p-6 rounded-3xl border dark:border-gray-700 shadow-sm">
+                                    <p className="text-gray-400 text-[10px] font-black uppercase mb-1">{s.label}</p>
+                                    <p className="text-3xl font-black dark:text-white">{s.val}</p>
+                                </div>
+                            ))}
                         </div>
-                    </div>
+                    )}
 
-                    {/* Events Section */}
-                    <div>
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold dark:text-white">Афиша ({eventList.length})</h2>
-                            <Button size="sm" onClick={() => setIsEventModalOpen(true)}>
-                                <Plus className="w-4 h-4 mr-2" /> Добавить
-                            </Button>
-                        </div>
-                        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-                            {eventList.length === 0 ? <p className="p-4 text-gray-500">Событий нет</p> : 
-                                eventList.map(item => (
-                                    <div key={item.id} className="p-4 border-b dark:border-gray-700 flex justify-between items-center last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                        <div className="flex items-center gap-3">
-                                            <img src={item.image} className="w-10 h-10 rounded-lg object-cover" alt=""/>
-                                            <div>
-                                                <div className="font-bold text-sm dark:text-white line-clamp-1">{item.title}</div>
-                                                <div className="text-xs text-gray-500">{item.date} • {item.location}</div>
-                                            </div>
+                    {activeTab === 'moderation' && (
+                        <div className="space-y-4 animate-in slide-in-from-right-4">
+                            {pending.length === 0 ? <p className="text-center py-20 text-gray-400">Очередь пуста</p> : 
+                            pending.map((item: any) => (
+                                <div key={item.id} className="bg-white dark:bg-gray-800 p-5 rounded-3xl border dark:border-gray-700 flex justify-between items-center gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center text-gray-500 shrink-0">
+                                            {item.image ? <img src={item.image} className="w-full h-full object-cover" /> : <FileText className="w-6 h-6" />}
                                         </div>
-                                        <button onClick={() => { if(confirm('Удалить событие?')) deleteEventMutation.mutate(item.id) }} className="text-gray-400 hover:text-red-500 p-2"><Trash2 className="w-4 h-4"/></button>
-                                    </div>
-                                ))
-                            }
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Transport Tab */}
-            {activeTab === 'transport' && (
-                <div className="animate-in fade-in">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-bold dark:text-white">Маршруты ({transportList.length})</h2>
-                        {/* Can implement Add modal later */}
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 font-medium">
-                                <tr>
-                                    <th className="p-4">№ / Тип</th>
-                                    <th className="p-4">Название</th>
-                                    <th className="p-4">График</th>
-                                    <th className="p-4 text-right">Действие</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y dark:divide-gray-700">
-                                {transportList.map(t => (
-                                    <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                        <td className="p-4">
-                                            <div className="font-bold text-gray-900 dark:text-white">{t.routeNumber || '-'}</div>
-                                            <div className="text-xs text-gray-500">{t.type === 'city' ? 'Город' : 'Межгород'}</div>
-                                        </td>
-                                        <td className="p-4 font-medium dark:text-gray-200">{t.title}</td>
-                                        <td className="p-4 text-gray-500">{t.schedule}</td>
-                                        <td className="p-4 text-right">
-                                            <button onClick={() => { if(confirm('Удалить маршрут?')) deleteTransportMutation.mutate(t.id) }} className="text-red-500 hover:bg-red-50 p-2 rounded"><Trash2 className="w-4 h-4"/></button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {transportList.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-gray-500">Маршрутов нет</td></tr>}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {/* Requests Tab */}
-            {activeTab === 'requests' && (
-                <div className="animate-in fade-in grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    
-                    {/* Suggestions Section (IDEAS) */}
-                    <div className="lg:col-span-2">
-                        <h2 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2">
-                            <Lightbulb className="w-5 h-5 text-yellow-500" /> Идеи и Предложения <span className="bg-yellow-100 text-yellow-800 text-sm px-2 py-0.5 rounded-full">{suggestions.length}</span>
-                        </h2>
-                        {suggestions.length === 0 ? (
-                            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl text-gray-500 text-center text-sm border border-dashed dark:border-gray-700">
-                                Предложений пока нет
-                            </div>
-                        ) : (
-                            <div className="grid gap-4 md:grid-cols-2">
-                                {suggestions.map(s => (
-                                    <div key={s.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm relative group">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <img src={s.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.userName || 'A')}`} className="w-6 h-6 rounded-full" alt="" />
-                                                <span className="font-bold text-sm dark:text-white">{s.userName || 'Аноним'}</span>
-                                            </div>
-                                            <span className="text-xs text-gray-400">{new Date(s.createdAt).toLocaleDateString()}</span>
-                                        </div>
-                                        <p className="text-sm text-gray-700 dark:text-gray-300 mb-3 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
-                                            {s.text}
-                                        </p>
-                                        <div className="flex justify-end">
-                                            <button 
-                                                onClick={() => { if(confirm('Удалить предложение?')) deleteSuggestionMutation.mutate(s.id) }} 
-                                                className="text-gray-400 hover:text-red-500 p-1" 
-                                                title="Удалить"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                        <div className="min-w-0">
+                                            <div className="text-[10px] font-black uppercase text-blue-500">{item.typeLabel}</div>
+                                            <h3 className="font-bold dark:text-white truncate">{item.displayTitle}</h3>
+                                            <p className="text-xs text-gray-500">Автор: {item.authorName}</p>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Reports Section (Complaints) */}
-                    <div className="lg:col-span-2">
-                        <h2 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2">
-                            <AlertTriangle className="w-5 h-5 text-red-500" /> Жалобы пользователей <span className="bg-red-100 text-red-700 text-sm px-2 py-0.5 rounded-full">{reports.length}</span>
-                        </h2>
-                        {reports.length === 0 ? (
-                            <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl text-green-700 dark:text-green-400 text-center text-sm border border-green-200 dark:border-green-800">
-                                Жалоб нет, все спокойно.
-                            </div>
-                        ) : (
-                            <div className="grid gap-4 md:grid-cols-2">
-                                {reports.map(r => (
-                                    <div key={r.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm relative group">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded uppercase">{r.targetType}</span>
-                                                <span className="text-xs text-gray-400">{new Date(r.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                            <button onClick={() => { if(confirm('Удалить жалобу?')) deleteReportMutation.mutate(r.id) }} className="text-gray-400 hover:text-green-600" title="Решено / Удалить">
-                                                <Check className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                        <p className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">{r.reason}</p>
-                                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-2 pt-2 border-t dark:border-gray-700">
-                                            <span>От: {r.userName}</span>
-                                            <span>• ID: {r.targetId}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Pending Stories Section */}
-                    <div>
-                        <h2 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2">
-                            Истории на проверке <span className="bg-yellow-100 text-yellow-700 text-sm px-2 py-0.5 rounded-full">{pendingStories.length}</span>
-                        </h2>
-                        
-                        {pendingStories.length === 0 ? (
-                            <p className="text-gray-500 italic">Нет историй на проверке.</p>
-                        ) : (
-                            <div className="grid gap-4">
-                                {pendingStories.map(story => (
-                                    <div key={story.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm flex gap-4">
-                                        <div className="w-24 h-40 bg-gray-200 rounded-lg overflow-hidden shrink-0">
-                                            <img src={story.media} className="w-full h-full object-cover" alt="" />
-                                        </div>
-                                        <div className="flex-1 flex flex-col">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <img src={story.authorAvatar} className="w-6 h-6 rounded-full" alt="" />
-                                                <span className="font-bold text-sm dark:text-white">{story.authorName}</span>
-                                            </div>
-                                            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 line-clamp-3">{story.caption || 'Без подписи'}</p>
-                                            
-                                            <div className="mt-auto flex gap-2">
-                                                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white flex-1" onClick={() => approveStoryMutation.mutate(story.id)}>
-                                                    Опубликовать
-                                                </Button>
-                                                <Button size="sm" variant="danger" className="flex-1" onClick={() => rejectStoryMutation.mutate(story.id)}>
-                                                    Отклонить
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Access Requests Section */}
-                    <div>
-                        <h2 className="text-xl font-bold mb-4 dark:text-white flex items-center gap-2">
-                            Запросы прав <span className="bg-blue-100 text-blue-700 text-sm px-2 py-0.5 rounded-full">{accessRequests.length}</span>
-                        </h2>
-
-                        {accessRequests.length === 0 ? (
-                            <p className="text-gray-500 italic">Нет запросов на права.</p>
-                        ) : (
-                            <div className="space-y-4">
-                                {accessRequests.map(req => (
-                                    <div key={req.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div>
-                                                <div className="font-bold text-gray-900 dark:text-white">{req.businessName}</div>
-                                                <div className="text-xs text-gray-500">От: {req.userName}</div>
-                                            </div>
-                                            <div className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleDateString()}</div>
-                                        </div>
-                                        <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-sm text-gray-700 dark:text-gray-300 mb-4">
-                                            {req.message}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white flex-1" onClick={() => approveAccessMutation.mutate(req)}>
-                                                <Key className="w-4 h-4 mr-2" /> Выдать права
-                                            </Button>
-                                            <Link to={`/chat?id=${req.userId}`} className="flex-1">
-                                                <Button size="sm" variant="secondary" className="w-full">
-                                                    Написать
-                                                </Button>
-                                            </Link>
-                                            <button onClick={() => deleteRequestMutation.mutate(req.id)} className="p-2 text-gray-400 hover:text-red-500">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* Moderation Tab */}
-            {activeTab === 'moderation' && (
-                <div className="animate-in fade-in">
-                    {pendingAds.length === 0 ? (
-                        <p className="text-center text-gray-500 py-10">Нет объявлений на проверке</p>
-                    ) : (
-                        <div className="grid gap-6">
-                            {pendingAds.map(ad => (
-                                <div key={ad.id} className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4 shadow-sm flex flex-col md:flex-row gap-6">
-                                    <img src={ad.image} className="w-full md:w-48 h-48 md:h-32 object-cover rounded-lg bg-gray-100" alt="" />
-                                    <div className="flex-1">
-                                        <div className="flex justify-between">
-                                            <h3 className="font-bold text-lg dark:text-white">{ad.title}</h3>
-                                            <span className="font-bold text-blue-600">{ad.price} ₽</span>
-                                        </div>
-                                        <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 line-clamp-2">{ad.description}</p>
-                                        <div className="flex gap-2 mt-4">
-                                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => approveAdMutation.mutate(ad.id)}>
-                                                Одобрить
-                                            </Button>
-                                            <Button size="sm" variant="danger" onClick={() => rejectAdMutation.mutate(ad.id)}>
-                                                Отклонить
-                                            </Button>
-                                        </div>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => handleReject(item)}><X className="w-4 h-4 mr-1" /> Отклонить</Button>
+                                        <Button size="sm" className="bg-green-600" onClick={() => handleApprove(item)}><Check className="w-4 h-4 mr-1" /> Одобрить</Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
+
+                    {activeTab === 'feedback' && (
+                        <div className="space-y-6 animate-in slide-in-from-right-4">
+                             <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-700 rounded-2xl">
+                                <button onClick={() => setFeedbackSubTab('reports')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all ${feedbackSubTab === 'reports' ? 'bg-white dark:bg-gray-600 text-red-600 shadow-sm' : 'text-gray-400'}`}>Жалобы ({reports.length})</button>
+                                <button onClick={() => setFeedbackSubTab('ideas')} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all ${feedbackSubTab === 'ideas' ? 'bg-white dark:bg-gray-600 text-blue-600 shadow-sm' : 'text-gray-400'}`}>Предложения ({suggestions.length})</button>
+                            </div>
+
+                            {feedbackSubTab === 'reports' ? (
+                                <div className="space-y-4">
+                                    {reports.length === 0 ? <p className="text-center py-20 text-gray-400">Жалоб нет</p> : 
+                                    reports.map(r => (
+                                        <div key={r.id} className="bg-white dark:bg-gray-800 p-5 rounded-3xl border dark:border-gray-700 flex flex-col gap-4 group">
+                                            <div className="flex justify-between items-start">
+                                                <Link to={`/user/${r.userId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                                                    <img src={r.userAvatar || 'https://ui-avatars.com/api/?name=U'} className="w-12 h-12 rounded-full border-2 border-red-100 dark:border-gray-700" alt="" />
+                                                    <div>
+                                                        <div className="font-black text-sm dark:text-white">{r.userName}</div>
+                                                        <div className="text-[10px] text-red-500 font-black uppercase tracking-widest">
+                                                            Объект: {r.targetType === 'app' ? 'ПРИЛОЖЕНИЕ' : r.targetType === 'ad' ? 'ОБЪЯВЛЕНИЕ' : r.targetType.toUpperCase()}
+                                                        </div>
+                                                    </div>
+                                                </Link>
+                                                <span className="text-[10px] text-gray-400 font-bold uppercase">{new Date(r.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <p className="text-sm dark:text-gray-300 bg-red-50 dark:bg-red-900/10 p-5 rounded-2xl border border-red-100 dark:border-red-900/50 italic leading-relaxed">
+                                                "{r.reason}"
+                                            </p>
+                                            <div className="flex gap-2 pt-2 justify-between">
+                                                {r.targetId !== 'general' && <Button size="sm" variant="outline" className="text-xs rounded-xl" onClick={() => navigate(r.targetType === 'ad' ? `/ad/${r.targetId}` : `/user/${r.targetId}`)}>Открыть объект</Button>}
+                                                <Button size="sm" variant="danger" className="text-xs rounded-xl" onClick={() => handleDeleteEntity('reports', r.id, 'adminReports')}>Удалить жалобу</Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {suggestions.length === 0 ? <p className="text-center py-20 text-gray-400">Предложений пока нет</p> : 
+                                    suggestions.map(s => (
+                                        <div key={s.id} className="bg-white dark:bg-gray-800 p-5 rounded-3xl border dark:border-gray-700 flex flex-col gap-4">
+                                            <div className="flex justify-between items-start">
+                                                <Link to={`/user/${s.userId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                                                    <img src={s.userAvatar || 'https://ui-avatars.com/api/?name=U'} className="w-12 h-12 rounded-full border-2 border-blue-100 dark:border-gray-700" alt="" />
+                                                    <div>
+                                                        <div className="font-black text-sm dark:text-white">{s.userName}</div>
+                                                        <div className="text-[10px] text-blue-500 font-black uppercase tracking-widest">Предложение идеи</div>
+                                                    </div>
+                                                </Link>
+                                                <span className="text-[10px] text-gray-400 font-bold uppercase">{new Date(s.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <p className="text-sm dark:text-gray-300 bg-blue-50 dark:bg-blue-900/10 p-5 rounded-2xl border border-blue-100 dark:border-blue-900/50 italic leading-relaxed">
+                                                "{s.text}"
+                                            </p>
+                                            <div className="flex justify-end">
+                                                <Button size="sm" variant="outline" className="text-xs rounded-xl" onClick={() => handleDeleteEntity('suggestions', s.id, 'adminSuggestions')}>Удалить</Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'city-data' && (
+                        <div className="space-y-8 animate-in slide-in-from-right-4">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter">Данные Города</h2>
+                                <div className="flex gap-2">
+                                    <Button size="sm" variant="outline" className="rounded-xl h-10 px-3" onClick={() => setModal('exclusive')}><LayoutIcon className="w-4 h-4 mr-1" /> Лендинг</Button>
+                                    <Button size="sm" variant="outline" className="rounded-xl h-10 px-3" onClick={() => setModal('banner')}><ImageIcon className="w-4 h-4 mr-1" /> Баннер</Button>
+                                    <Button size="sm" variant="outline" className="rounded-xl h-10 px-3" onClick={() => setModal('news')}><FileText className="w-4 h-4 mr-1" /> Новость</Button>
+                                    <Button size="sm" variant="outline" className="rounded-xl h-10 px-3" onClick={() => setModal('event')}><Calendar className="w-4 h-4 mr-1" /> Афиша</Button>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl overflow-x-auto scrollbar-hide">
+                                {['banners', 'exclusive_pages', 'news', 'events', 'transport', 'quests', 'campaigns'].map(sub => (
+                                    <button key={sub} onClick={() => setCitySubTab(sub as any)} className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${citySubTab === sub ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
+                                        {sub === 'banners' ? 'Баннеры' : sub === 'exclusive_pages' ? 'Лендинги' : sub === 'news' ? 'Новости' : sub === 'events' ? 'Афиша' : sub === 'transport' ? 'Транспорт' : sub === 'quests' ? 'Квесты' : 'Сборы'}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 overflow-hidden shadow-sm">
+                                {citySubTab === 'exclusive_pages' && exclusivePages.map(p => (
+                                    <div key={p.id} className="p-5 flex items-center gap-5 border-b dark:border-gray-700 last:border-0 group">
+                                        <img src={p.image_url} className="w-16 h-16 rounded-2xl object-cover bg-gray-100 shadow-inner" />
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold dark:text-white text-base truncate">{p.title}</h4>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Позиция: {p.idx + 4} страница</p>
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <button onClick={() => handleDeleteEntity('exclusive_pages', p.id, 'exclusivePages')} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl"><Trash2 className="w-5 h-5"/></button>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {citySubTab === 'banners' && banners.map(b => (
+                                    <div key={b.id} className="p-5 flex items-center gap-5 border-b dark:border-gray-700 last:border-0 group">
+                                        <img src={b.image_url} className="w-32 h-18 rounded-2xl object-cover bg-gray-100 shadow-inner" />
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold dark:text-white text-base truncate">{b.title || 'Без названия'}</h4>
+                                            <p className="text-[10px] text-gray-400 truncate max-w-xs">{b.link_url}</p>
+                                        </div>
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button onClick={() => openEditModal('banner', b)} className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl"><Pencil className="w-5 h-5"/></button>
+                                            <button onClick={() => handleDeleteEntity('banners', b.id, 'banners')} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl"><Trash2 className="w-5 h-5"/></button>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {citySubTab === 'news' && news.map(n => (
+                                    <div key={n.id} className="p-5 flex items-center gap-5 border-b dark:border-gray-700 last:border-0 group">
+                                        <img src={n.image} className="w-16 h-16 rounded-2xl object-cover shadow-inner" />
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold dark:text-white text-base truncate">{n.title}</h4>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{n.category} • {n.date}</p>
+                                        </div>
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button onClick={() => openEditModal('news', n)} className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl"><Pencil className="w-5 h-5"/></button>
+                                            <button onClick={() => handleDeleteEntity('news', n.id, 'news')} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl"><Trash2 className="w-5 h-5"/></button>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {citySubTab === 'events' && events.map(e => (
+                                    <div key={e.id} className="p-5 flex items-center gap-5 border-b dark:border-gray-700 last:border-0 group">
+                                        <img src={e.image} className="w-16 h-16 rounded-2xl object-cover shadow-inner" />
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold dark:text-white text-base truncate">{e.title}</h4>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{e.date} • {e.location}</p>
+                                        </div>
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button onClick={() => openEditModal('event', e)} className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl"><Pencil className="w-5 h-5"/></button>
+                                            <button onClick={() => handleDeleteEntity('events', e.id, 'events')} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl"><Trash2 className="w-5 h-5"/></button>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {citySubTab === 'transport' && transport.map(t => (
+                                    <div key={t.id} className="p-5 flex items-center justify-between border-b dark:border-gray-700 last:border-0 group">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 font-black text-xs">{t.routeNumber || '№'}</div>
+                                            <div>
+                                                <span className="font-bold dark:text-white text-base">{t.title}</span>
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase">{t.type === 'city' ? 'Городской' : t.type === 'intercity' ? 'Межгород' : 'Такси'}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button onClick={() => openEditModal('transport', t)} className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl"><Pencil className="w-5 h-5"/></button>
+                                            <button onClick={() => handleDeleteEntity('transport_schedules', t.id, 'transport')} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl"><Trash2 className="w-5 h-5"/></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 };

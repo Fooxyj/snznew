@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { Button } from '../components/ui/Common';
-import { Lock, Mail, User, Loader2 } from 'lucide-react';
+import { Lock, Mail, User, Loader2, Info } from 'lucide-react';
 import { useToast } from '../components/ToastProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import { Captcha } from '../components/ui/Captcha';
@@ -120,9 +121,17 @@ export const AuthPage: React.FC = () => {
           </div>
 
           {!isLogin && (
-              <div className="pt-2">
-                  <Captcha onVerify={setIsCaptchaVerified} />
-              </div>
+              <>
+                <div className="pt-2">
+                    <Captcha onVerify={setIsCaptchaVerified} />
+                </div>
+                <div className="flex gap-2 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border dark:border-gray-700 mt-2">
+                    <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-snug">
+                        Нажимая кнопку «Создать аккаунт», вы соглашаетесь с <Link to="/legal" className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Политикой конфиденциальности</Link> и <Link to="/legal" className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Правилами пользования</Link> сервисом.
+                    </p>
+                </div>
+              </>
           )}
 
           <Button className="w-full py-3 text-lg mt-4 shadow-lg shadow-blue-100 dark:shadow-none" disabled={loading}>

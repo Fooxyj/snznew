@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CATEGORIES } from '../constants';
 import { Button, Rating, formatAddress, formatPhone } from '../components/ui/Common';
-import { MapPin, Phone, Clock, Map as MapIcon, List, Loader2, ArrowRight } from 'lucide-react';
+import { MapPin, Phone, Clock, Map as MapIcon, List, Loader2, ArrowRight, Heart } from 'lucide-react';
 import { api } from '../services/api';
 import { YandexMap } from '../components/YandexMap';
 import { BusinessCardSkeleton } from '../components/ui/Skeleton';
@@ -88,6 +88,7 @@ export const BusinessDirectory: React.FC = () => {
                 {displayedBusinesses.map(biz => {
                     const cleanPhone = formatPhone(biz.phone);
                     const cleanAddress = formatAddress(biz.address);
+                    const isMaster = !!biz.isMaster;
 
                     return (
                         <div 
@@ -105,8 +106,8 @@ export const BusinessDirectory: React.FC = () => {
                                 <div className="absolute top-3 right-3 bg-white/90 dark:bg-black/70 backdrop-blur px-2 py-1 rounded-lg shadow-sm">
                                     <Rating value={biz.rating} count={biz.reviewsCount} />
                                 </div>
-                                <div className="absolute bottom-3 left-3 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
-                                    {biz.category}
+                                <div className={`absolute bottom-3 left-3 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-lg flex items-center gap-1 ${isMaster ? 'bg-pink-500' : 'bg-blue-600'}`}>
+                                    {isMaster ? <><Heart className="w-3 h-3 fill-current" /> Хендмейд</> : biz.category}
                                 </div>
                             </div>
 
@@ -143,7 +144,7 @@ export const BusinessDirectory: React.FC = () => {
                                             <span className="text-sm text-gray-400 italic">Нет телефона</span>
                                         )}
                                         
-                                        <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:translate-x-1 transition-transform">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center group-hover:translate-x-1 transition-transform ${isMaster ? 'bg-pink-50 text-pink-600' : 'bg-blue-50 text-blue-600'}`}>
                                             <ArrowRight className="w-4 h-4" />
                                         </div>
                                     </div>

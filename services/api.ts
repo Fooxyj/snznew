@@ -3,956 +3,408 @@ import {
   User, Ad, Business, NewsItem, Notification, Event, 
   Ticket, Review, Comment, Conversation, Message, 
   Poll, LostFoundItem, Appeal, Ride, Vacancy, Resume, 
-  Coupon, UserCoupon, Story, Community, CommunityPost, 
+  Coupon, UserCoupon, CommunityPost, 
   Quest, Order, Product, Service, Booking, RentalItem, 
   RentalBooking, SmartDevice, Transaction, UtilityBill, 
-  Campaign, UserRole, StoryConfig, Employee, AnalyticsData, Table, Report, Suggestion, AccessRequest 
+  Campaign, UserRole, StoryConfig, Employee, AnalyticsData, Table, Report, Suggestion, AccessRequest, TransportSchedule, Story, Community, Banner, PromoAd, ExclusivePage 
 } from '../types';
 import { supabase } from '../lib/supabase';
 import { isSupabaseConfigured } from '../config';
-import { mockStore } from './mockData';
 import { authService } from './authService';
 import { businessService } from './businessService';
 import { socialService } from './socialService';
 import { cityService } from './cityService';
-import { CURRENT_USER } from '../constants';
+import { mockStore } from './mockData';
 
-const delay = (ms: number = 500) => new Promise(resolve => setTimeout(resolve, ms));
-
-const formatRelativeDate = (dateStr: string): string => {
+const formatRelativeDate = (dateStr: string | null): string => {
     if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return 'Недавно';
-    if (/^\d{2}\.\d{2}\.\d{4}/.test(dateStr)) return dateStr;
-    
     let date = new Date(dateStr);
-    if (isNaN(date.getTime())) return dateStr;
-
+    if (isNaN(date.getTime())) return 'Недавно';
     const now = new Date();
-    const isToday = now.getDate() === date.getDate() &&
-                    now.getMonth() === date.getMonth() &&
-                    now.getFullYear() === date.getFullYear();
-    
-    const timeString = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-
-    if (isToday) return `Сегодня, ${timeString}`;
+    const isToday = now.getDate() === date.getDate() && now.getMonth() === date.getMonth() && now.getFullYear() === date.getFullYear();
+    if (isToday) return `Сегодня, ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
     return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const mapAdFromDB = (a: any, profile?: any): Ad => ({
-    id: a.id,
-    title: a.title,
-    price: a.price,
-    currency: a.currency || '₽',
-    category: a.category,
-    image: a.image,
-    images: a.images || (a.image ? [a.image] : []),
-    date: formatRelativeDate(a.date || a.created_at),
-    authorId: a.author_id,
-    authorName: profile?.name || 'Пользователь',
-    authorAvatar: profile?.avatar,
-    description: a.description,
-    location: a.location,
-    isVip: a.is_vip,
-    isPremium: a.is_premium,
-    status: a.status || 'approved'
-});
+const mapAdFromDB = (a: any, profileData?: any): Ad => {
+    const profile = Array.isArray(profileData) ? profileData[0] : profileData;
+    let numericPrice = 0;
+    if (typeof a.price === 'number') numericPrice = a.price;
+    else if (typeof a.price === 'string') {
+        numericPrice = parseFloat(a.price.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+    }
 
-// Helper: Client-side Image Compression
-const compressImage = async (file: File): Promise<File> => {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        const reader = new FileReader();
-        
-        reader.onload = (e) => {
-            img.src = e.target?.result as string;
-        };
-        
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            const MAX_WIDTH = 1200; 
-            const MAX_HEIGHT = 1200;
-            let width = img.width;
-            let height = img.height;
-
-            if (width > height) {
-                if (width > MAX_WIDTH) {
-                    height *= MAX_WIDTH / width;
-                    width = MAX_WIDTH;
-                }
-            } else {
-                if (height > MAX_HEIGHT) {
-                    width *= MAX_HEIGHT / height;
-                    height = MAX_HEIGHT;
-                }
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            ctx?.drawImage(img, 0, 0, width, height);
-
-            canvas.toBlob((blob) => {
-                if (blob) {
-                    const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { 
-                        type: 'image/jpeg', 
-                        lastModified: Date.now() 
-                    });
-                    resolve(newFile);
-                } else {
-                    reject(new Error('Compression failed'));
-                }
-            }, 'image/jpeg', 0.8);
-        };
-        
-        img.onerror = (err) => reject(err);
-        reader.readAsDataURL(file);
-    });
+    return {
+        id: a.id || Math.random().toString(),
+        title: a.title || 'Без названия',
+        price: numericPrice,
+        currency: a.currency || '₽',
+        category: a.category || 'Прочее',
+        image: a.image || 'https://via.placeholder.com/400x300?text=No+Image',
+        images: a.images || (a.image ? [a.image] : []),
+        date: formatRelativeDate(a.date || a.created_at),
+        authorId: a.author_id,
+        authorName: profile?.name || 'Житель Снежинска',
+        authorAvatar: profile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.name || 'U')}`,
+        description: a.description || '',
+        location: a.location || 'Снежинск',
+        isVip: a.is_vip === true || a.isVip === true,
+        isPremium: a.is_premium === true || a.isPremium === true,
+        status: a.status || 'approved',
+        authorLastSeen: profile?.last_seen
+    };
 };
 
 export const api = {
+  supabase,
   ...authService,
   ...businessService,
   ...socialService,
   ...cityService,
 
-  // --- PUBLIC PROFILE ---
-  async getUserById(userId: string): Promise<User | null> {
-      if (isSupabaseConfigured() && supabase) {
-          try {
-              const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
-              if (profile) {
-                  return {
-                      id: profile.id,
-                      name: profile.name,
-                      avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}`,
-                      role: profile.role || UserRole.USER,
-                      xp: profile.xp || 0,
-                      email: '', 
-                      favorites: [],
-                      badges: profile.badges || [],
-                      createdAt: profile.created_at
-                  };
-              }
-          } catch (e) {
-              console.error("Error fetching user", e);
-          }
-      }
-      if (userId === 'u2') return { id: 'u2', name: 'Иван Иванов', avatar: 'https://ui-avatars.com/api/?name=Ivan', role: UserRole.USER, xp: 500, email: '', favorites: [] };
-      if (userId === 'u7') return { id: 'u7', name: 'Мария Кулинар', avatar: 'https://ui-avatars.com/api/?name=Maria', role: UserRole.USER, xp: 1200, email: '', favorites: [] };
-      return null;
-  },
-
-  async getAdminUserId(): Promise<string | null> {
-      const ADMIN_EMAIL = 'fooxyj@yandex.ru';
-      if (isSupabaseConfigured() && supabase) {
-          try {
-              const { data } = await supabase.from('profiles').select('id').eq('email', ADMIN_EMAIL).single();
-              if (data) return data.id;
-              const { data: adminRole } = await supabase.from('profiles').select('id').eq('role', 'ADMIN').limit(1).single();
-              if (adminRole) return adminRole.id;
-          } catch (e) {
-              console.warn("Could not find specific admin in DB");
-          }
-      }
-      return 'admin_user_id'; 
-  },
-
-  async getUserContent(userId: string): Promise<{ ads: Ad[] }> {
+  async getExclusivePages(): Promise<ExclusivePage[]> {
     if (isSupabaseConfigured() && supabase) {
         try {
-            const { data } = await supabase.from('ads').select('*').eq('author_id', userId);
-            if (data) {
-                const mapped = data.map(d => mapAdFromDB(d));
-                return { ads: mapped };
-            }
+            const { data, error } = await supabase.from('exclusive_pages').select('*').eq('is_active', true).order('idx', { ascending: true });
+            if (error) throw error;
+            return data || [];
         } catch (e) {
-            console.error("Error fetching user content", e);
+            console.error("Supabase getExclusivePages error:", e);
+            return [];
         }
-        return { ads: [] };
     }
-    const allAds = await this.getAds();
-    return { ads: allAds.filter(a => a.authorId === userId) };
+    return [];
   },
 
-  async getFavorites(ids: string[]): Promise<{ ads: Ad[], businesses: Business[] }> {
-      if (!ids || ids.length === 0) return { ads: [], businesses: [] };
-
-      if (isSupabaseConfigured() && supabase) {
-          try {
-              // Fetch Ads
-              const { data: adsData } = await supabase.from('ads').select('*').in('id', ids);
-              let ads: Ad[] = [];
-              if (adsData) {
-                  const authorIds = [...new Set(adsData.map((a: any) => a.author_id))];
-                  let profiles: any[] = [];
-                  if (authorIds.length > 0) {
-                      const { data: profilesData } = await supabase.from('profiles').select('id, name, avatar').in('id', authorIds);
-                      profiles = profilesData || [];
-                  }
-                  ads = adsData.map((d: any) => {
-                      const profile = profiles.find(p => p.id === d.author_id);
-                      return mapAdFromDB(d, profile);
-                  });
-              }
-
-              // Fetch Businesses
-              const { data: bizData } = await supabase.from('businesses').select('*').in('id', ids);
-              let businesses: Business[] = [];
-              if (bizData) {
-                  businesses = bizData.map((b: any) => ({
-                      id: b.id,
-                      name: b.name,
-                      category: b.category,
-                      rating: 0, // Simplified
-                      reviewsCount: 0,
-                      address: b.address,
-                      image: b.image,
-                      coverImage: b.cover_image,
-                      description: b.description,
-                      lat: b.lat,
-                      lng: b.lng,
-                      phone: b.phone,
-                      workHours: b.work_hours,
-                      authorId: b.author_id,
-                      verificationStatus: b.verification_status
-                  }));
-              }
-
-              return { ads, businesses };
-          } catch (e) {
-              console.error("Error fetching favorites", e);
-              return { ads: [], businesses: [] };
-          }
-      }
-
-      // Mock fallback
-      const ads = mockStore.ads.filter(a => ids.includes(a.id));
-      const businesses = mockStore.businesses.filter(b => ids.includes(b.id));
-      return { ads, businesses };
+  async createExclusivePage(data: Partial<ExclusivePage>) {
+    if (isSupabaseConfigured() && supabase) {
+        const { error } = await supabase.from('exclusive_pages').insert(data);
+        if (error) throw error;
+    }
   },
 
-  async getExploreData() {
-      const [businesses, quests, appeals] = await Promise.all([
-          this.getBusinesses(),
-          this.getQuests(),
-          this.getAppeals()
-      ]);
-
-      const enrichedBusinesses = businesses.map(b => ({
-          type: 'business',
-          id: b.id,
-          lat: b.lat,
-          lng: b.lng,
-          title: b.name,
-          subtitle: b.category,
-          image: b.image,
-          data: b
-      }));
-
-      const enrichedQuests = quests.map(q => ({
-          type: 'quest',
-          id: q.id,
-          lat: q.lat,
-          lng: q.lng,
-          title: q.title,
-          subtitle: `${q.xpReward} XP`,
-          image: q.image,
-          data: q
-      }));
-
-      const enrichedAppeals = appeals.map((a, i) => ({
-          type: 'appeal',
-          id: a.id,
-          lat: 56.08 + (Math.random() * 0.04 - 0.02),
-          lng: 60.73 + (Math.random() * 0.04 - 0.02),
-          title: a.title,
-          subtitle: a.status === 'done' ? 'Решено' : 'Проблема',
-          image: a.image,
-          data: a
-      }));
-
-      return [...enrichedBusinesses, ...enrichedQuests, ...enrichedAppeals];
+  async deleteExclusivePage(id: string) {
+    if (isSupabaseConfigured() && supabase) {
+        const { error } = await supabase.from('exclusive_pages').delete().eq('id', id);
+        if (error) throw error;
+    }
   },
 
-  async claimDailyBonus(xp: number): Promise<void> {
-      const user = await this.getCurrentUser();
-      if (!user) return;
-
-      if (isSupabaseConfigured() && supabase) {
-          const { error } = await supabase.from('profiles').update({
-              xp: (user.xp || 0) + xp
-          }).eq('id', user.id);
-          
-          if (error) throw error;
-      }
-      localStorage.setItem(`daily_bonus_${user.id}`, new Date().toDateString());
-  },
-
-  async sendReport(targetId: string, targetType: string, reason: string): Promise<void> {
-      const user = await this.getCurrentUser();
-      if (!user) throw new Error("Необходимо войти в систему");
-      
-      if (isSupabaseConfigured() && supabase) {
-          await supabase.from('reports').insert({
-              user_id: user.id,
-              target_id: targetId,
-              target_type: targetType,
-              reason,
-              status: 'new'
-          });
-          return;
-      }
-      mockStore.reports.push({
-          id: Math.random().toString(),
-          userId: user.id,
-          userName: user.name,
-          userAvatar: user.avatar,
-          targetId,
-          targetType,
-          reason,
-          status: 'new',
-          createdAt: new Date().toISOString()
-      });
-  },
-
-  async getReports(): Promise<Report[]> {
-      if (isSupabaseConfigured() && supabase) {
-          try {
-              const { data: reportsData, error } = await supabase
-                  .from('reports')
-                  .select('*')
-                  .order('created_at', { ascending: false });
-
-              if (error) throw error;
-              if (!reportsData) return [];
-
-              const userIds = new Set<string>();
-              reportsData.forEach((r: any) => {
-                  if (r.user_id) userIds.add(r.user_id);
-              });
-
-              let profilesMap = new Map();
-              if (userIds.size > 0) {
-                  const { data: profiles } = await supabase
-                      .from('profiles')
-                      .select('id, name, avatar')
-                      .in('id', Array.from(userIds));
-                  
-                  if (profiles) {
-                      profiles.forEach((p: any) => profilesMap.set(p.id, p));
-                  }
-              }
-
-              return reportsData.map((r: any) => {
-                  const profile = profilesMap.get(r.user_id);
-                  return {
-                      id: r.id,
-                      userId: r.user_id,
-                      userName: profile?.name || 'Пользователь',
-                      userAvatar: profile?.avatar,
-                      targetId: r.target_id,
-                      targetType: r.target_type,
-                      reason: r.reason,
-                      status: r.status,
-                      createdAt: r.created_at
-                  };
-              });
-          } catch (e) {
-              console.error("Error fetching reports:", e);
-              return [];
-          }
-      }
-      return mockStore.reports;
-  },
-
-  async deleteReport(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          const { error } = await supabase.from('reports').delete().eq('id', id);
-          if (error) throw error;
-          return;
-      }
-      mockStore.reports = mockStore.reports.filter(r => r.id !== id);
-  },
-
-  async getAds(): Promise<Ad[]> {
+  async getPromoAds(): Promise<PromoAd[]> {
     if (isSupabaseConfigured() && supabase) {
         try {
-            const { data, error } = await supabase.from('ads').select('*').eq('status', 'approved');
-            if (data) {
-                const authorIds = [...new Set(data.map((a: any) => a.author_id))];
-                let profiles: any[] = [];
-                if (authorIds.length > 0) {
-                    const { data: profilesData } = await supabase.from('profiles').select('id, name, avatar').in('id', authorIds);
-                    profiles = profilesData || [];
-                }
-
-                const mapped = data.map((d: any) => {
-                    const profile = profiles.find(p => p.id === d.author_id);
-                    return mapAdFromDB(d, profile);
-                });
-                
-                return mapped.sort((a, b) => {
-                    if (a.isVip !== b.isVip) return a.isVip ? -1 : 1;
-                    if (a.isPremium !== b.isPremium) return a.isPremium ? -1 : 1;
-                    return b.id.localeCompare(a.id); 
-                });
-            }
+            const { data, error } = await supabase.from('promo_ads').select('*').eq('is_active', true).order('created_at', { ascending: false });
+            if (error) throw error;
+            return data || [];
         } catch (e) {
-            return mockStore.ads;
+            console.error("Supabase getPromoAds error:", e);
+            return [];
         }
-        return [];
     }
-    return mockStore.ads;
+    return [];
+  },
+
+  async createPromoAd(data: Partial<PromoAd>) {
+      if (isSupabaseConfigured() && supabase) {
+          const { error } = await supabase.from('promo_ads').insert(data);
+          if (error) throw error;
+      }
+  },
+
+  async updatePromoAd(id: string, data: Partial<PromoAd>) {
+      if (isSupabaseConfigured() && supabase) {
+          const { error } = await supabase.from('promo_ads').update(data).eq('id', id);
+          if (error) throw error;
+      }
+  },
+
+  async updateEntity(table: string, id: string, data: any) {
+      if (isSupabaseConfigured() && supabase) await supabase.from(table).update(data).eq('id', id);
+  },
+
+  async deleteEntity(table: string, id: string) {
+      if (isSupabaseConfigured() && supabase) await supabase.from(table).delete().eq('id', id);
+  },
+
+  async getAdminReports(): Promise<Report[]> {
+      if (!isSupabaseConfigured() || !supabase) return [];
+      try {
+          const { data: reports, error } = await supabase.from('reports').select('*').neq('target_type', 'access_request').order('created_at', { ascending: false });
+          if (error) throw error;
+          if (!reports) return [];
+
+          const userIds = [...new Set(reports.map(r => r.user_id).filter(Boolean))];
+          const { data: profs } = await supabase.from('profiles').select('id, name, avatar').in('id', userIds);
+          const profMap = new Map<string, any>(profs?.map(p => [p.id, p]) || []);
+
+          return reports.map(r => ({
+              id: r.id,
+              userId: r.user_id,
+              userName: profMap.get(r.user_id)?.name || 'Житель Снежинска',
+              userAvatar: profMap.get(r.user_id)?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profMap.get(r.user_id)?.name || 'U')}`,
+              targetId: r.target_id,
+              targetType: r.target_type,
+              reason: r.reason,
+              status: r.status,
+              createdAt: r.created_at || r.date || new Date().toISOString()
+          }));
+      } catch (e: any) {
+          return [];
+      }
+  },
+
+  async getAdminSuggestions(): Promise<Suggestion[]> {
+      if (!isSupabaseConfigured() || !supabase) return [];
+      try {
+          const { data: ideas, error } = await supabase.from('suggestions').select('*').order('created_at', { ascending: false });
+          if (error) throw error;
+          if (!ideas) return [];
+
+          const userIds = [...new Set(ideas.map(i => i.user_id).filter(Boolean))];
+          const { data: profs } = await supabase.from('profiles').select('id, name, avatar').in('id', userIds);
+          const profMap = new Map<string, any>(profs?.map(p => [p.id, p]) || []);
+
+          return ideas.map(i => ({
+              id: i.id,
+              userId: i.user_id,
+              userName: profMap.get(i.user_id)?.name || 'Житель Снежинска',
+              userAvatar: profMap.get(i.user_id)?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profMap.get(i.user_id)?.name || 'U')}`,
+              text: i.text,
+              createdAt: i.created_at || i.date || new Date().toISOString(),
+              isRead: !!i.is_read
+          }));
+      } catch (e: any) {
+          return [];
+      }
+  },
+
+  async getAds(category?: string): Promise<Ad[]> {
+    if (!isSupabaseConfigured() || !supabase) return mockStore.ads;
+    try {
+        let query = supabase.from('ads').select('*');
+        if (category && category !== 'Все') query = query.eq('category', category);
+        const { data: adsData, error: adsError } = await query;
+        if (adsError || !adsData) throw adsError;
+
+        const authorIds = [...new Set(adsData.map(ad => ad.author_id).filter(Boolean))];
+        let profMap = new Map<string, any>();
+        if (authorIds.length > 0) {
+            const { data: profs } = await supabase.from('profiles').select('*').in('id', authorIds);
+            if (profs) profs.forEach(p => profMap.set(p.id, p));
+        }
+        return adsData.map(ad => mapAdFromDB(ad, profMap.get(ad.author_id))).sort((a, b) => {
+            if (a.isVip && !b.isVip) return -1;
+            if (!a.isVip && b.isVip) return 1;
+            if (a.isPremium && !b.isPremium) return -1;
+            if (!a.isPremium && b.isPremium) return 1;
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
+    } catch (e: any) { 
+        console.error("Ads fetch failed, using mocks:", e);
+        return mockStore.ads; 
+    }
   },
 
   async getAdById(id: string): Promise<Ad | null> {
     if (isSupabaseConfigured() && supabase) {
-        const { data } = await supabase.from('ads').select('*').eq('id', id).single();
-        if (data) {
-            const { data: profile } = await supabase.from('profiles').select('name, avatar').eq('id', data.author_id).single();
-            return mapAdFromDB(data, profile);
+        try {
+            const { data: ad } = await supabase.from('ads').select('*').eq('id', id).maybeSingle();
+            if (ad) {
+                const { data: profile } = await supabase.from('profiles').select('*').eq('id', ad.author_id).maybeSingle();
+                return mapAdFromDB(ad, profile);
+            }
+        } catch (e: any) {
+            console.error("Ad Detail fetch failed:", e);
         }
     }
     return mockStore.ads.find(a => a.id === id) || null;
   },
 
+  async getAllPendingContent(): Promise<any[]> {
+      if (!isSupabaseConfigured() || !supabase) return [];
+      const tables = ['ads', 'rides', 'vacancies', 'resumes', 'lost_found', 'communities', 'stories'];
+      try {
+          const results = await Promise.all(tables.map(async (t) => {
+              const { data } = await supabase.from(t).select('*').eq('status', 'pending');
+              return (data || []).map(item => ({ ...item, _table: t }));
+          }));
+          const flattened = results.flat();
+          if (flattened.length === 0) return [];
+
+          const authorIds = [...new Set(flattened.map((it: any) => it.author_id || it.driver_id || it.user_id).filter(Boolean))];
+          const { data: profs } = await supabase.from('profiles').select('id, name').in('id', authorIds);
+          const profMap = new Map(profs?.map(p => [p.id, p.name]) || []);
+
+          return flattened.map(it => ({
+              ...it,
+              authorName: profMap.get(it.author_id || it.driver_id || it.user_id) || 'Пользователь',
+              displayTitle: it.title || it.name || it.caption || `${it.from_city} → ${it.to_city}`,
+              typeLabel: it._table === 'ads' ? 'Объявление' : it._table === 'rides' ? 'Поездка' : it._table === 'stories' ? 'История' : 'Контент'
+          }));
+      } catch (e) { return []; }
+  },
+
   async createAd(data: any): Promise<Ad> {
-    const user = await this.getCurrentUser();
-    if (!user) throw new Error("Unauthorized");
+    const user = await authService.getCurrentUser();
+    if (!user || !isSupabaseConfigured() || !supabase) throw new Error("Unauthorized");
+    const { data: saved, error } = await supabase.from('ads').insert({
+      title: data.title, price: data.price, currency: data.currency, category: data.category, description: data.description,
+      location: data.location, image: data.image, images: data.images, author_id: user.id, is_vip: data.is_vip, is_premium: data.is_premium,
+      status: 'approved', date: new Date().toISOString()
+    }).select().single();
+    if (error) throw error;
+    return mapAdFromDB(saved, user);
+  },
 
+  async updateAd(id: string, data: any): Promise<void> {
+      if (isSupabaseConfigured() && supabase) {
+          await supabase.from('ads').update({
+              title: data.title,
+              price: data.price,
+              category: data.category,
+              description: data.description,
+              location: data.location,
+              image: data.image,
+              images: data.images
+          }).eq('id', id);
+      }
+  },
+
+  async getUserContent(userId: string): Promise<{ ads: Ad[] }> {
     if (isSupabaseConfigured() && supabase) {
-        const adData: any = { 
-            title: data.title,
-            price: data.price,
-            currency: data.currency || '₽',
-            category: data.category,
-            description: data.description,
-            location: data.location,
-            image: data.image,
-            images: data.images,
-            author_id: user.id, 
-            status: 'pending',
-            is_vip: !!data.isVip, 
-            is_premium: !!data.isPremium,
-            date: new Date().toISOString()
-        };
-        const { data: saved, error } = await supabase.from('ads').insert(adData).select().single();
-        if (error) throw error;
-        return mapAdFromDB(saved, { name: user.name, avatar: user.avatar });
+      try {
+        const { data: adsData } = await supabase.from('ads').select('*').eq('author_id', userId);
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+        const mapped = (adsData || []).map(ad => mapAdFromDB(ad, profile)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return { ads: mapped };
+      } catch (e) {
+        return { ads: mockStore.ads.filter(a => a.authorId === userId) };
+      }
     }
-    const mock = { id: Math.random().toString(), ...data, authorId: user.id, date: 'Сегодня' };
-    mockStore.ads.unshift(mock);
-    return mock;
+    return { ads: mockStore.ads.filter(a => a.authorId === userId) };
   },
 
-  async updateAd(id: string, data: Partial<Ad>): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          const dbData: any = { ...data };
-          delete dbData.id; 
-          delete dbData.authorId; 
-          delete dbData.authorName; 
-          delete dbData.authorAvatar;
-          
-          const { error } = await supabase.from('ads').update(dbData).eq('id', id);
-          if (error) throw error;
-      } else {
-          const idx = mockStore.ads.findIndex(a => a.id === id);
-          if (idx !== -1) mockStore.ads[idx] = { ...mockStore.ads[idx], ...data };
-      }
+  async uploadImage(file: File): Promise<string> {
+    if (isSupabaseConfigured() && supabase) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('images').getPublicUrl(fileName);
+        return data.publicUrl;
+    }
+    throw new Error("Supabase not configured");
   },
 
-  async deleteAd(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          const { error } = await supabase.from('ads').delete().eq('id', id);
-          if (error) throw error;
+  async getBanners(position?: string): Promise<Banner[]> {
+    const getFallback = () => position ? mockStore.banners.filter(b => b.position === position) : mockStore.banners;
+    
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        let query = supabase.from('banners').select('*').eq('is_active', true);
+        
+        if (position) {
+            query = query.eq('position', position);
+        }
+        
+        const { data, error } = await query.order('idx', { ascending: true });
+        
+        if (error) throw error;
+        
+        const banners = (data || []);
+        if (banners.length === 0) return getFallback();
+        return banners;
+      } catch (error) {
+          console.error("Supabase getBanners error (falling back to mocks):", error);
+          return getFallback();
       }
-      mockStore.ads = mockStore.ads.filter(a => a.id !== id);
+    }
+    return getFallback();
   },
 
-  async promoteAd(id: string, level: 'vip' | 'premium'): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          const update = level === 'vip' ? { is_vip: true } : { is_premium: true };
-          await supabase.from('ads').update(update).eq('id', id);
-      }
+  async createBanner(data: any) {
+    if (isSupabaseConfigured() && supabase) {
+        const { error } = await supabase.from('banners').insert({ 
+            image_url: data.image_url,
+            link_url: data.link_url,
+            title: data.title,
+            position: data.position,
+            is_active: data.is_active,
+            idx: data.idx || 0,
+            created_at: new Date().toISOString() 
+        });
+        if (error) throw error;
+    }
   },
 
-  async getAllAdsForAdmin(): Promise<Ad[]> {
-      if (isSupabaseConfigured() && supabase) {
-          try {
-              const { data, error } = await supabase.from('ads').select('*').order('date', { ascending: false });
-              if (error) return []; 
-
-              if (data && data.length > 0) {
-                  const authorIds = [...new Set(data.map((a: any) => a.author_id).filter(Boolean))];
-                  let profiles: any[] = [];
-                  if (authorIds.length > 0) {
-                      const { data: profilesData } = await supabase.from('profiles').select('id, name, avatar').in('id', authorIds);
-                      profiles = profilesData || [];
-                  }
-
-                  return data.map((d: any) => {
-                      const profile = profiles.find(p => p.id === d.author_id);
-                      return mapAdFromDB(d, profile);
-                  });
-              }
-              return [];
-          } catch (e) {
-              return [];
-          }
-      }
-      return mockStore.ads;
+  async updateBanner(id: string, data: any): Promise<void> {
+    if (isSupabaseConfigured() && supabase) {
+        const { error } = await supabase.from('banners').update({
+            image_url: data.image_url,
+            link_url: data.link_url,
+            title: data.title,
+            position: data.position,
+            is_active: data.is_active,
+            idx: data.idx
+        }).eq('id', id);
+        if (error) throw error;
+    }
   },
 
-  async getPendingAds(): Promise<Ad[]> {
-      if (isSupabaseConfigured() && supabase) {
-           const { data } = await supabase.from('ads').select('*').eq('status', 'pending');
-           if (data) {
-               const authorIds = [...new Set(data.map((a: any) => a.author_id).filter(Boolean))];
-               let profiles: any[] = [];
-               if (authorIds.length > 0) {
-                   const { data: profilesData } = await supabase.from('profiles').select('id, name, avatar').in('id', authorIds);
-                   profiles = profilesData || [];
-               }
-               
-               return data.map((d: any) => {
-                   const profile = profiles.find(p => p.id === d.author_id);
-                   return mapAdFromDB(d, profile);
-               });
-           }
-           return [];
-      }
-      return [];
+  async approveContent(table: string, id: string) {
+    if (isSupabaseConfigured() && supabase) {
+      const finalStatus = table === 'stories' ? 'published' : 'approved';
+      await supabase.from(table).update({ status: finalStatus }).eq('id', id);
+    }
+  },
+
+  async rejectContent(table: string, id: string) {
+    if (isSupabaseConfigured() && supabase) await supabase.from(table).update({ status: 'rejected' }).eq('id', id);
   },
 
   async getSystemStats() {
       if (isSupabaseConfigured() && supabase) {
-          const { count: users } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-          const { count: ads } = await supabase.from('ads').select('*', { count: 'exact', head: true });
-          const { count: businesses } = await supabase.from('businesses').select('*', { count: 'exact', head: true });
-          const { count: news } = await supabase.from('news').select('*', { count: 'exact', head: true });
-          const { count: stories } = await supabase.from('stories').select('*', { count: 'exact', head: true });
-          return { users: users || 0, ads: ads || 0, businesses: businesses || 0, news: news || 0, stories: stories || 0 };
+        try {
+            const [u, a, b, n] = await Promise.all([
+                supabase.from('profiles').select('id', { count: 'exact', head: true }),
+                supabase.from('ads').select('id', { count: 'exact', head: true }),
+                supabase.from('businesses').select('id', { count: 'exact', head: true }),
+                supabase.from('news').select('id', { count: 'exact', head: true })
+            ]);
+            return { users: u.count || 0, ads: a.count || 0, businesses: b.count || 0, news: n.count || 0 };
+        } catch (e) {
+            return { users: mockStore.ads.length, ads: mockStore.ads.length, businesses: mockStore.businesses.length, news: mockStore.news.length };
+        }
       }
-      return { users: 100, ads: 50, businesses: 10, news: 5, stories: 24 };
+      return { users: mockStore.ads.length, ads: mockStore.ads.length, businesses: mockStore.businesses.length, news: mockStore.news.length };
   },
 
-  async getAdminAnalytics() {
-      await delay(500);
-      return { 
-          activity: [{name: 'Пн', users: 12, ads: 5}, {name: 'Вт', users: 19, ads: 8}], 
-          distribution: [{name: 'Объявления', value: 400}, {name: 'Новости', value: 100}] 
-      };
+  async globalSearch(query: string): Promise<{ ads: Ad[], businesses: Business[], news: NewsItem[] }> {
+    const q = query.toLowerCase();
+    const [ads, businesses, news] = await Promise.all([
+        this.getAds(),
+        this.getBusinesses(),
+        this.getNews()
+    ]);
+    return {
+        ads: ads.filter(ad => ad.title.toLowerCase().includes(q) || ad.description.toLowerCase().includes(q)),
+        businesses: businesses.filter(b => b.name.toLowerCase().includes(q) || b.description.toLowerCase().includes(q)),
+        news: news.filter(n => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))
+    };
   },
 
-  async approveAd(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          const { error } = await supabase.from('ads').update({ status: 'approved' }).eq('id', id);
-          if (error) throw error;
-      }
-  },
-
-  async rejectAd(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          const { error } = await supabase.from('ads').update({ status: 'rejected' }).eq('id', id);
-          if (error) throw error;
-      }
-  },
-
-  async adminToggleVip(id: string, isVip: boolean): Promise<void> {
-      if (isSupabaseConfigured() && supabase) await supabase.from('ads').update({ is_vip: isVip }).eq('id', id);
-  },
-
-  async deleteStory(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          const { error } = await supabase.from('stories').delete().eq('id', id);
-          if (error) throw error;
-          return;
-      }
-      mockStore.stories = mockStore.stories.filter(s => s.id !== id);
-  },
-
-  async getNews(): Promise<NewsItem[]> {
+  async getTransportSchedules(): Promise<TransportSchedule[]> {
     if (isSupabaseConfigured() && supabase) {
-        const { data } = await supabase.from('news').select('*').order('date', { ascending: false });
-        if (data) {
-            return data.map((n: any) => ({
-                id: n.id,
-                title: n.title,
-                category: n.category,
-                image: n.image,
-                date: formatRelativeDate(n.date),
-                views: n.views || 0,
-                commentsCount: n.comments_count || 0,
-                content: n.content
+        try {
+            const { data } = await supabase.from('transport_schedules').select('*').order('created_at', { ascending: true });
+            if (!data) return [];
+            return (data || []).map((t: any) => ({
+                id: t.id, type: t.type, routeNumber: t.route_number, title: t.title, schedule: t.schedule, workHours: t.work_hours, price: t.price ? parseFloat(t.price) : 0, phone: t.phone
             }));
+        } catch (e) {
+            return [];
         }
     }
-    return mockStore.news;
+    return [];
   },
-
-  async getNewsById(id: string): Promise<NewsItem | null> {
-    if (isSupabaseConfigured() && supabase) {
-        const { data } = await supabase.from('news').select('*').eq('id', id).single();
-        if (data) return { ...data, date: formatRelativeDate(data.date), commentsCount: data.comments_count };
-    }
-    return mockStore.news.find(n => n.id === id) || null;
-  },
-
-  async createNews(data: any): Promise<NewsItem> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data: saved, error } = await supabase.from('news').insert({ ...data, date: new Date().toISOString() }).select().single();
-          if (error) throw error;
-          return { ...saved, date: formatRelativeDate(saved.date) };
-      }
-      return { id: 'mock', ...data, date: 'Сегодня', views: 0, commentsCount: 0 };
-  },
-
-  async deleteNews(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          const { error } = await supabase.from('news').delete().eq('id', id);
-          if (error) throw error;
-      }
-  },
-
-  async getEvents(): Promise<Event[]> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('events').select('*').order('created_at', { ascending: false });
-          if (data) return data; 
-      }
-      return mockStore.events; 
-  },
-
-  async createEvent(data: any): Promise<Event> { 
-      const user = await authService.getCurrentUser();
-      if (!user) throw new Error("Auth required");
-
-      if (isSupabaseConfigured() && supabase) {
-          const payload = { ...data, author_id: user.id };
-          const { data: saved, error } = await supabase.from('events').insert(payload).select().single();
-          if (error) throw error;
-          return saved;
-      }
-      const mock = { id: Math.random().toString(), ...data }; 
-      mockStore.events.push(mock); 
-      return mock; 
-  },
-
-  async getEventById(id: string): Promise<Event|null> { 
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('events').select('*').eq('id', id).single();
-          return data;
-      }
-      return mockStore.events.find(e => e.id === id) || null; 
-  },
-
-  async deleteEvent(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) await supabase.from('events').delete().eq('id', id);
-  },
-
-  async updateEvent(id: string, data: any): Promise<void> {
-      if (isSupabaseConfigured() && supabase) await supabase.from('events').update(data).eq('id', id);
-  },
-  
-  async getEventsByAuthor(authorId: string): Promise<Event[]> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('events').select('*').eq('author_id', authorId);
-          return data || [];
-      }
-      return []; 
-  },
-
-  async getBookedSeats(eid: string) { return []; },
-  async buyTicket(eid: string, r: number, c: number, p: number) {},
-
-  async getRentals(): Promise<RentalItem[]> { 
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('rentals').select('*').eq('is_available', true);
-          if (data) return data.map((r: any) => ({
-              ...r, pricePerDay: r.price_per_day, authorId: r.author_id
-          }));
-      }
-      return mockStore.rentals; 
-  },
-
-  async createRental(data: any): Promise<void> { 
-      const user = await authService.getCurrentUser();
-      if (!user) throw new Error("Auth required");
-
-      if (isSupabaseConfigured() && supabase) {
-          await supabase.from('rentals').insert({ 
-              ...data, 
-              author_id: user.id,
-              price_per_day: data.pricePerDay,
-              is_available: true
-          });
-          return;
-      }
-      mockStore.rentals.push({...data, id: Math.random().toString()}); 
-  },
-
-  async deleteRental(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          const { error } = await supabase.from('rentals').delete().eq('id', id);
-          if (error) throw error;
-          return;
-      }
-      mockStore.rentals = mockStore.rentals.filter(r => r.id !== id);
-  },
-
-  async getMyRentals(): Promise<RentalBooking[]> { 
-      const user = await authService.getCurrentUser();
-      if (!user) return [];
-
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('rental_bookings').select('*, rentals(title, image, deposit)').eq('renter_id', user.id);
-          if (data) return data.map((b: any) => ({
-              id: b.id,
-              rentalId: b.rental_id,
-              renterId: b.renter_id,
-              startDate: b.start_date,
-              endDate: b.end_date,
-              totalPrice: b.total_price,
-              status: b.status,
-              rentalTitle: b.rentals?.title,
-              rentalImage: b.rentals?.image,
-              deposit: b.rentals?.deposit
-          }));
-      }
-      return []; 
-  },
-
-  async getRentalsByAuthor(authorId: string): Promise<RentalItem[]> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('rentals').select('*').eq('author_id', authorId);
-          if (data) return data.map((r: any) => ({
-              ...r, pricePerDay: r.price_per_day, authorId: r.author_id
-          }));
-      }
-      return [];
-  },
-
-  async bookRental(rentalId: string, startDate: string, endDate: string, totalPrice: number, deposit: number): Promise<void> {
-      const user = await authService.getCurrentUser();
-      if (!user) throw new Error("Auth required");
-
-      if (isSupabaseConfigured() && supabase) {
-          await supabase.from('rental_bookings').insert({
-              rental_id: rentalId,
-              renter_id: user.id,
-              start_date: startDate,
-              end_date: endDate,
-              total_price: totalPrice,
-              status: 'active'
-          });
-      }
-  },
-
-  async returnRental(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          await supabase.from('rental_bookings').update({ status: 'returned' }).eq('id', id);
-      }
-  },
-
-  async uploadImage(file: File): Promise<string> {
-      if (isSupabaseConfigured() && supabase) {
-          let fileToUpload = file;
-          if (file.type.startsWith('image/')) {
-              try {
-                  fileToUpload = await compressImage(file);
-              } catch (e) {
-                  console.warn("Image compression failed, using original file", e);
-              }
-          }
-
-          try {
-              const fileExt = fileToUpload.name.split('.').pop();
-              const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-              const { error } = await supabase.storage.from('images').upload(fileName, fileToUpload);
-              if (error) throw error;
-              const { data } = supabase.storage.from('images').getPublicUrl(fileName);
-              return data.publicUrl;
-          } catch (error) {
-              console.warn("Supabase Storage upload failed, falling back to local preview:", error);
-          }
-      }
-      await delay(800);
-      return URL.createObjectURL(file);
-  },
-
-  async getNotifications(): Promise<Notification[]> {
-      const user = await authService.getCurrentUser();
-      if (!user || !isSupabaseConfigured() || !supabase) return [];
-      
-      try {
-          const { data } = await supabase
-              .from('notifications')
-              .select('*')
-              .eq('user_id', user.id)
-              .order('created_at', { ascending: false });
-              
-          if (data) {
-              return data.map((n: any) => ({
-                  id: n.id,
-                  userId: n.user_id,
-                  type: n.type,
-                  text: n.text,
-                  isRead: n.is_read,
-                  createdAt: n.created_at,
-                  link: n.link
-              }));
-          }
-      } catch (e) {
-          console.error("Error fetching notifications", e);
-      }
-      return [];
-  },
-
-  async subscribeToNotifications(userId: string, callback: (n: Notification) => void) {
-      if (!isSupabaseConfigured() || !supabase) return { unsubscribe: () => {} };
-      
-      const subscription = supabase.channel(`public:notifications:user_id=eq.${userId}`)
-          .on('postgres_changes', 
-              { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, 
-              (payload) => {
-                  const n = payload.new as any;
-                  if (n) {
-                      callback({
-                          id: n.id,
-                          userId: n.user_id,
-                          type: n.type,
-                          text: n.text,
-                          isRead: n.is_read,
-                          createdAt: n.created_at,
-                          link: n.link
-                      });
-                  }
-              }
-          )
-          .subscribe();
-          
-      return { unsubscribe: () => supabase?.removeChannel(subscription) };
-  },
-
-  async markNotificationRead(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-      }
-  },
-
-  async deleteNotification(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          await supabase.from('notifications').delete().eq('id', id);
-      }
-  },
-
-  async getCoupons(): Promise<Coupon[]> { return []; },
-  async getMyCoupons(): Promise<UserCoupon[]> { return []; },
-  async buyCoupon(id: string): Promise<void> { },
-  async getTransactions(): Promise<Transaction[]> { return []; },
-
-  async getCampaigns(): Promise<Campaign[]> { 
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('campaigns').select('*');
-          if (data) return data.map((c: any) => ({ ...c, targetAmount: c.target_amount, collectedAmount: c.collected_amount, organizerName: c.organizer_name }));
-      }
-      return mockStore.campaigns; 
-  },
-  
-  async createCampaign(data: any) { 
-      const user = await authService.getCurrentUser();
-      if (isSupabaseConfigured() && supabase && user) {
-          await supabase.from('campaigns').insert({ ...data, author_id: user.id, target_amount: data.targetAmount, organizer_name: data.organizer_name });
-      }
-  },
-  
-  async donateToCampaign(id: string, amount: number) { 
-      if (isSupabaseConfigured() && supabase) {
-          const { data: c } = await supabase.from('campaigns').select('collected_amount').eq('id', id).single();
-          if (c) {
-              await supabase.from('campaigns').update({ collected_amount: c.collected_amount + amount }).eq('id', id);
-          }
-      }
-  },
-
-  async globalSearch(q: string) { 
-      if (isSupabaseConfigured() && supabase) {
-          const [ads, biz, news] = await Promise.all([
-              supabase.from('ads').select('*').ilike('title', `%${q}%`).eq('status', 'approved'),
-              supabase.from('businesses').select('*').ilike('name', `%${q}%`),
-              supabase.from('news').select('*').ilike('title', `%${q}%`)
-          ]);
-          return {
-              ads: ads.data ? ads.data.map(d => mapAdFromDB(d)) : [],
-              businesses: biz.data || [],
-              news: news.data || []
-          };
-      }
-      return { ads: [], businesses: [], news: [] }; 
-  },
-  
-  async getVacancies() { return []; },
-  async createVacancy(d: any) {},
-  async getResumes() { return []; },
-  async createResume(d: any) {},
-  
-  async getQuests() { 
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('quests').select('*');
-          return data || [];
-      }
-      return mockStore.quests; 
-  },
-  async completeQuest(id: string, lat: number, lng: number) { return 100; },
-  async getLeaderboard() { return []; },
-  
-  async getDeliveryOrders() { return []; },
-  async getMyDeliveries() { return []; },
-  async takeDelivery(id: string) {},
-  async completeDelivery(id: string) {},
-  
-  async getUtilityBills() { return []; },
-  async submitMeterReading(t: string, v: number) {},
-  async payUtilityBill(id: string, a: number) {},
-  
-  async createPoll(q: string, o: string[]) {},
-  
-  async toggleFavorite(id: string, t: string) { 
-      const user = await authService.getCurrentUser();
-      if (!user) throw new Error("Необходимо войти в систему");
-      
-      const favorites = user.favorites || [];
-      const exists = favorites.includes(id);
-      const newFavs = exists ? favorites.filter(f => f !== id) : [...favorites, id];
-      
-      // Update local storage for immediate optimistic UI update
-      // This is crucial if the DB column is missing
-      localStorage.setItem(`favs_${user.id}`, JSON.stringify(newFavs));
-
-      if (isSupabaseConfigured() && supabase) {
-          try {
-              const { error } = await supabase.from('profiles').update({ favorites: newFavs }).eq('id', user.id);
-              if (error) {
-                  // Fallback if column is missing in DB schema
-                  if (error.code === 'PGRST204' || error.message.includes('favorites')) {
-                      console.warn("Favorites column missing in DB, using local storage fallback.");
-                      return !exists;
-                  }
-                  throw error;
-              }
-          } catch (e: any) {
-              console.error("Toggle favorite DB failed, falling back to local", e);
-              // Return success because we updated local storage
-              return !exists;
-          }
-      } else {
-          // Mock mode logic: Update CURRENT_USER directly
-          const index = CURRENT_USER.favorites.indexOf(id);
-          if (index === -1) {
-              CURRENT_USER.favorites.push(id);
-          } else {
-              CURRENT_USER.favorites.splice(index, 1);
-          }
-      }
-      return !exists;
-  }
 };

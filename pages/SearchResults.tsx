@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Loader2, ArrowRight, MapPin, Search } from 'lucide-react';
+import { Loader2, ArrowRight, MapPin, Search, Heart } from 'lucide-react';
 import { Badge, Rating } from '../components/ui/Common';
 
 // Helper component for highlighting matching text
@@ -101,14 +101,17 @@ export const SearchResults: React.FC = () => {
                                     <h3 className="font-bold text-lg dark:text-white">
                                         <HighlightText text={biz.name} highlight={query} />
                                     </h3>
-                                    <Rating value={biz.rating} count={biz.reviewsCount} />
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Rating value={biz.rating} count={biz.reviewsCount} />
+                                        {biz.isMaster && <Badge color="red" className="text-[8px] px-1.5 py-0.5 rounded"><Heart className="w-2 h-2 mr-1 inline fill-current"/> МАСТЕР</Badge>}
+                                    </div>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center">
                                         <MapPin className="w-3 h-3 mr-1" /> 
                                         <HighlightText text={biz.address} highlight={query} />
                                     </p>
                                 </div>
                                 <div className="ml-auto flex items-center">
-                                    <Link to={`/category/${getCategorySlug(biz.category)}`} className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-2 rounded-full">
+                                    <Link to={`/business/${biz.id}`} className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-2 rounded-full">
                                         <ArrowRight className="w-5 h-5" />
                                     </Link>
                                 </div>
@@ -168,11 +171,4 @@ export const SearchResults: React.FC = () => {
             )}
         </div>
     );
-};
-
-const getCategorySlug = (catName: string) => {
-    // Helper to link to correct category page (simplified)
-    if (catName === 'Магазины') return 'shops';
-    if (catName === 'Кафе и рестораны') return 'cafe';
-    return 'shops'; // fallback
 };

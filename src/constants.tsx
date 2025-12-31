@@ -275,6 +275,7 @@ export const CATALOG_MENU = [
       { title: 'Концерты', path: '/events?cat=Концерт' },
       { title: 'Выставки', path: '/events?cat=Выставки' },
       { title: 'Премьеры', path: '/events?cat=Премьеры' },
+      { title: 'Ярмарки', path: '/events?cat=Ярмарка' },
       { title: 'Новости культуры', path: '/news?cat=Новости культуры' },
     ]
   },
@@ -301,15 +302,6 @@ export const CATALOG_MENU = [
     submenu: [
       { title: 'Медицинские Организации', path: '/category/med_org' },
       { title: 'Медицинские центры', path: '/category/med_center' },
-    ]
-  },
-  {
-    id: 'transport_section',
-    title: 'Транспорт',
-    icon: 'Bus',
-    submenu: [
-      { title: 'Расписание автобусов', path: '/category/transport' },
-      { title: 'Такси', path: '/category/taxi' },
     ]
   }
 ];

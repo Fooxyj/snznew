@@ -1,337 +1,377 @@
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Message } from '../types';
+import { Message, Conversation } from '../types';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Send, Loader2, MessageCircle, Paperclip, Check, CheckCheck, ChevronLeft } from 'lucide-react';
+import { Send, Loader2, MessageCircle, Paperclip, ChevronLeft, Trash2, ShoppingBag, X, Car, Check, Calendar, ArrowRight, Users, HelpCircle, Repeat, ShieldCheck, MapPin } from 'lucide-react';
+import { UserStatus, Button } from '../components/ui/Common';
 
 export const ChatPage: React.FC = () => {
     const [activeChat, setActiveChat] = useState<string | null>(null);
     const [newMessage, setNewMessage] = useState('');
     const [uploading, setUploading] = useState(false);
     
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const urlChatId = searchParams.get('id');
     const messageContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     
     const queryClient = useQueryClient();
 
-    // Fetch Current User
     const { data: currentUser } = useQuery({
         queryKey: ['user'],
         queryFn: api.getCurrentUser
     });
 
-    // Fetch Conversations
     const { data: conversations = [], isLoading: convosLoading } = useQuery({
         queryKey: ['conversations'],
         queryFn: api.getConversations,
-        enabled: !!currentUser,
-        // Poll for new conversations or last message updates
-        refetchInterval: 5000
+        enabled: !!currentUser
     });
 
-    // Handle URL param selection only explicitly
-    useEffect(() => {
-        if (urlChatId) {
-            setActiveChat(urlChatId);
-        }
-    }, [urlChatId]);
+    const { data: allRides = [] } = useQuery({
+        queryKey: ['rides'],
+        queryFn: api.getRides
+    });
 
-    // Fetch Messages
-    const { data: messages = [] } = useQuery({
+    const { data: myRentalBookings = [] } = useQuery({
+        queryKey: ['myRentalBookings'],
+        queryFn: api.getMyRentals
+    });
+
+    useEffect(() => {
+        if (urlChatId && conversations.length > 0) {
+            const exists = conversations.some(c => c.id === urlChatId);
+            if (exists) setActiveChat(urlChatId);
+        }
+    }, [urlChatId, conversations]);
+
+    const activeConvo = useMemo(() => conversations.find(c => c.id === activeChat), [conversations, activeChat]);
+    
+    const { data: partnerProfile } = useQuery({
+        queryKey: ['publicUser', activeConvo?.partnerId],
+        queryFn: () => api.getUserById(activeConvo!.partnerId),
+        enabled: !!activeConvo?.partnerId,
+        refetchInterval: 10000 
+    });
+
+    const { data: messages = [], isLoading: messagesLoading } = useQuery({
         queryKey: ['messages', activeChat],
         queryFn: () => api.getMessages(activeChat!),
-        enabled: !!activeChat,
-        // Short polling is good backup if realtime socket drops
-        refetchInterval: 3000 
+        enabled: !!activeChat
     });
 
-    const markReadIfNeeded = useCallback(() => {
-        if (activeChat && messages.length > 0 && currentUser) {
-            const hasUnreadFromPartner = messages.some(m => m.senderId !== currentUser.id && !m.isRead);
-            if (hasUnreadFromPartner) {
-                api.markMessagesAsRead(activeChat);
-                // We invalidate strictly to ensure UI update
-                queryClient.invalidateQueries({ queryKey: ['conversations'] });
-            }
-        }
-    }, [activeChat, messages, currentUser, queryClient]);
-
-    // MARK AS READ LOGIC
-    useEffect(() => {
-        markReadIfNeeded();
-    }, [markReadIfNeeded]);
-
-    // Also mark read on window focus (in case user came back to tab)
-    useEffect(() => {
-        const onFocus = () => markReadIfNeeded();
-        window.addEventListener('focus', onFocus);
-        return () => window.removeEventListener('focus', onFocus);
-    }, [markReadIfNeeded]);
-
-    // Send Message Mutation
     const sendMessageMutation = useMutation({
-        mutationFn: (text: string) => api.sendMessage(activeChat!, text),
-        onSuccess: () => {
-            // Optimistic update handled by Realtime, but invalidation ensures consistency
+        mutationFn: (text: string) => {
+            api.updateLastSeen();
+            return api.sendMessage(activeChat!, text);
+        },
+        onMutate: async (text) => {
+            await queryClient.cancelQueries({ queryKey: ['messages', activeChat] });
+            const previousMessages = queryClient.getQueryData<Message[]>(['messages', activeChat]);
+
+            if (previousMessages && currentUser) {
+                const optimisticMessage: Message = {
+                    id: 'temp-' + Date.now(),
+                    conversationId: activeChat!,
+                    senderId: currentUser.id,
+                    text: text,
+                    createdAt: new Date().toISOString(),
+                    isRead: false,
+                    status: 'pending'
+                };
+                queryClient.setQueryData(['messages', activeChat], [...previousMessages, optimisticMessage]);
+            }
+
+            return { previousMessages };
+        },
+        onError: (err, text, context) => {
+            if (context?.previousMessages) {
+                queryClient.setQueryData(['messages', activeChat], context.previousMessages);
+            }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['messages', activeChat] });
             queryClient.invalidateQueries({ queryKey: ['conversations'] });
-            setNewMessage('');
-            setTimeout(scrollToBottom, 50);
+            queryClient.invalidateQueries({ queryKey: ['chatUnread'] });
         }
     });
 
-    // Realtime Subscription
-    useEffect(() => {
-        if (!activeChat) return;
-        
-        let unsub: () => void;
-        const setupSub = async () => {
-            const sub = await api.subscribeToMessages(activeChat, (msg) => {
-                queryClient.setQueryData(['messages', activeChat], (old: Message[] | undefined) => {
-                    if (!old) return [msg];
-                    
-                    const existingIdx = old.findIndex(m => m.id === msg.id);
-                    if (existingIdx !== -1) {
-                        const newArr = [...old];
-                        // Update existing message (e.g. status changed to read)
-                        newArr[existingIdx] = { ...newArr[existingIdx], ...msg };
-                        return newArr;
-                    }
-                    // Add new message
-                    return [...old, msg];
-                });
-                
-                // If I receive a message while looking at the chat, mark it read immediately
-                if (!msg.isRead && msg.senderId !== currentUser?.id) {
-                    api.markMessagesAsRead(activeChat);
-                }
-
-                setTimeout(scrollToBottom, 50);
-            });
-            unsub = sub.unsubscribe;
-        };
-        setupSub();
-
-        return () => {
-            if (unsub) unsub();
-        };
-    }, [activeChat, queryClient, currentUser]);
-
-    // Scroll effect for new messages
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages.length, activeChat]);
-
-    const scrollToBottom = () => {
+    const scrollToBottom = useCallback(() => {
         if (messageContainerRef.current) {
             messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
         }
-    };
+    }, []);
 
-    const handleSend = async (e: React.FormEvent) => {
+    useEffect(() => {
+        if (messages.length > 0) {
+            scrollToBottom();
+        }
+    }, [messages.length, scrollToBottom]);
+
+    useEffect(() => {
+        if (activeChat) {
+            queryClient.setQueryData(['conversations'], (old: Conversation[] = []) => 
+                old.map(c => c.id === activeChat ? { ...c, unreadCount: 0 } : c)
+            );
+            
+            queryClient.setQueryData(['chatUnread'], (old: number = 0) => {
+                const convo = conversations.find(c => c.id === activeChat);
+                return Math.max(0, old - (convo?.unreadCount || 0));
+            });
+
+            api.markMessagesAsRead(activeChat).then(() => {
+                queryClient.invalidateQueries({ queryKey: ['chatUnread'] });
+                queryClient.invalidateQueries({ queryKey: ['conversations'] });
+            });
+        }
+    }, [activeChat, queryClient]);
+
+    const handleSend = (e: React.FormEvent) => {
         e.preventDefault();
         if (!activeChat || !newMessage.trim()) return;
-        sendMessageMutation.mutate(newMessage);
+        const txt = newMessage;
+        setNewMessage('');
+        sendMessageMutation.mutate(txt);
+    };
+
+    const confirmBookingMutation = useMutation({
+        mutationFn: ({ rideId, passengerId, count }: { rideId: string, passengerId: string, count: number }) => 
+            api.confirmRideBooking(rideId, passengerId, count),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['rides'] });
+            queryClient.invalidateQueries({ queryKey: ['messages', activeChat] });
+            sendMessageMutation.mutate(`✅ Я подтвердил вашу бронь на ${variables.count} мест! Жду вас в назначенное время.`);
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    const confirmRentalMutation = useMutation({
+        mutationFn: (data: any) => api.bookRental(data.rentalId, data.startDate, data.endDate, data.totalPrice, data.deposit),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['rentals'] });
+            queryClient.invalidateQueries({ queryKey: ['myRentalBookings'] });
+            queryClient.invalidateQueries({ queryKey: ['messages', activeChat] });
+            sendMessageMutation.mutate(`✅ Я подтвердил аренду "${variables.title}"! Можете забирать вещь в оговоренное время.`);
+        },
+        onError: (e: any) => alert(e.message)
+    });
+
+    const handleDeleteConvo = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!confirm("Удалить этот диалог навсегда?")) return;
+        try {
+            await api.deleteConversation(id);
+            if (activeChat === id) setActiveChat(null);
+            setSearchParams({});
+            await queryClient.invalidateQueries({ queryKey: ['conversations'] });
+            queryClient.invalidateQueries({ queryKey: ['chatUnread'] });
+        } catch (err: any) {
+            alert("Ошибка при удалении: " + err.message);
+        }
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !activeChat) return;
-        
         setUploading(true);
         try {
             const url = await api.uploadImage(file);
             sendMessageMutation.mutate(url);
         } catch (e: any) {
-            alert("Upload failed: " + e.message);
+            alert("Ошибка загрузки");
         } finally {
             setUploading(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
-    const renderMessageContent = (text: string) => {
-        try {
-            if (text.trim().startsWith('{') && text.trim().endsWith('}')) {
-                const data = JSON.parse(text);
-                if (data && data.type === 'ad_inquiry') {
+    const renderMessageContent = (m: Message) => {
+        if (m.text.startsWith('http') && (m.text.includes('supabase') || m.text.includes('unsplash') || m.text.includes('picsum'))) {
+            return <img src={m.text} alt="" className="rounded-lg max-h-64 w-full object-cover shadow-sm border dark:border-gray-700" />;
+        }
+
+        if (m.text.startsWith('{')) {
+            try {
+                const data = JSON.parse(m.text);
+                
+                if (data.type === 'ride_booking') {
+                    const isDriver = currentUser?.id !== m.senderId;
+                    const requestedCount = data.requestedSeats || 1;
+                    const targetRide = allRides.find(r => r.id === data.rideId);
+                    const passengersList = JSON.parse(targetRide?.passengers || '[]');
+                    const isConfirmed = passengersList.includes(m.senderId);
+                    
                     return (
-                        <div className="max-w-xs">
-                            <div className="bg-gray-100 dark:bg-gray-700/50 rounded-xl p-3 mb-2 border dark:border-gray-600">
-                                <img src={data.image} alt="" className="w-full h-32 object-cover rounded-lg mb-2" />
-                                <div className="font-bold text-gray-900 dark:text-white line-clamp-1">{data.title}</div>
-                                <div className="text-blue-600 dark:text-blue-400 font-bold mb-1">{data.price}</div>
-                                <Link to={`/ad/${data.adId}`} className="block w-full bg-white dark:bg-gray-600 text-center py-2 rounded-lg text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors">
-                                    Открыть объявление
-                                </Link>
+                        <div className={`bg-white dark:bg-gray-900 rounded-2xl border-2 overflow-hidden shadow-md w-[240px] md:w-[280px] mt-1 mb-1 transition-colors ${isConfirmed ? 'border-green-500' : 'border-blue-500'}`}>
+                            <div className={`p-3 text-white flex items-center gap-2 ${isConfirmed ? 'bg-green-500' : 'bg-blue-500'}`}>
+                                <Car className="w-5 h-5" />
+                                <span className="font-bold text-[10px] uppercase tracking-tighter">{isConfirmed ? 'Место забронировано' : 'Запрос на поездку'}</span>
                             </div>
-                            <div className="text-sm">{data.text}</div>
+                            <div className="p-4 space-y-3">
+                                <div className="flex items-center gap-3 font-bold text-sm dark:text-white">
+                                    <span>{data.fromCity}</span>
+                                    <ArrowRight className="w-3 h-3 text-gray-400" />
+                                    <span>{data.toCity}</span>
+                                </div>
+                                <div className="space-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                    <div className="flex items-center gap-2"><Calendar className="w-3 h-3" /> {new Date(data.date).toLocaleDateString()} в {data.time}</div>
+                                    <div className="flex items-center gap-2 font-bold text-blue-600 dark:text-blue-400"><Users className="w-3 h-3" /> Мест: {requestedCount}</div>
+                                </div>
+                                {isConfirmed ? (
+                                    <div className="flex items-center justify-center gap-2 py-2 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                                        <Check className="w-4 h-4 text-green-600" />
+                                        <span className="text-[10px] font-bold text-green-700 dark:text-green-400 uppercase">Подтверждено</span>
+                                    </div>
+                                ) : isDriver ? (
+                                    <Button size="sm" className="w-full font-bold py-2 rounded-xl" onClick={() => confirmBookingMutation.mutate({ rideId: data.rideId, passengerId: m.senderId, count: requestedCount })}>
+                                        Подтвердить бронь
+                                    </Button>
+                                ) : <div className="text-center py-2 text-[10px] text-gray-400 italic">Ожидайте подтверждения</div>}
+                            </div>
                         </div>
                     );
                 }
-            }
-        } catch (e) {
-            // ignore
+
+                if (data.type === 'rental_inquiry' || data.type === 'ad_inquiry' || data.type === 'lost_found_inquiry') {
+                    const typeLabel = data.type === 'rental_inquiry' ? 'АРЕНДА' : data.type === 'lost_found_inquiry' ? 'БЮРО НАХОДОК' : 'ОБЪЯВЛЕНИЕ';
+                    const targetPath = data.type === 'rental_inquiry' ? '/rentals' : data.type === 'lost_found_inquiry' ? '/lost-found' : (data.businessId ? `/business/${data.businessId}` : `/ad/${data.adId}`);
+
+                    return (
+                        <div className="bg-white dark:bg-gray-900 rounded-2xl border dark:border-gray-700 overflow-hidden shadow-sm w-[240px] md:w-[280px] mt-1 mb-1">
+                            <div className="aspect-video relative overflow-hidden bg-gray-100 dark:bg-gray-800">
+                                <img src={data.image || 'https://via.placeholder.com/300'} className="w-full h-full object-cover" alt="" />
+                                <div className="absolute top-2 left-2 bg-black/60 backdrop-blur px-2 py-0.5 rounded text-[8px] font-bold text-white uppercase tracking-widest">{typeLabel}</div>
+                            </div>
+                            <div className="p-4 flex flex-col gap-2">
+                                <h5 className="font-bold text-sm dark:text-white line-clamp-1 leading-tight">{data.title || 'Без названия'}</h5>
+                                {data.price && <p className="text-blue-600 dark:text-blue-400 font-bold text-base">{data.price}</p>}
+                                <Link to={targetPath} className="block w-full py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[9px] font-bold uppercase text-center rounded-lg transition-all active:scale-95">
+                                    Посмотреть на сайте
+                                </Link>
+                            </div>
+                        </div>
+                    );
+                }
+            } catch (e) { }
         }
 
-        const lines = text.split('\n');
-        return lines.map((line, idx) => {
-            const isImageUrl = line.match(/^https?:\/\/.*\.(jpg|jpeg|png|webp|gif|bmp)$/i) || line.includes('picsum.photos') || line.includes('ui-avatars.com') || (line.startsWith('blob:') && !line.includes(' '));
-            if (isImageUrl) {
-                return (
-                    <div key={idx} className="mt-1 mb-1">
-                        <img src={line.trim()} alt="attachment" className="rounded-lg max-w-full max-h-60 object-cover border border-black/10 dark:border-white/10" />
-                    </div>
-                );
-            }
-            return <div key={idx} className="min-h-[1.2em] break-words">{line}</div>;
-        });
+        return <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{m.text}</p>;
     };
 
-    const StatusIcon = ({ isRead, isMe }: { isRead?: boolean, isMe: boolean }) => {
-        if (!isMe) return null;
-        
-        if (isRead) {
-            return (
-                <div className="flex -space-x-1.5 text-blue-500 dark:text-blue-400 animate-in zoom-in duration-300" title="Прочитано">
-                    <CheckCheck className="w-3.5 h-3.5" strokeWidth={2.5} />
-                </div>
-            );
-        }
-        
-        return (
-            <div title="Отправлено (не прочитано)">
-                <Check className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" strokeWidth={2} />
-            </div>
-        );
-    };
-
-    if (convosLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
-    if (!currentUser) return <div className="p-10 text-center">Авторизуйтесь для доступа к чатам</div>;
-
-    const activeConvo = conversations.find(c => c.id === activeChat);
+    if (convosLoading && conversations.length === 0) return <div className="flex h-full items-center justify-center bg-white dark:bg-gray-900"><Loader2 className="animate-spin text-blue-600" /></div>;
 
     return (
-        <div className="flex h-full bg-white dark:bg-gray-900 overflow-hidden relative">
-            {/* Sidebar List */}
+        <div className="flex-1 flex bg-white dark:bg-gray-900 overflow-hidden relative min-h-0 h-[calc(100dvh-64px)] lg:h-full">
             <div className={`w-full md:w-80 border-r dark:border-gray-700 flex flex-col h-full absolute inset-0 md:static z-20 bg-white dark:bg-gray-900 transition-transform duration-300 ${activeChat ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
-                <div className="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0">
-                    <h2 className="font-bold text-gray-700 dark:text-white text-lg">Сообщения</h2>
+                <div className="p-5 border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 shrink-0">
+                    <h2 className="font-bold text-xl dark:text-white">Чаты</h2>
                 </div>
-                <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-900">
-                    {conversations.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-6">
-                            <MessageCircle className="w-12 h-12 text-gray-300 mb-2" />
-                            <p className="text-gray-500 dark:text-gray-400 text-sm">Нет активных диалогов</p>
-                        </div>
-                    ) : (
-                        conversations.map((c, idx) => {
-                            const isSelected = activeChat === c.id;
-                            return (
-                                <div 
-                                    key={c.id}
-                                    onClick={() => setActiveChat(c.id)}
-                                    className={`p-4 border-b dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3 transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500' : 'border-l-4 border-l-transparent'}`}
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    {conversations.map(c => {
+                        const hasUnread = (c.unreadCount || 0) > 0;
+                        return (
+                        <div 
+                            key={c.id} 
+                            onClick={() => { setActiveChat(c.id); setSearchParams({id: c.id}); }}
+                            className={`p-4 border-b dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 flex items-center gap-3 transition-all group ${activeChat === c.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                        >
+                            <div className="relative">
+                                <Link 
+                                    to={c.businessId && !c.partnerId.includes('-') ? `/business/${c.businessId}` : `/user/${c.partnerId}`} 
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="block relative hover:scale-110 transition-transform z-10"
                                 >
-                                    <div className="relative">
-                                        <img src={c.partnerAvatar} alt="" className="w-12 h-12 rounded-full object-cover bg-gray-200 dark:bg-gray-700" />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <h4 className="font-medium text-gray-900 dark:text-white truncate">{c.partnerName}</h4>
-                                            <span className="text-[10px] text-gray-400">{c.lastMessageDate}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <p className={`text-xs truncate max-w-[90%] text-gray-500 dark:text-gray-400`}>
-                                                {c.lastMessageText || 'Нет сообщений'}
-                                            </p>
-                                        </div>
-                                    </div>
+                                    <img src={c.partnerAvatar || 'https://ui-avatars.com/api/?name=U'} className="w-12 h-12 rounded-full object-cover bg-gray-100 dark:bg-gray-800 border dark:border-gray-700 shadow-sm" alt="" />
+                                    {c.businessId && <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1 rounded-full border-2 border-white dark:border-gray-900"><ShoppingBag className="w-2.5 h-2.5" /></div>}
+                                    {hasUnread && (
+                                        <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-blue-600 rounded-full border-2 border-white dark:border-gray-900 animate-pulse"></div>
+                                    )}
+                                </Link>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center mb-0.5">
+                                    <h4 className={`text-sm dark:text-white truncate ${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
+                                        {c.partnerName}
+                                    </h4>
+                                    <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-tighter shrink-0 group-hover:hidden">{c.lastMessageDate || '—'}</span>
+                                    <button onClick={(e) => handleDeleteConvo(e, c.id)} className="hidden group-hover:block p-1 text-red-400 hover:text-red-600 transition-colors">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
                                 </div>
-                            );
-                        })
-                    )}
+                                <div className="flex justify-between items-center">
+                                    <p className={`text-xs truncate flex-1 pr-2 ${hasUnread ? 'font-semibold text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                                        {c.lastMessageText ? c.lastMessageText : <span className="italic opacity-50">Нет сообщений</span>}
+                                    </p>
+                                    {hasUnread && (
+                                        <span className="bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                            {c.unreadCount}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        );
+                    })}
+                    {conversations.length === 0 && !convosLoading && <div className="p-10 text-center text-gray-400 text-sm italic">У вас пока нет переписок</div>}
                 </div>
             </div>
 
-            {/* Chat Window */}
             <div className={`w-full md:flex-1 flex flex-col h-full absolute inset-0 md:static z-30 bg-white dark:bg-gray-900 transition-transform duration-300 ${activeChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
                 {activeChat && activeConvo ? (
                     <>
-                        {/* Chat Header */}
-                        <div className="p-3 lg:p-4 border-b dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800 shadow-sm z-30 shrink-0 h-[64px] lg:h-auto">
+                        <div className="p-4 border-b dark:border-gray-700 flex items-center justify-between bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-sm z-10 shrink-0">
                             <div className="flex items-center gap-3">
-                                <button className="md:hidden text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-full" onClick={() => setActiveChat(null)}>
+                                <button className="md:hidden text-gray-500 p-1" onClick={() => setActiveChat(null)}>
                                     <ChevronLeft className="w-6 h-6" />
                                 </button>
-                                <img src={activeConvo.partnerAvatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-                                <span className="font-bold text-gray-800 dark:text-white truncate max-w-[200px]">{activeConvo.partnerName}</span>
+                                <Link to={activeConvo.businessId && !activeConvo.partnerId.includes('-') ? `/business/${activeConvo.businessId}` : `/user/${activeConvo.partnerId}`} className="flex items-center gap-3 group">
+                                    <img src={activeConvo.partnerAvatar || 'https://ui-avatars.com/api/?name=U'} className="w-10 h-10 rounded-full object-cover border-2 border-transparent dark:border-gray-700 group-hover:border-blue-500 transition-all" alt="" />
+                                    <div>
+                                        <div className="font-bold text-gray-900 dark:text-white flex items-center gap-1.5 leading-none mb-1 group-hover:text-blue-600 transition-colors">
+                                            {activeConvo.partnerName}
+                                            {activeConvo.businessId && <ShoppingBag className="w-3 h-3 text-blue-500" />}
+                                        </div>
+                                        <UserStatus lastSeen={partnerProfile?.lastSeen} className="text-[10px] font-semibold" />
+                                    </div>
+                                </Link>
                             </div>
                         </div>
 
-                        {/* Messages Area - constrained scroll */}
-                        <div 
-                            ref={messageContainerRef}
-                            className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-gray-900/50 scroll-smooth"
-                        >
-                            {messages.map(m => {
-                                const isMe = m.senderId === currentUser.id;
-                                return (
-                                    <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[85%] md:max-w-[70%] px-4 py-3 rounded-2xl shadow-sm text-sm ${isMe ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'}`}>
-                                            {renderMessageContent(m.text)}
-                                            <div className={`text-[10px] mt-1 flex items-center justify-end gap-1 ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>
-                                                {new Date(m.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                                <StatusIcon isRead={m.isRead} isMe={isMe} />
-                                            </div>
+                        <div ref={messageContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-gray-950/50 custom-scrollbar">
+                            {messages.map(m => (
+                                <div key={m.id} className={`flex ${m.senderId === currentUser?.id ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl shadow-sm transition-opacity ${m.status === 'pending' ? 'opacity-70' : 'opacity-100'} ${m.senderId === currentUser?.id ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'}`}>
+                                        {renderMessageContent(m)}
+                                        <div className={`text-[8px] mt-1 font-bold uppercase tracking-widest text-right ${m.senderId === currentUser?.id ? 'text-blue-100/70' : 'text-gray-400'}`}>
+                                            {m.status === 'pending' ? 'Отправка...' : m.createdAt ? new Date(m.createdAt.replace(' ', 'T')).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '—'}
                                         </div>
                                     </div>
-                                );
-                            })}
+                                </div>
+                            ))}
                         </div>
 
-                        {/* Input Area */}
-                        <form onSubmit={handleSend} className="p-3 bg-white dark:bg-gray-800 border-t dark:border-gray-700 flex gap-2 items-center shrink-0 safe-area-pb">
-                            <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                className="hidden" 
-                                accept="image/*"
-                                onChange={handleFileUpload}
-                            />
-                            <button 
-                                type="button" 
-                                onClick={() => fileInputRef.current?.click()}
-                                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                                disabled={uploading || sendMessageMutation.isPending}
-                            >
-                                {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
+                        <form onSubmit={handleSend} className="p-4 bg-white dark:bg-gray-800 border-t dark:border-gray-700 flex gap-2 items-center shrink-0">
+                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 text-gray-400 hover:text-blue-500 rounded-xl transition-all" disabled={uploading}>
+                                {uploading ? <Loader2 className="animate-spin w-5 h-5" /> : <Paperclip className="w-5 h-5" />}
                             </button>
                             <input 
                                 type="text" 
-                                className="flex-1 bg-gray-100 dark:bg-gray-700 border-none rounded-full px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
+                                className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-2xl px-5 py-3 focus:ring-2 focus:ring-blue-500/20 outline-none dark:text-white text-sm"
                                 placeholder="Напишите сообщение..."
                                 value={newMessage}
                                 onChange={e => setNewMessage(e.target.value)}
                             />
-                            <button 
-                                className="bg-blue-600 text-white p-2.5 rounded-full hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                                disabled={(!newMessage.trim() && !uploading) || sendMessageMutation.isPending}
-                            >
-                                {sendMessageMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 translate-x-0.5 translate-y-0.5" />}
+                            <button className="bg-blue-600 text-white p-3 rounded-2xl hover:bg-blue-700 disabled:opacity-50 transition-all active:scale-90" disabled={!newMessage.trim() || sendMessageMutation.isPending}>
+                                <Send className="w-5 h-5" />
                             </button>
                         </form>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 bg-slate-50 dark:bg-gray-900/50 hidden md:flex">
-                        <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-full mb-4">
-                            <MessageCircle className="w-16 h-16 opacity-30" />
-                        </div>
-                        <p className="text-lg font-medium">Выберите чат</p>
-                        <p className="text-sm opacity-70">чтобы начать общение</p>
+                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/30 dark:bg-gray-900/30">
+                        <MessageCircle className="w-12 h-12 opacity-10 mb-4" />
+                        <p className="font-bold uppercase tracking-widest text-xs">Выберите чат</p>
                     </div>
                 )}
             </div>

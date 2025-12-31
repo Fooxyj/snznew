@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { Business } from '../../types';
 import { Button } from '../ui/Common';
-import { Loader2, Film, Lock, CheckCircle2, Send, PenTool, Palette, FileText, Key, MessageCircle, Crown, ShieldCheck, Mail, ArrowRight, Clock, Globe, AlertTriangle, XCircle } from 'lucide-react';
+import { Loader2, Film, Lock, CheckCircle2, Send, PenTool, Palette, FileText, Key, MessageCircle, Crown, ShieldCheck, Mail, ArrowRight, Clock, Globe, AlertTriangle, XCircle, PlaySquare } from 'lucide-react';
 import { useToast } from '../ToastProvider';
 import { PhoneInput } from '../ui/PhoneInput';
 import { StoryEditor } from '../StoryEditor';
@@ -17,7 +17,6 @@ interface CRMSettingsProps {
 
 type RequestType = 'content' | 'design' | 'rights';
 
-// Generate time options (00:00, 00:30, ... 23:30)
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
     const h = Math.floor(i / 2).toString().padStart(2, '0');
     const m = i % 2 === 0 ? '00' : '30';
@@ -29,7 +28,6 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
     const navigate = useNavigate();
     const { success, error: showError } = useToast();
     
-    // Schedule State
     const [isCustomSchedule, setIsCustomSchedule] = useState(false);
     const [startTime, setStartTime] = useState('09:00');
     const [endTime, setEndTime] = useState('18:00');
@@ -37,12 +35,10 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
     const [uploadingImage, setUploadingImage] = useState(false);
     const [uploadingCover, setUploadingCover] = useState(false);
     
-    // Story Request States
     const [requestType, setRequestType] = useState<RequestType>('content');
     const [requestMessage, setRequestMessage] = useState('');
     const [isStoryEditorOpen, setIsStoryEditorOpen] = useState(false);
 
-    // Initializing React Hook Form
     const { register, control, handleSubmit, setValue, watch, reset, formState: { errors, isDirty } } = useForm<Business>({
         defaultValues: business
     });
@@ -51,11 +47,8 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
     const watchedCover = watch('coverImage');
 
     useEffect(() => {
-        // Use reset to update defaultValues and pristine state when business data loads
         if (business) {
             reset(business);
-            
-            // Parse Schedule Logic
             const hours = business.workHours || '';
             const match = hours.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
             
@@ -64,7 +57,6 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
                 setEndTime(match[2]);
                 setIsCustomSchedule(false);
             } else {
-                // If it doesn't match standard format (e.g. "Kruglo...", "Mon-Fri..."), switch to custom
                 if (hours && hours.trim() !== '') {
                     setIsCustomSchedule(true);
                 }
@@ -85,11 +77,8 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
         const nextState = !isCustomSchedule;
         setIsCustomSchedule(nextState);
         if (!nextState) {
-            // Revert to dropdown values
             const newVal = `${startTime} - ${endTime}`;
             setValue('workHours', newVal, { shouldDirty: true, shouldValidate: true });
-        } else {
-            // Keep current value but allow editing
         }
     };
 
@@ -98,7 +87,6 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['myBusinesses'] });
             success("Настройки успешно сохранены!");
-            // Explicitly reset form state with new data to reset isDirty
             reset(watch()); 
         },
         onError: (e: any) => showError(e.message)
@@ -135,6 +123,7 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
         onSuccess: () => {
             success("История отправлена на модерацию!");
             setIsStoryEditorOpen(false);
+            queryClient.invalidateQueries({ queryKey: ['stories'] });
         },
         onError: (e: any) => showError(e.message)
     });
@@ -183,7 +172,6 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold dark:text-white">Настройки: {business.name}</h1>
                 
-                {/* Verification Badge */}
                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold border ${
                     business.verificationStatus === 'verified' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800' :
                     business.verificationStatus === 'rejected' ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800' :
@@ -197,7 +185,6 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
                 </div>
             </div>
             
-            {/* Story Editor Modal */}
             {isStoryEditorOpen && (
                 <div className="fixed inset-0 z-[200]">
                     <StoryEditor 
@@ -209,7 +196,6 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
                 </div>
             )}
 
-            {/* Premium Business Banner (Stories & Features) */}
             <div className="rounded-3xl overflow-hidden shadow-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
                 <div className="bg-gradient-to-r from-blue-700 to-indigo-800 dark:from-gray-900 dark:to-black p-6 sm:p-8 text-white relative">
                     <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
@@ -224,50 +210,30 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
                             Публикация историй, расширенная статистика и приоритетная поддержка доступны для верифицированных партнеров.
                         </p>
 
-                        {business.canPostStories ? (
-                            <div className="inline-flex items-center gap-2 bg-green-500/20 border border-green-500/30 px-4 py-2 rounded-full text-green-300 font-bold text-sm">
-                                <CheckCircle2 className="w-4 h-4" /> Доступ активен
-                            </div>
-                        ) : (
-                            <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10 max-w-xl">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3 bg-indigo-600 rounded-lg shrink-0">
-                                        <Lock className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-bold text-lg mb-1">Разблокировать доступ</h3>
-                                        <p className="text-xs text-gray-300 mb-4">
-                                            Свяжитесь с персональным менеджером (Admin), чтобы получить права на публикацию, заказать дизайн или обсудить условия.
-                                        </p>
-                                        
-                                        <div className="flex flex-wrap gap-2">
-                                            <Button 
-                                                size="sm" 
-                                                className="bg-white text-indigo-900 hover:bg-gray-100 border-none font-bold shadow-lg"
-                                                onClick={handleContactAdmin}
-                                            >
-                                                <MessageCircle className="w-4 h-4 mr-2" /> Написать Админу
-                                            </Button>
-                                            <Button 
-                                                size="sm" 
-                                                variant="outline"
-                                                className="border-white/30 text-white hover:bg-white/10"
-                                                onClick={() => setIsStoryEditorOpen(true)}
-                                            >
-                                                <PenTool className="w-4 h-4 mr-2" /> Конструктор (Демо)
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        <div className="flex flex-wrap gap-3">
+                            <Button 
+                                className="bg-white text-blue-900 hover:bg-blue-50 border-none font-black uppercase tracking-tighter px-6"
+                                onClick={() => setIsStoryEditorOpen(true)}
+                            >
+                                <PlaySquare className="w-5 h-5 mr-2 fill-blue-600" /> Опубликовать историю
+                            </Button>
+                            
+                            {!business.canPostStories && (
+                                <Button 
+                                    variant="outline"
+                                    className="border-white/30 text-white hover:bg-white/10"
+                                    onClick={handleContactAdmin}
+                                >
+                                    <MessageCircle className="w-4 h-4 mr-2" /> Написать Админу
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Request Actions (Only if not active) */}
                 {!business.canPostStories && (
                     <div className="p-6 bg-gray-50 dark:bg-gray-800/50">
-                        <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Быстрые действия</h4>
+                        <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Запросы администрации</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <button 
                                 onClick={() => { setRequestType('content'); setRequestMessage(''); }}
@@ -331,7 +297,6 @@ export const CRMSettings: React.FC<CRMSettingsProps> = ({ business }) => {
                 <div className="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
             </div>
 
-            {/* Main Settings Form */}
             <form onSubmit={handleSubmit(onSubmit)} className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-3xl border dark:border-gray-700 shadow-sm space-y-6">
                 
                 <div className="grid grid-cols-2 gap-6">

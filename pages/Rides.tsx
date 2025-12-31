@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Ride } from '../types';
 import { Button } from '../components/ui/Common';
-import { Car, MapPin, Calendar, Loader2, Plus, Users, Search, ArrowRight, X } from 'lucide-react';
+import { Car, MapPin, Calendar, Loader2, Plus, Users, Search, ArrowRight, X, MessageSquare, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
@@ -18,7 +18,6 @@ const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucces
         carModel: ''
     });
     
-    // Mutation
     const createMutation = useMutation({
         mutationFn: (data: any) => api.createRide({ ...data, price: Number(data.price), seats: Number(data.seats) }),
         onSuccess: () => {
@@ -89,6 +88,7 @@ const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucces
 export const RidesPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [search, setSearch] = useState({ from: '', to: '' });
+    const [selectedSeatsCount, setSelectedSeatsCount] = useState<Record<string, number>>({});
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
@@ -102,38 +102,36 @@ export const RidesPage: React.FC = () => {
         queryFn: api.getCurrentUser
     });
 
-    // Mutations
-    const bookMutation = useMutation({
-        mutationFn: api.bookRide,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['rides'] });
-            alert("Место забронировано!");
-        },
-        onError: (e: any) => alert(e.message)
-    });
-
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        // Client side filtering for mockup, in real app update query params
-    };
-
-    const checkAuth = (action: () => void) => {
-        if (currentUser) {
-            action();
-        } else {
-            if (confirm("Для этого действия необходимо войти в систему. Перейти ко входу?")) {
-                navigate('/auth');
-            }
-        }
-    };
-
-    const handleBook = async (id: string) => {
+    const handleBook = async (ride: Ride) => {
         if (!currentUser) {
             if (confirm("Чтобы забронировать место, нужно войти. Перейти?")) navigate('/auth');
             return;
         }
-        if (!confirm("Забронировать место?")) return;
-        bookMutation.mutate(id);
+
+        if (ride.driverId === currentUser.id) {
+            alert("Вы не можете забронировать место в своей поездке");
+            return;
+        }
+
+        const count = selectedSeatsCount[ride.id] || 1;
+
+        try {
+            const contextMsg = JSON.stringify({
+                type: 'ride_booking',
+                rideId: ride.id,
+                fromCity: ride.fromCity,
+                toCity: ride.toCity,
+                date: ride.date,
+                time: ride.time,
+                price: ride.price,
+                requestedSeats: count
+            });
+
+            const chatId = await api.startChat(ride.driverId, contextMsg);
+            navigate(`/chat?id=${chatId}`);
+        } catch (e: any) {
+            alert(e.message);
+        }
     };
 
     const handleContact = async (driverId: string, context?: string) => {
@@ -149,7 +147,9 @@ export const RidesPage: React.FC = () => {
         }
     };
 
+    // Comment above fix: Added filtering for rides where seats > 0 to hide full rides
     const filteredRides = rides.filter(r => 
+        r.seats > 0 && 
         (search.from === '' || r.fromCity.toLowerCase().includes(search.from.toLowerCase())) &&
         (search.to === '' || r.toCity.toLowerCase().includes(search.to.toLowerCase()))
     );
@@ -169,13 +169,13 @@ export const RidesPage: React.FC = () => {
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400">Находите выгодные поездки или подвозите попутчиков</p>
                 </div>
-                <Button onClick={() => checkAuth(() => setIsModalOpen(true))} className="flex items-center gap-2">
+                <Button onClick={() => currentUser ? setIsModalOpen(true) : navigate('/auth')} className="flex items-center gap-2">
                     <Plus className="w-4 h-4" /> Предложить поездку
                 </Button>
             </div>
 
             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border dark:border-gray-700 mb-6">
-                <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
+                <form onSubmit={(e) => e.preventDefault()} className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1 relative">
                         <MapPin className="absolute left-3 top-3 text-gray-400 w-4 h-4" />
                         <input 
@@ -224,7 +224,7 @@ export const RidesPage: React.FC = () => {
                                 </div>
                                 <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center md:justify-start gap-4">
                                     <span className="flex items-center gap-1"><Car className="w-3 h-3" /> {ride.carModel || 'Авто'}</span>
-                                    <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Осталось мест: {ride.seats}</span>
+                                    <span className="flex items-center gap-1 font-bold text-blue-600"><Users className="w-3 h-3" /> Свободно: {ride.seats}</span>
                                 </div>
                             </div>
 
@@ -239,12 +239,28 @@ export const RidesPage: React.FC = () => {
                                         <div className="text-xs text-blue-600 dark:text-blue-400">Водитель</div>
                                     </div>
                                 </div>
-                                <div className="text-right ml-4">
+                                <div className="text-right ml-4 flex flex-col items-end">
                                     <div className="text-xl font-bold text-blue-600 dark:text-blue-400 mb-1">{ride.price} ₽</div>
                                     {ride.seats > 0 ? (
-                                        <Button size="sm" onClick={() => handleBook(ride.id)} disabled={bookMutation.isPending}>
-                                            {bookMutation.isPending ? '...' : 'Бронь'}
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            {ride.seats > 1 && (
+                                                <div className="relative group">
+                                                    <select 
+                                                        className="appearance-none bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 text-[10px] font-bold py-1.5 pl-2 pr-6 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                        value={selectedSeatsCount[ride.id] || 1}
+                                                        onChange={(e) => setSelectedSeatsCount({...selectedSeatsCount, [ride.id]: Number(e.target.value)})}
+                                                    >
+                                                        {Array.from({length: ride.seats}, (_, i) => i + 1).map(n => (
+                                                            <option key={n} value={n}>{n} мест</option>
+                                                        ))}
+                                                    </select>
+                                                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                                                </div>
+                                            )}
+                                            <Button size="sm" onClick={() => handleBook(ride)}>
+                                                Бронь
+                                            </Button>
+                                        </div>
                                     ) : (
                                         <span className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded">Мест нет</span>
                                     )}

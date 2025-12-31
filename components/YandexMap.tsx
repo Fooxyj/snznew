@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { YANDEX_MAPS_API_KEY } from '../config';
 
@@ -20,23 +19,31 @@ interface YandexMapProps {
   className?: string;
 }
 
-// Singleton promise to ensure we only load the script once per app session
 let ymapsLoadPromise: Promise<void> | null = null;
 
 const loadYandexMaps = (): Promise<void> => {
-    if (window.ymaps) return Promise.resolve();
+    if (window.ymaps && typeof window.ymaps.ready === 'function') return Promise.resolve();
     
     if (!ymapsLoadPromise) {
         ymapsLoadPromise = new Promise((resolve, reject) => {
             const script = document.createElement('script');
             const apiKeyParam = YANDEX_MAPS_API_KEY ? `&apikey=${YANDEX_MAPS_API_KEY}` : '';
-            script.src = `https://api-maps.yandex.ru/2.1/?lang=ru_RU&load=package.standard${apiKeyParam}`;
+            script.src = `https://api-maps.yandex.ru/2.1/?lang=ru_RU&load=Map,Placemark,control.ZoomControl,control.FullscreenControl&coordorder=longlat${apiKeyParam}`;
             script.type = "text/javascript";
             script.async = true;
-            script.onload = () => resolve();
+            script.onload = () => {
+                const checkReady = () => {
+                    if (window.ymaps && window.ymaps.ready) {
+                        resolve();
+                    } else {
+                        setTimeout(checkReady, 100);
+                    }
+                };
+                checkReady();
+            };
             script.onerror = (err) => {
-                console.error("Failed to load Yandex Maps script", err);
-                reject(err);
+                ymapsLoadPromise = null;
+                reject(new Error("Script load error"));
             };
             document.head.appendChild(script);
         });
@@ -45,7 +52,7 @@ const loadYandexMaps = (): Promise<void> => {
 };
 
 export const YandexMap: React.FC<YandexMapProps> = ({ 
-  center = [56.08, 60.73], 
+  center = [60.73, 56.08], 
   zoom = 13, 
   markers = [], 
   className = "w-full h-full"
@@ -60,34 +67,37 @@ export const YandexMap: React.FC<YandexMapProps> = ({
     const init = async () => {
         try {
             await loadYandexMaps();
-            
-            // Wait for ymaps.ready
-            if (!window.ymaps) throw new Error("Yandex Maps API not available after load");
+            if (!window.ymaps || !window.ymaps.ready) return;
             
             window.ymaps.ready(() => {
+                // ПРОВЕРКА: Если компонент размонтирован или контейнер исчез, не создаем карту
                 if (!active || !mapRef.current) return;
 
                 try {
-                    // Destroy existing instance if any
                     if (mapInstance.current) {
                         mapInstance.current.destroy();
                     }
 
+                    const mapCenter = [center[1], center[0]];
+
                     mapInstance.current = new window.ymaps.Map(mapRef.current, {
-                        center: center,
+                        center: mapCenter,
                         zoom: zoom,
                         controls: ['zoomControl', 'fullscreenControl']
                     });
 
                     markers.forEach(marker => {
                         const placemark = new window.ymaps.Placemark(
-                            [marker.lat, marker.lng], 
+                            [marker.lng, marker.lat], 
                             { balloonContent: marker.title },
                             { preset: 'islands#blueIcon' }
                         );
 
                         if (marker.onClick) {
-                            placemark.events.add('click', marker.onClick);
+                            placemark.events.add('click', (e: any) => {
+                                e.preventDefault();
+                                marker.onClick?.();
+                            });
                         }
 
                         mapInstance.current.geoObjects.add(placemark);
@@ -95,12 +105,11 @@ export const YandexMap: React.FC<YandexMapProps> = ({
 
                     setStatus('ready');
                 } catch (err) {
-                    console.error("Yandex Map initialization error:", err);
+                    console.error("Yandex Map constructor error:", err);
                     setStatus('error');
                 }
             });
-        } catch (err) {
-            console.error("Yandex Maps load error:", err);
+        } catch (err: any) {
             if (active) setStatus('error');
         }
     };
@@ -110,29 +119,27 @@ export const YandexMap: React.FC<YandexMapProps> = ({
     return () => {
         active = false;
         if (mapInstance.current) {
-            try { mapInstance.current.destroy(); } catch(e) {}
+            try { 
+                mapInstance.current.destroy(); 
+            } catch(e) {
+                // Игнорируем ошибки при уничтожении, если API уже недоступен
+            }
             mapInstance.current = null;
         }
     };
   }, [center[0], center[1], zoom, markers.length]);
 
   return (
-    <div className={`relative ${className} bg-gray-100 overflow-hidden`}>
+    <div className={`relative ${className} bg-gray-100 dark:bg-gray-800 overflow-hidden`}>
         <div ref={mapRef} className="w-full h-full" />
-        
         {status === 'loading' && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 z-10 backdrop-blur-sm">
-                <span className="text-gray-400 text-xs flex items-center gap-2 animate-pulse">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div> 
-                    Загрузка карты...
-                </span>
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 z-10 backdrop-blur-sm">
+                <span className="text-gray-400 text-xs flex items-center gap-2 animate-pulse">Загрузка карты...</span>
             </div>
         )}
-        
         {status === 'error' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 z-10 text-gray-400 text-center p-4">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 z-10 text-gray-400 text-center p-4">
                 <p className="text-xs font-medium">Карта временно недоступна</p>
-                <p className="text-[10px] mt-1 opacity-70">Проверьте соединение или API ключ</p>
             </div>
         )}
     </div>

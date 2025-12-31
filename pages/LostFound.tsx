@@ -2,10 +2,10 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { LostFoundItem, User } from '../types';
+import { LostFoundItem } from '../types';
 import { Button } from '../components/ui/Common';
-import { Search, MapPin, Phone, Calendar, Loader2, Plus, CheckCircle, Upload, X, Lock } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Search, MapPin, Phone, Calendar, Loader2, Plus, CheckCircle, Upload, X, MessageCircle, HelpCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { PhoneInput } from '../components/ui/PhoneInput';
 
 const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
@@ -20,7 +20,6 @@ const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
     });
     const [uploading, setUploading] = useState(false);
     
-    // React Query Mutation
     const createMutation = useMutation({
         mutationFn: api.createLostFoundItem,
         onSuccess: () => {
@@ -41,7 +40,7 @@ const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
             const url = await api.uploadImage(file);
             setFormData(prev => ({ ...prev, image: url }));
         } catch (e: any) {
-            alert("Ошибка: " + e.message);
+            alert("Ошибка загрузки фото: " + e.message);
         } finally {
             setUploading(false);
         }
@@ -53,22 +52,22 @@ const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg p-6 shadow-2xl h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold dark:text-white">Подать объявление</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X className="w-5 h-5"/></button>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400"/></button>
                 </div>
                 
-                <div className="flex gap-2 mb-6 p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <div className="flex gap-2 mb-6 p-1 bg-gray-100 dark:bg-gray-700 rounded-2xl font-bold">
                     <button 
-                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${type === 'lost' ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
+                        className={`flex-1 py-2.5 text-sm rounded-xl transition-all ${type === 'lost' ? 'bg-white dark:bg-gray-600 text-red-600 shadow-sm' : 'text-gray-500'}`}
                         onClick={() => setType('lost')}
                     >
                         Я потерял
                     </button>
                     <button 
-                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${type === 'found' ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
+                        className={`flex-1 py-2.5 text-sm rounded-xl transition-all ${type === 'found' ? 'bg-white dark:bg-gray-600 text-green-600 shadow-sm' : 'text-gray-500'}`}
                         onClick={() => setType('found')}
                     >
                         Я нашел
@@ -77,69 +76,43 @@ const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Что случилось?</label>
-                        <input 
-                            required 
-                            className="w-full border rounded-lg p-2 mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
-                            placeholder={type === 'lost' ? "Потерял ключи от машины..." : "Нашел карту Сбербанка..."}
-                            value={formData.title}
-                            onChange={e => setFormData({...formData, title: e.target.value})}
-                        />
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1">Что именно?</label>
+                        <input required className="w-full border dark:border-gray-700 rounded-2xl p-4 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold" placeholder={type === 'lost' ? "Напр: Ключи от машины" : "Напр: Карта Сбербанка"} value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Где?</label>
-                        <input 
-                            required 
-                            className="w-full border rounded-lg p-2 mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
-                            placeholder="Район, улица..."
-                            value={formData.location}
-                            onChange={e => setFormData({...formData, location: e.target.value})}
-                        />
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1">Где потеряно/найдено?</label>
+                        <input required className="w-full border dark:border-gray-700 rounded-2xl p-4 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold" placeholder="Район, улица или магазин" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Описание</label>
-                        <textarea 
-                            required 
-                            className="w-full border rounded-lg p-2 mt-1 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
-                            rows={3}
-                            value={formData.description}
-                            onChange={e => setFormData({...formData, description: e.target.value})}
-                        />
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1">Описание деталей</label>
+                        <textarea required className="w-full border dark:border-gray-700 rounded-2xl p-4 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-medium resize-none" rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ваше имя</label>
-                            <input 
-                                required 
-                                className="w-full border rounded-lg p-2 mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                value={formData.contactName}
-                                onChange={e => setFormData({...formData, contactName: e.target.value})}
-                            />
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1">Ваше имя</label>
+                            <input required className="w-full border dark:border-gray-700 rounded-2xl p-4 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold" value={formData.contactName} onChange={e => setFormData({...formData, contactName: e.target.value})} />
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Телефон</label>
-                            <PhoneInput 
-                                value={formData.contactPhone}
-                                onChangeText={val => setFormData({...formData, contactPhone: val})}
-                                required
-                            />
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1">Телефон</label>
+                            <PhoneInput value={formData.contactPhone} onChangeText={val => setFormData({...formData, contactPhone: val})} required />
                         </div>
                     </div>
-
-                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
+                    <div className="relative border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-[2rem] p-8 text-center bg-gray-50 dark:bg-gray-900/50 group">
                         {formData.image ? (
-                            <img src={formData.image} alt="" className="h-32 mx-auto rounded object-cover" />
+                            <div className="relative inline-block">
+                                <img src={formData.image} alt="" className="h-40 mx-auto rounded-2xl object-cover shadow-xl" />
+                                <button type="button" onClick={() => setFormData({...formData, image: ''})} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-2 shadow-lg hover:scale-110 transition-transform"><X className="w-4 h-4"/></button>
+                            </div>
                         ) : (
-                            <div className="relative cursor-pointer">
-                                <Upload className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
-                                <span className="text-sm text-gray-500 dark:text-gray-400">{uploading ? "Загрузка..." : "Загрузить фото"}</span>
-                                <input type="file" className="absolute inset-0 opacity-0" onChange={handleImageUpload} />
+                            <div className="relative cursor-pointer py-4">
+                                <Upload className="w-10 h-10 text-gray-300 mx-auto mb-2 group-hover:text-blue-500 transition-colors" />
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 group-hover:text-blue-500 transition-colors">{uploading ? "Загрузка..." : "Добавить фото"}</span>
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageUpload} />
                             </div>
                         )}
                     </div>
-
-                    <Button className="w-full" disabled={createMutation.isPending || uploading}>
-                        {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Опубликовать'}
+                    <Button className="w-full py-5 rounded-2xl font-black uppercase tracking-widest shadow-2xl shadow-blue-500/20" disabled={createMutation.isPending || uploading}>
+                        {createMutation.isPending ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : 'Опубликовать'}
                     </Button>
                 </form>
             </div>
@@ -153,18 +126,13 @@ export const LostFound: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
-    // Queries
-    const { data: currentUser } = useQuery({
-        queryKey: ['user'],
-        queryFn: api.getCurrentUser
+    const { data: currentUser } = useQuery({ queryKey: ['user'], queryFn: api.getCurrentUser });
+    const { data: items = [], isLoading } = useQuery({ 
+        queryKey: ['lostFound', filter], 
+        queryFn: () => api.getLostFoundItems(filter),
+        staleTime: 1000 * 30 // 30 seconds fresh
     });
 
-    const { data: items = [], isLoading } = useQuery({
-        queryKey: ['lostFound', filter],
-        queryFn: () => api.getLostFoundItems(filter === 'all' ? undefined : filter)
-    });
-
-    // Mutations
     const resolveMutation = useMutation({
         mutationFn: api.resolveLostFoundItem,
         onSuccess: () => {
@@ -173,124 +141,112 @@ export const LostFound: React.FC = () => {
     });
 
     const handleCreateClick = () => {
-        if (!currentUser) {
-            if (confirm("Необходимо войти, чтобы подать объявление. Перейти?")) {
-                navigate('/auth');
-            }
-            return;
-        }
+        if (!currentUser) return navigate('/auth');
         setIsModalOpen(true);
     };
 
-    const handleResolve = async (id: string) => {
-        if (!currentUser) return;
-        if (confirm("Отметить как решенное? Это скроет контактные данные.")) {
-            resolveMutation.mutate(id);
-        }
-    };
+    const handleContact = async (item: LostFoundItem) => {
+        if (!currentUser) return navigate('/auth');
+        if (item.authorId === currentUser.id) return;
 
-    const handleSuccess = () => {
-        queryClient.invalidateQueries({ queryKey: ['lostFound'] });
+        try {
+            const contextMsg = JSON.stringify({
+                type: 'lost_found_inquiry',
+                id: item.id,
+                title: item.title,
+                image: item.image,
+                text: `Здравствуйте! Я по поводу вашего объявления в Бюро находок: "${item.title}"`
+            });
+            const chatId = await api.startChat(item.authorId, contextMsg);
+            navigate(`/chat?id=${chatId}`);
+        } catch (e: any) { alert(e.message); }
     };
 
     return (
-        <div className="max-w-5xl mx-auto p-4 lg:p-8">
-            <CreateLostFoundModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={handleSuccess} />
+        <div className="max-w-6xl mx-auto p-4 lg:p-8 pb-32">
+            <CreateLostFoundModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['lostFound'] })} />
             
-            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Бюро находок</h1>
-                    <p className="text-gray-500 dark:text-gray-400">Поможем найти потерянное и вернуть найденное</p>
+            <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
+                <div className="text-center md:text-left">
+                    <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white flex items-center justify-center md:justify-start gap-4 tracking-tighter">
+                        <HelpCircle className="w-10 h-10 text-blue-600" /> Бюро находок
+                    </h1>
+                    <p className="text-gray-500 font-medium mt-1 text-lg">Вернем потерянное и найдем владельцев</p>
                 </div>
-                <Button onClick={handleCreateClick} className="flex items-center gap-2">
-                    <Plus className="w-4 h-4" /> Подать объявление
+                <Button onClick={handleCreateClick} className="rounded-2xl py-4 px-10 font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-95">
+                    <Plus className="w-4 h-4 mr-2" /> Подать объявление
                 </Button>
             </div>
 
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                <button 
-                    onClick={() => setFilter('all')} 
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${filter === 'all' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}`}
-                >
-                    Все
-                </button>
-                <button 
-                    onClick={() => setFilter('lost')} 
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${filter === 'lost' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}`}
-                >
-                    Потеряно
-                </button>
-                <button 
-                    onClick={() => setFilter('found')} 
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${filter === 'found' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}`}
-                >
-                    Найдено
-                </button>
+            <div className="flex gap-3 mb-10 overflow-x-auto pb-2 scrollbar-hide">
+                {['all', 'lost', 'found'].map((f) => (
+                    <button 
+                        key={f} 
+                        onClick={() => setFilter(f as any)} 
+                        className={`px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-blue-600 text-white shadow-xl scale-105' : 'bg-white dark:bg-gray-800 text-gray-400 border dark:border-gray-700 hover:text-blue-600 hover:border-blue-200'}`}
+                    >
+                        {f === 'all' ? 'Все' : f === 'lost' ? 'Потеряно' : 'Найдено'}
+                    </button>
+                ))}
             </div>
 
             {isLoading ? (
-                <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-blue-600 animate-spin" /></div>
+                <div className="flex justify-center py-20"><Loader2 className="w-12 h-12 text-blue-600 animate-spin" /></div>
             ) : items.length === 0 ? (
-                <div className="text-center py-20 text-gray-400 bg-white dark:bg-gray-800 rounded-xl border border-dashed dark:border-gray-700">
-                    <Search className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                    <p>Список пуст</p>
+                <div className="text-center py-32 bg-white dark:bg-gray-800 rounded-[3rem] border-2 border-dashed dark:border-gray-700 shadow-inner">
+                    <Search className="w-20 h-20 mx-auto mb-6 opacity-10 text-gray-400" />
+                    <p className="font-black text-gray-400 uppercase tracking-[0.2em] text-sm">В этом разделе пока пусто</p>
+                    <p className="text-gray-400 mt-2 text-xs">Будьте первым, кто разместит объявление!</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {items.map(item => (
-                        <div key={item.id} className={`bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col ${item.isResolved ? 'opacity-60 grayscale' : ''}`}>
-                            <div className="h-48 bg-gray-100 dark:bg-gray-700 relative">
-                                <img src={item.image} alt="" className="w-full h-full object-cover" />
-                                <div className={`absolute top-3 left-3 px-2 py-1 rounded text-xs font-bold uppercase tracking-wide text-white ${item.type === 'lost' ? 'bg-red-500' : 'bg-green-500'}`}>
+                        <div key={item.id} className={`bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-2xl group ${item.isResolved ? 'opacity-60 grayscale-[0.8]' : ''}`}>
+                            <div className="h-60 bg-gray-100 dark:bg-gray-900 relative overflow-hidden">
+                                <img src={item.image || 'https://via.placeholder.com/600x400?text=Снежинск+Онлайн'} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
+                                <div className={`absolute top-5 left-5 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white shadow-2xl ${item.type === 'lost' ? 'bg-red-500' : 'bg-green-600'}`}>
                                     {item.type === 'lost' ? 'Потеряно' : 'Найдено'}
                                 </div>
                                 {item.isResolved && (
-                                    <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center backdrop-blur-sm">
-                                        <span className="bg-gray-900 dark:bg-black text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
-                                            <CheckCircle className="w-4 h-4" /> РЕШЕНО
-                                        </span>
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[3px]">
+                                        <div className="bg-white text-black px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 shadow-2xl">
+                                            <CheckCircle className="w-4 h-4 text-green-600" /> РЕШЕНО
+                                        </div>
                                     </div>
                                 )}
                             </div>
-                            <div className="p-4 flex-1 flex flex-col">
-                                <h3 className="font-bold text-lg mb-2 dark:text-white">{item.title}</h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 line-clamp-3 flex-1">{item.description}</p>
+                            <div className="p-7 flex-1 flex flex-col">
+                                <h3 className="font-extrabold text-xl mb-2 dark:text-white leading-tight uppercase tracking-tight line-clamp-2">{item.title}</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 line-clamp-3 leading-relaxed italic">
+                                    "{item.description}"
+                                </p>
                                 
-                                <div className="space-y-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <MapPin className="w-4 h-4 text-gray-400" /> {item.location}
+                                <div className="space-y-4 pt-6 border-t dark:border-gray-700 mb-8 mt-auto">
+                                    <div className="flex items-center gap-3 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                        <MapPin className="w-4 h-4 text-blue-500 shrink-0" /> {item.location}
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <Calendar className="w-4 h-4 text-gray-400" /> {item.date}
+                                    <div className="flex items-center gap-3 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                        <Calendar className="w-4 h-4 text-blue-500 shrink-0" /> {item.date}
                                     </div>
                                 </div>
 
-                                {!item.isResolved ? (
-                                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg flex justify-between items-center">
-                                        <div>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">Контакт:</p>
-                                            <p className="font-medium text-gray-900 dark:text-white">{item.contactName}</p>
-                                        </div>
-                                        {currentUser ? (
-                                            <a href={`tel:${item.contactPhone}`} className="bg-white dark:bg-gray-600 border dark:border-gray-500 p-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-500 text-blue-600 dark:text-blue-300">
-                                                <Phone className="w-4 h-4" />
-                                            </a>
+                                {!item.isResolved && (
+                                    <div className="flex gap-3">
+                                        {currentUser?.id === item.authorId ? (
+                                            <Button variant="outline" className="w-full rounded-2xl py-4 border-green-200 text-green-600 dark:border-green-900/50 hover:bg-green-50 font-black uppercase text-[10px] tracking-[0.2em]" onClick={() => resolveMutation.mutate(item.id)}>
+                                                Отметить решенным
+                                            </Button>
                                         ) : (
-                                            <Link to="/auth" className="flex items-center text-xs text-blue-600 hover:underline">
-                                                <Lock className="w-3 h-3 mr-1" /> Войти
-                                            </Link>
+                                            <>
+                                                <a href={`tel:${item.contactPhone}`} className="w-14 h-14 bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-200 flex items-center justify-center rounded-2xl hover:bg-blue-50 hover:text-blue-600 transition-all border dark:border-gray-700 shadow-sm active:scale-90">
+                                                    <Phone className="w-5 h-5" />
+                                                </a>
+                                                <button onClick={() => handleContact(item)} className="flex-1 bg-blue-600 text-white py-4 rounded-2xl hover:bg-blue-700 font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2 shadow-xl shadow-blue-500/10 active:scale-95 transition-all">
+                                                    <MessageCircle className="w-4 h-4" /> Написать
+                                                </button>
+                                            </>
                                         )}
                                     </div>
-                                ) : (
-                                    <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg text-center text-gray-500 dark:text-gray-300 text-xs">
-                                        Вещь возвращена владельцу
-                                    </div>
-                                )}
-
-                                {currentUser && currentUser.id === item.authorId && !item.isResolved && (
-                                    <Button variant="outline" size="sm" className="mt-4 w-full dark:border-gray-600 dark:text-gray-300" onClick={() => handleResolve(item.id)}>
-                                        Отметить как решено
-                                    </Button>
                                 )}
                             </div>
                         </div>

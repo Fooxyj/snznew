@@ -4,26 +4,20 @@ import { QueryClient } from '@tanstack/react-query';
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // Data is fresh for 5 minutes
-      gcTime: 1000 * 60 * 30,   // Cache is kept for 30 minutes
-      refetchOnWindowFocus: false, // Prevent spamming requests when switching tabs
+      // Данные считаются "свежими" 2 минуты, чтобы не дергать API при каждом переключении табов
+      staleTime: 1000 * 60 * 2, 
+      // Кэш хранится 30 минут
+      gcTime: 1000 * 60 * 30,   
+      refetchOnWindowFocus: false, // Отключаем рефетч при смене вкладки браузера
       retry: (failureCount, error: any) => {
-        // Don't retry on client errors (400-499)
+        // Не повторяем запрос, если это 4xx ошибка (кроме 429 - лимиты)
         const status = error?.status || error?.code;
-        // Parse status if it's a number string
         const statusNum = Number(status);
         
-        if (!isNaN(statusNum) && statusNum >= 400 && statusNum < 500) {
-            return false;
-        }
+        if (statusNum === 429) return failureCount < 3; // Лимиты — пробуем еще раз
+        if (!isNaN(statusNum) && statusNum >= 400 && statusNum < 500) return false;
         
-        // Supabase specific error codes for "Not Found" or "Bad Request"
-        if (error?.code === 'PGRST116' || error?.code === 'PGRST100' || error?.code === '400') {
-            return false;
-        }
-
-        // Limit retries for other errors (network, 500s)
-        return failureCount < 1;
+        return failureCount < 2; // Для остальных ошибок (5xx, сеть) — 2 попытки
       },
     },
   },

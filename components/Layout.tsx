@@ -4,7 +4,7 @@ import { NavLink, useLocation, Link, useNavigate, useSearchParams } from 'react-
 import { 
   Menu, X, Home, Newspaper, ShoppingBag, Coffee, Film, Map, 
   Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Briefcase, 
-  User as UserIcon, Bell, Search, PlusCircle, LogIn, LogOut, MessageCircle, HelpCircle, Car, Gift, Users, Flag, Settings, Moon, Sun, Trophy, ShoppingCart, Truck, Heart, Repeat, Key, ChevronLeft, ArrowUp, Calendar, ChevronDown, ChevronRight, Droplets, Wrench, Building2, Trash2, Lightbulb, MessageSquare, AlertTriangle, Eye
+  User as UserIcon, Bell, Search, PlusCircle, LogIn, LogOut, MessageCircle, HelpCircle, Car, Gift, Users, Flag, Settings, Trophy, Truck, Heart, Repeat, Key, ChevronLeft, ArrowUp, Calendar, ChevronDown, ChevronRight, Droplets, Wrench, Building2, Trash2, Lightbulb, MessageSquare, AlertTriangle, Eye, CheckCheck, CheckCircle, Shield, LayoutGrid
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CATALOG_MENU, SERVICES_MENU } from '../constants';
@@ -12,12 +12,10 @@ import { Button } from './ui/Common';
 import { UserRole, Notification } from '../types';
 import { api } from '../services/api';
 import { useTheme } from './ThemeProvider';
-import { useCart } from './CartProvider';
 import { supabase } from '../lib/supabase';
 import { isSupabaseConfigured } from '../config';
 import { SuggestIdeaModal } from './SuggestIdeaModal';
 
-// Simple cloud fallback if not imported
 const Cloud: React.FC<any> = (props) => (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
@@ -37,7 +35,7 @@ const Cloud: React.FC<any> = (props) => (
 );
 
 const ICON_MAP: Record<string, React.FC<any>> = {
-  Newspaper, ShoppingBag, Coffee, Film, Map, Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Key, Truck, Car, Droplets, Wrench, Building2, HelpCircle, Briefcase, Repeat, Users, Heart, Flag, Trophy, Gift, MessageCircle, AlertTriangle, Home, Eye, Calendar, Cloud: Cloud
+  Newspaper, ShoppingBag, Coffee, Film, Map, Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Key, Truck, Car, Droplets, Wrench, Building2, HelpCircle, Briefcase, Repeat, Users, Heart, Flag, Trophy, Gift, MessageCircle, AlertTriangle, Home, Eye, Calendar, LayoutGrid, Cloud: Cloud
 };
 
 interface NavItemProps {
@@ -55,10 +53,10 @@ const NavItem: React.FC<NavItemProps> = ({ to, icon: Icon, label, active, onClic
     className={`flex items-center px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all duration-200 mb-1 ${
       active 
         ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
-        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+        : 'text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400'
     }`}
   >
-    <Icon className={`w-5 h-5 mr-3 ${active ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`} />
+    <Icon className={`w-5 h-5 mr-3 ${active ? 'text-white' : 'text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 dark:text-gray-500'}`} />
     {label}
   </Link>
 );
@@ -72,12 +70,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const [openMenus, setOpenMenus] = useState<string[]>([]);
   const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
   
-  const { theme, toggleTheme } = useTheme();
-  const { cartCount } = useCart();
-  
+  const { theme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const mainRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -87,9 +82,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     staleTime: 1000 * 60 * 5 
   });
 
-  const { data: myBusiness } = useQuery({
-    queryKey: ['myBusiness'],
-    queryFn: api.getMyBusiness,
+  const { data: myBusinesses = [] } = useQuery({
+    queryKey: ['myBusinesses'],
+    queryFn: api.getMyBusinesses,
     enabled: !!user
   });
 
@@ -97,7 +92,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     queryKey: ['notifications'],
     queryFn: api.getNotifications,
     enabled: !!user,
-    initialData: []
+    initialData: [],
+    refetchInterval: 10000 
   });
 
   const { data: chatUnreadCount = 0 } = useQuery({
@@ -105,56 +101,28 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     queryFn: api.getUnreadChatsCount,
     enabled: !!user,
     initialData: 0,
-    staleTime: 0 
+    refetchInterval: 3000 
   });
 
-  const hasBusiness = !!myBusiness;
+  const hasBusiness = myBusinesses && myBusinesses.length > 0;
 
   useEffect(() => {
     if (!isSupabaseConfigured() || !supabase) return;
-    
-    // Global subscription to update counters and data
     const channel = supabase.channel('global-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ads' }, () => queryClient.invalidateQueries({ queryKey: ['ads'] }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stories' }, () => queryClient.invalidateQueries({ queryKey: ['stories'] }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'businesses' }, () => {
         queryClient.invalidateQueries({ queryKey: ['businesses'] });
-        queryClient.invalidateQueries({ queryKey: ['myBusiness'] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, () => queryClient.invalidateQueries({ queryKey: ['news'] }))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-          // When ANY message changes (insert or update like is_read), invalidate queries to refresh UI
-          queryClient.invalidateQueries({ queryKey: ['chatUnread'] });
-          queryClient.invalidateQueries({ queryKey: ['messages'] }); 
-          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['myBusinesses'] });
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
   useEffect(() => {
-    const q = searchParams.get('q');
-    if (q) setSearchQuery(q);
-    else if (location.pathname !== '/search') setSearchQuery('');
-  }, [searchParams, location.pathname]);
-
-  useEffect(() => {
-    let subPromise: Promise<{ unsubscribe: () => void }> | null = null;
-    if (user) {
-        subPromise = api.subscribeToNotifications(user.id, (n) => {
-            queryClient.setQueryData(['notifications'], (old: Notification[] = []) => [n, ...old]);
-            showToast(n.text);
-        });
-    }
-    return () => { if (subPromise) subPromise.then(sub => sub.unsubscribe()); };
-  }, [user, queryClient]);
-
-  useEffect(() => {
     const handleScroll = () => {
         if (mainRef.current) {
-            if (mainRef.current.scrollTop > 300) setShowScrollTop(true);
-            else setShowScrollTop(false);
+            setShowScrollTop(mainRef.current.scrollTop > 300);
         }
     };
     const el = mainRef.current;
@@ -166,15 +134,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       if (mainRef.current) mainRef.current.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.pathname]);
 
-  const scrollToTop = () => {
-      if (mainRef.current) mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const showToast = (msg: string) => {
-      setToast({ msg, type: 'info' });
-      setTimeout(() => setToast(null), 4000);
-  };
-
+  const scrollToTop = () => mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  const closeSidebar = () => setIsSidebarOpen(false);
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  const resetMenus = () => { setOpenMenus([]); setIsSidebarOpen(false); };
+  const handleBack = () => navigate(-1);
+  
   const handleLogout = async () => {
     await api.signOut();
     await queryClient.invalidateQueries({ queryKey: ['user'] });
@@ -191,96 +156,40 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     }
   };
 
-  const handleNotifClick = async () => {
-      setShowNotif(!showNotif);
-      if (!showNotif && user) {
-          const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
-          if (unreadIds.length > 0) {
-              unreadIds.forEach(id => api.markNotificationRead(id));
-              queryClient.setQueryData(['notifications'], (old: Notification[] = []) => 
-                  old.map(n => ({ ...n, isRead: true }))
-              );
-          }
-      }
-  };
-
-  const handleDeleteNotif = async (e: React.MouseEvent, id: string) => {
-      e.preventDefault();
-      e.stopPropagation();
-      await api.deleteNotification(id);
-      queryClient.setQueryData(['notifications'], (old: Notification[] = []) => 
-          old.filter(n => n.id !== id)
-      );
-  };
-
-  const handleBack = () => {
-      if (location.pathname.startsWith('/news/')) {
-          navigate('/news');
-      } else {
-          navigate(-1);
-      }
-  };
-
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-  const closeSidebar = () => setIsSidebarOpen(false);
-  const resetMenus = () => { setOpenMenus([]); setIsSidebarOpen(false); };
-  
-  const handleFeedbackClick = () => {
-      if (!user) {
-          if (confirm('Для отправки сообщения необходимо войти в систему. Перейти к входу?')) {
-              closeSidebar();
-              navigate('/auth');
-          }
-          return;
-      }
-      setIsIdeaModalOpen(true);
-      closeSidebar();
-  };
-  
   const isActive = (path: string) => location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
   const unreadNotifCount = notifications.filter(n => !n.isRead).length;
-  const isHome = location.pathname === '/';
-
-  const toggleMenu = (id: string) => {
-      setOpenMenus(prev => prev.includes(id) ? [] : [id]);
-  };
+  const isFullScreenPage = ['/chat', '/map', '/quests'].some(p => location.pathname.startsWith(p));
 
   const renderMenuSection = (menuItems: any[]) => {
       return menuItems.map((item) => {
           const Icon = ICON_MAP[item.icon as string] || Home;
           const isOpen = openMenus.includes(item.id);
-          const isItemActive = item.path ? isActive(item.path) : false;
           const isChildActive = item.submenu.some((sub: any) => isActive(sub.path));
           
           return (
               <div key={item.id} className="mb-1">
                   <div 
-                    className={`flex items-center justify-between px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${isItemActive || isChildActive ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'}`}
-                    onClick={() => toggleMenu(item.id)}
+                    className={`flex items-center justify-between px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer group ${isChildActive ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                    onClick={() => setOpenMenus(prev => prev.includes(item.id) ? [] : [item.id])}
                   >
                       <div className="flex items-center">
-                          <Icon className={`w-5 h-5 mr-3 ${isItemActive || isChildActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`} />
+                          <Icon className={`w-5 h-5 mr-3 ${isChildActive ? 'text-blue-600' : 'text-gray-400'}`} />
                           {item.title}
                       </div>
                       {isOpen ? <ChevronDown className="w-4 h-4 opacity-50" /> : <ChevronRight className="w-4 h-4 opacity-50" />}
                   </div>
-                  
                   {isOpen && (
                       <div className="ml-6 mt-1 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-2">
-                          {item.submenu.map((sub: any, idx: number) => {
-                              const SubIcon = sub.icon ? ICON_MAP[sub.icon] : null;
-                              return (
-                                <Link 
-                                    key={idx} 
-                                    to={sub.path}
-                                    onClick={closeSidebar}
-                                    className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors ${isActive(sub.path) ? 'text-blue-600 font-medium bg-blue-50/50 dark:bg-blue-900/10' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
-                                >
-                                    {SubIcon && <SubIcon className={`w-4 h-4 mr-2 ${isActive(sub.path) ? 'text-blue-500' : 'text-gray-400'}`} />}
-                                    {sub.title}
-                                </Link>
-                              );
-                          })}
+                          {item.submenu.map((sub: any, idx: number) => (
+                            <Link 
+                                key={idx} 
+                                to={sub.path}
+                                onClick={closeSidebar}
+                                className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors ${isActive(sub.path) ? 'text-blue-600 font-medium bg-blue-50/50' : 'text-gray-500 hover:text-blue-600'}`}
+                            >
+                                {sub.title}
+                            </Link>
+                          ))}
                       </div>
                   )}
               </div>
@@ -288,310 +197,94 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       });
   };
 
-  const renderNotificationList = () => (
-      <div onClick={(e) => e.stopPropagation()}>
-        <div className="p-4 border-b border-gray-50 dark:border-gray-700/50 flex justify-between items-center bg-white dark:bg-gray-800 sticky top-0 z-10">
-            <span className="font-bold text-gray-900 dark:text-white">Уведомления</span>
-            <button onClick={() => setShowNotif(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
-        </div>
-        <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
-                <div className="py-8 text-center">
-                    <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">Нет новых уведомлений</p>
-                </div>
-            ) : (
-                notifications.map(n => (
-                    <div key={n.id} className="p-4 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors last:border-0 relative group">
-                        <p className="text-sm text-gray-700 dark:text-gray-200 font-medium leading-snug pr-6">{n.text}</p>
-                        <div className="flex justify-between items-center mt-1.5">
-                            <p className="text-xs text-gray-400">{new Date(n.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
-                            <button 
-                                type="button"
-                                onClick={(e) => handleDeleteNotif(e, n.id)} 
-                                className="text-gray-300 hover:text-red-500 p-1 cursor-pointer z-20"
-                                title="Удалить"
-                            >
-                                <Trash2 className="w-3 h-3" />
-                            </button>
-                        </div>
-                    </div>
-                ))
-            )}
-        </div>
-      </div>
-  );
-
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-gray-900 flex transition-colors duration-200 font-sans">
+    <div className="h-screen bg-[#F8FAFC] dark:bg-gray-900 flex overflow-hidden transition-colors duration-200">
       <SuggestIdeaModal isOpen={isIdeaModalOpen} onClose={() => setIsIdeaModalOpen(false)} />
 
-      {toast && (
-          <div className="fixed top-24 right-6 z-[100] bg-white dark:bg-gray-800 border-0 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl p-4 flex items-center gap-4 animate-slide-in max-w-sm">
-             <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
-                <Bell className="w-5 h-5" />
-             </div>
-             <div>
-                <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Уведомление</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 leading-snug">{toast.msg}</p>
-             </div>
-          </div>
-      )}
-
-      {showNotif && (
-          <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowNotif(false)} />
-      )}
-
-      {/* Mobile Header - Increased Z-index and Opacity */}
-      <div className="lg:hidden fixed top-0 w-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-[90] px-4 py-3 flex items-center justify-between h-[64px] shadow-sm">
-        {isHome ? (
-            <button onClick={toggleSidebar} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl h-10 w-10 flex items-center justify-center shrink-0">
-                <Menu className="w-6 h-6" />
-            </button>
-        ) : (
-            <button onClick={handleBack} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl h-10 w-10 flex items-center justify-center shrink-0">
-                <ChevronLeft className="w-6 h-6" />
-            </button>
-        )}
-        
-        <form onSubmit={handleSearch} className="flex-1 mx-3 relative flex items-center h-10">
-             <input 
-                type="text" 
-                placeholder="Поиск..." 
-                className="w-full pl-9 pr-3 h-full bg-gray-100 dark:bg-gray-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all dark:text-white border-none"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-             />
-             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        </form>
-
-        <div className="flex items-center gap-1 shrink-0 relative">
-             <Link to="/cart" className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl h-10 w-10 flex items-center justify-center">
-                <ShoppingCart className="w-6 h-6" />
-                {cartCount > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>}
-             </Link>
-             <div className="relative p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl cursor-pointer h-10 w-10 flex items-center justify-center" onClick={handleNotifClick}>
-                <Bell className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-                {unreadNotifCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>}
-            </div>
-
-            {showNotif && (
-                <div className="absolute top-12 right-0 w-72 max-w-[90vw] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden animate-in zoom-in-95 duration-200">
-                    {renderNotificationList()}
-                </div>
-            )}
-        </div>
-      </div>
-
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[100] lg:hidden"
-          onClick={closeSidebar}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`
-        fixed lg:static inset-y-0 left-0 z-[110] w-72 bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-800 transform transition-transform duration-300 cubic-bezier(0.4, 0, 0.2, 1)
-        ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
-        flex flex-col h-full
-      `}>
+      {/* Sidebar Desktop/Mobile */}
+      <aside className={`fixed lg:static inset-y-0 left-0 z-[110] w-72 bg-white dark:bg-gray-800 border-r dark:border-gray-800 transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} flex flex-col`}>
         <div className="p-6 flex items-center justify-between shrink-0">
           <Link to="/" className="flex flex-col" onClick={resetMenus}>
-            <h1 className="text-2xl font-black text-blue-600 dark:text-blue-400 leading-none tracking-tight">Снежинск</h1>
-            <span className="text-[10px] font-bold tracking-[0.3em] text-gray-400 uppercase mt-1 ml-0.5">Онлайн</span>
+            <h1 className="text-2xl font-black text-blue-600 dark:text-blue-400 leading-none">Снежинск</h1>
+            <span className="text-[10px] font-bold tracking-[0.3em] text-gray-400 uppercase mt-1">Онлайн</span>
           </Link>
-          <button onClick={closeSidebar} className="lg:hidden p-2 text-gray-400 hover:bg-gray-50 rounded-lg">
-            <X className="w-5 h-5" />
-          </button>
+          <button onClick={closeSidebar} className="lg:hidden p-2 text-gray-400"><X className="w-5 h-5" /></button>
         </div>
-
         <nav className="flex-1 overflow-y-auto py-2 px-4 space-y-0.5 custom-scrollbar">
-          <NavItem to="/" icon={Home} label="Главная" active={isActive('/')} onClick={resetMenus} />
-          <NavItem to="/map" icon={Map} label="Карта города" active={isActive('/map')} onClick={resetMenus} />
-          
-          <div className="mt-6 mb-2 px-3 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-            Каталог
-          </div>
-          
+          <NavItem to="/" icon={Home} label="Главная" active={location.pathname === '/'} onClick={resetMenus} />
+          <NavItem to="/map" icon={Map} label="Карта" active={isActive('/map')} onClick={resetMenus} />
+          <div className="mt-6 mb-2 px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Каталог</div>
           <NavItem to="/category/shops" icon={ShoppingBag} label="Магазины" active={isActive('/category/shops')} onClick={resetMenus} />
           {renderMenuSection(CATALOG_MENU)}
-          <NavItem to="/category/emergency" icon={Siren} label="Экстренные службы" active={isActive('/category/emergency')} onClick={resetMenus} />
-
-          <div className="mt-6 mb-2 px-3 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-            Сервисы
-          </div>
+          <div className="mt-6 mb-2 px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Сервисы</div>
           {renderMenuSection(SERVICES_MENU)}
-
-          <div className="pt-6 pb-4">
-           {user && !hasBusiness && (
-                <NavLink to="/business-connect" onClick={resetMenus}>
-                    <Button variant="secondary" size="sm" className="w-full border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:text-blue-600 hover:border-blue-300 bg-transparent hover:bg-blue-50/50">
-                        <PlusCircle className="w-4 h-4 mr-2" /> Подключить бизнес
-                    </Button>
-                </NavLink>
-           )}
-           {user && hasBusiness && (
-                <NavLink to="/business-crm" onClick={resetMenus}>
-                    <div className="bg-gray-900 dark:bg-black text-white p-3 rounded-xl flex items-center justify-between group cursor-pointer shadow-lg shadow-gray-200 dark:shadow-none hover:scale-[1.02] transition-transform">
-                        <div className="flex items-center gap-3">
-                            <div className="p-1.5 bg-gray-700 rounded-lg">
-                                <Briefcase className="w-4 h-4" />
-                            </div>
-                            <span className="font-medium text-sm">Кабинет бизнеса</span>
-                        </div>
-                    </div>
-                </NavLink>
-           )}
-          </div>
-        </nav>
-        
-        <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 shrink-0">
-            <button 
-                onClick={handleFeedbackClick}
-                className="flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors w-full p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 mb-1"
-            >
-                <MessageSquare className="w-4 h-4 mr-3" /> Обратная связь
-            </button>
-            {user && (
-              <Link to="/settings" onClick={resetMenus} className="flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors w-full p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 mb-1">
-                  <Settings className="w-4 h-4 mr-3" /> Настройки
+          {user && (
+            <div className="mt-6">
+              <Link to={hasBusiness ? "/business-crm" : "/business-connect"} onClick={resetMenus} className="block bg-gray-900 dark:bg-blue-600 text-white p-4 rounded-2xl font-bold text-center text-sm shadow-xl active:scale-95 transition-transform">
+                {hasBusiness ? 'Кабинет бизнеса' : 'Подключить бизнес'}
               </Link>
-            )}
-            {user && (
-                <button onClick={handleLogout} className="flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors w-full p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 mb-1">
-                    <LogOut className="w-4 h-4 mr-3" /> Выйти
-                </button>
-            )}
-            <button onClick={toggleTheme} className="flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors w-full p-2 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20">
-                {theme === 'dark' ? <Sun className="w-4 h-4 mr-3" /> : <Moon className="w-4 h-4 mr-3" />} 
-                {theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
-            </button>
+            </div>
+          )}
+        </nav>
+        <div className="p-4 border-t dark:border-gray-700 bg-white dark:bg-gray-800">
+           <Link to="/legal" onClick={closeSidebar} className="flex items-center text-sm font-medium text-gray-500 w-full p-2 hover:text-blue-600 transition-colors"><Shield className="w-4 h-4 mr-3" /> Правовая информация</Link>
+           <button onClick={() => { setIsIdeaModalOpen(true); closeSidebar(); }} className="flex items-center text-sm font-medium text-gray-500 w-full p-2 hover:text-blue-600 transition-colors"><MessageSquare className="w-4 h-4 mr-3" /> Жалобы и предложения</button>
+           {user && <button onClick={handleLogout} className="flex items-center text-sm font-medium text-red-500 w-full p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl mt-1 transition-colors"><LogOut className="w-4 h-4 mr-3" /> Выход</button>}
         </div>
       </aside>
 
-      {/* Main Content Wrapper */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen relative">
-          {/* Desktop Header */}
-          <header className="hidden lg:flex items-center justify-between bg-white/95 dark:bg-gray-900/95 backdrop-blur-md h-20 px-8 z-30 sticky top-0 transition-colors duration-200 shadow-sm border-b dark:border-gray-800">
+      <div className="flex-1 flex flex-col min-w-0 h-full relative">
+          {/* Header */}
+          <header className="flex items-center justify-between bg-white/95 dark:bg-gray-900/95 backdrop-blur-md h-16 lg:h-20 px-4 lg:px-8 z-[90] sticky top-0 border-b dark:border-gray-800 shrink-0">
              <div className="flex items-center gap-4 flex-1">
-                 {!isHome && (
-                     <button onClick={handleBack} className="p-2 -ml-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">
-                         <ChevronLeft className="w-5 h-5" />
-                     </button>
-                 )}
-                 <form onSubmit={handleSearch} className="flex-1 max-w-xl relative group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
-                    <input 
-                      type="text" 
-                      placeholder="Поиск событий, мест, людей..." 
-                      className="w-full pl-12 pr-4 py-3 bg-gray-100/50 dark:bg-gray-800 border-none rounded-2xl outline-none focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900 transition-all dark:text-white dark:placeholder-gray-500 shadow-sm focus:shadow-md"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                    />
+                 <button onClick={location.pathname === '/' ? toggleSidebar : handleBack} className="p-2 -ml-2 text-gray-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl">
+                     {location.pathname === '/' ? <Menu className="w-6 h-6" /> : <ChevronLeft className="w-6 h-6" />}
+                 </button>
+                 <form onSubmit={handleSearch} className="flex-1 max-w-xl relative group hidden sm:block">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input type="text" placeholder="Поиск по городу..." className="w-full pl-12 pr-4 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                  </form>
              </div>
-
-             <div className="flex items-center space-x-5 ml-6">
-                <div className="flex items-center space-x-2 relative">
-                    <Link to="/cart" className="relative p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-blue-600 transition-colors">
-                        <ShoppingCart className="w-6 h-6" />
-                        {cartCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900"></span>}
-                    </Link>
-
-                    {user ? (
-                        <>
-                            <Link to="/chat" className="relative p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-blue-600 transition-colors">
-                                <MessageCircle className="w-6 h-6" />
-                                {chatUnreadCount > 0 && <span className="absolute top-2.5 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900 animate-pulse"></span>}
-                            </Link>
-                            
-                            <div className="relative p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-gray-500 hover:text-blue-600 transition-colors" onClick={handleNotifClick}>
-                                <Bell className="w-6 h-6" />
-                                {unreadNotifCount > 0 && <span className="absolute top-2.5 right-3 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900 animate-pulse"></span>}
-                            </div>
-
-                            {showNotif && (
-                                <div className="absolute top-14 right-0 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700 z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200">
-                                    {renderNotificationList()}
-                                </div>
-                            )}
-
-                            <Link to="/profile" className="flex items-center space-x-3 pl-3 py-1 pr-1 ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group">
-                                <div className="text-right hidden xl:block">
-                                    <p className="text-sm font-bold text-gray-900 dark:text-white leading-none group-hover:text-blue-600 transition-colors">{user.name}</p>
-                                    <p className="text--[10px] font-bold text-gray-400 uppercase tracking-wide mt-1">{user.xp} XP</p>
-                                </div>
-                                <img src={user.avatar} alt="Profile" className="w-10 h-10 rounded-full border-2 border-white dark:border-gray-700 shadow-sm object-cover" />
-                            </Link>
-                        </>
-                    ) : (
-                        <Link to="/auth" className="ml-4">
-                            <Button variant="outline" size="sm" className="flex items-center gap-2 rounded-xl">
-                                <LogIn className="w-4 h-4" /> Войти
-                            </Button>
+             <div className="flex items-center gap-2 lg:gap-4 ml-4">
+                {user ? (
+                    <>
+                        <Link to="/chat" className="relative p-2.5 text-gray-500 hover:text-blue-600 transition-colors">
+                            <MessageCircle className="w-6 h-6" />
+                            {chatUnreadCount > 0 && <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse"></span>}
                         </Link>
-                    )}
-                </div>
+                        <Link to="/profile" className="ml-2">
+                            <img src={user.avatar} className="w-9 h-9 lg:w-11 lg:h-11 rounded-full border-2 border-white dark:border-gray-700 shadow-sm object-cover" alt="Profile" />
+                        </Link>
+                    </>
+                ) : (
+                    <Link to="/auth"><Button size="sm" className="rounded-xl">Войти</Button></Link>
+                )}
              </div>
           </header>
 
-          <main 
-            ref={mainRef}
-            className="flex-1 overflow-y-auto overflow-x-hidden pt-[64px] lg:pt-0 pb-20 lg:pb-0 bg-[#F8FAFC] dark:bg-gray-900 transition-colors duration-200"
-          >
-            {children}
+          {/* Main Content Area */}
+          <main ref={mainRef} className={`flex-1 ${isFullScreenPage ? 'overflow-hidden' : 'overflow-y-auto'} bg-[#F8FAFC] dark:bg-gray-900 relative`}>
+             {children}
           </main>
 
-          <button 
-            onClick={scrollToTop}
-            className={`fixed bottom-24 right-4 lg:bottom-10 lg:right-10 z-[60] bg-blue-600/90 hover:bg-blue-700 text-white p-3 rounded-full shadow-xl transition-all duration-300 backdrop-blur-sm ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
-          >
+          <button onClick={scrollToTop} className={`fixed bottom-24 right-4 lg:bottom-10 lg:right-10 z-[60] bg-blue-600 text-white p-3 rounded-full shadow-2xl transition-all duration-300 ${showScrollTop && !isFullScreenPage ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
               <ArrowUp className="w-6 h-6" />
           </button>
       </div>
 
-      <div className="lg:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 z-[60] flex justify-around py-3 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <NavLink 
-            to="/" 
-            onClick={resetMenus}
-            className={({isActive}) => `flex flex-col items-center justify-center w-16 transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
-        >
-            <Home className="w-6 h-6 mb-1" strokeWidth={isActive ? 2.5 : 2} />
+      {/* Bottom Nav Mobile */}
+      <div className="lg:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 border-t dark:border-gray-800 z-[100] flex justify-around py-3 shadow-2xl">
+        <NavLink to="/" className={({isActive}) => `flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition-colors ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
+            <Home className="w-6 h-6" /> Главная
         </NavLink>
-        <NavLink 
-            to="/classifieds" 
-            className={({isActive}) => `flex flex-col items-center justify-center w-16 transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
-        >
-            <ShoppingBag className="w-6 h-6 mb-1" strokeWidth={isActive ? 2.5 : 2} />
+        <NavLink to="/classifieds" className={({isActive}) => `flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition-colors ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
+            <ShoppingBag className="w-6 h-6" /> Маркет
         </NavLink>
-        
-        <div className="relative -top-6 cursor-pointer" onClick={toggleSidebar}>
-            <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-500/40 border-4 border-white dark:border-gray-900 transition-transform active:scale-95">
-                <Building2 className="w-7 h-7" />
-            </div>
-        </div>
-
-        <NavLink 
-            to="/chat" 
-            className={({isActive}) => `flex flex-col items-center justify-center w-16 transition-colors relative ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
-        >
-            <div className="relative">
-                <MessageCircle className="w-6 h-6 mb-1" strokeWidth={isActive ? 2.5 : 2} />
-                {chatUnreadCount > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>}
-            </div>
+        <NavLink to="/chat" className={({isActive}) => `flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition-colors relative ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
+            <MessageCircle className="w-6 h-6" /> {chatUnreadCount > 0 && <span className="absolute -top-1 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>} Сообщения
         </NavLink>
-        <NavLink 
-            to={user ? "/profile" : "/auth"} 
-            className={({isActive}) => `flex flex-col items-center justify-center w-16 transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
-        >
-            {user ? (
-                 <div className={`w-6 h-6 rounded-full overflow-hidden border-2 ${isActive ? 'border-blue-600 dark:border-blue-400' : 'border-gray-300 dark:border-gray-600'}`}>
-                    <img src={user.avatar} alt="" className="w-full h-full object-cover" />
-                 </div>
-            ) : (
-                <UserIcon className="w-6 h-6 mb-1" strokeWidth={isActive ? 2.5 : 2} />
-            )}
+        <NavLink to={user ? "/profile" : "/auth"} className={({isActive}) => `flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition-colors ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
+            <UserIcon className="w-6 h-6" /> Профиль
         </NavLink>
       </div>
     </div>

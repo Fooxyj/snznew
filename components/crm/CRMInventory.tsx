@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, Pencil } from 'lucide-react';
 import { Button } from '../ui/Common';
 
 interface CRMInventoryProps {
@@ -7,10 +8,11 @@ interface CRMInventoryProps {
     type: 'products' | 'services' | 'events' | 'rentals';
     label: string;
     onAdd: () => void;
+    onEdit?: (item: any) => void;
     onDelete: (id: string) => void;
 }
 
-export const CRMInventory: React.FC<CRMInventoryProps> = ({ items, type, label, onAdd, onDelete }) => {
+export const CRMInventory: React.FC<CRMInventoryProps> = ({ items, type, label, onAdd, onEdit, onDelete }) => {
     return (
         <div className="animate-in fade-in">
             <div className="flex justify-between items-center mb-6">
@@ -22,18 +24,28 @@ export const CRMInventory: React.FC<CRMInventoryProps> = ({ items, type, label, 
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
                 {items.map((item: any) => (
-                    <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm flex gap-4">
+                    <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow-sm flex gap-4 transition-all hover:shadow-md">
                         {item.image && <img src={item.image} className="w-16 h-16 lg:w-20 lg:h-20 rounded-lg object-cover bg-gray-100" alt="" />}
                         <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-start">
                                 <h3 className="font-bold dark:text-white truncate text-sm lg:text-base">{item.name || item.title}</h3>
-                                <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                <div className="flex gap-1">
+                                    {onEdit && (
+                                        <button onClick={() => onEdit(item)} className="text-gray-400 hover:text-blue-500 p-1">
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                    <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-500 p-1">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{item.price || item.pricePerDay} ₽</p>
+                            <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-tighter">{item.category}</p>
                         </div>
                     </div>
                 ))}
-                {items.length === 0 && <div className="col-span-full text-center text-gray-400 py-10">Список пуст</div>}
+                {items.length === 0 && <div className="col-span-full text-center text-gray-400 py-10 bg-white dark:bg-gray-800 rounded-2xl border border-dashed dark:border-gray-700">Список пуст</div>}
             </div>
         </div>
     );

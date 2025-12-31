@@ -4,8 +4,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { UserRole } from '../types';
-import { Button } from '../components/ui/Common';
-import { Calendar, MapPin, ChevronLeft, Loader2, CreditCard, Edit, Trash2 } from 'lucide-react';
+/* Comment above fix: Added Badge to Common imports and AlignLeft to lucide-react imports */
+import { Button, Badge } from '../components/ui/Common';
+import { Calendar, MapPin, ChevronLeft, Loader2, CreditCard, Edit, Trash2, Info, Share2, Ticket, AlignLeft } from 'lucide-react';
 import { EditEventModal } from '../components/EditEventModal';
 import { SeatPicker } from '../components/ui/SeatPicker';
 import { NotFound } from './NotFound';
@@ -53,7 +54,7 @@ export const EventDetail: React.FC = () => {
     const deleteEventMutation = useMutation({
         mutationFn: (eventId: string) => api.deleteEvent(eventId),
         onSuccess: () => {
-            navigate('/');
+            navigate('/events');
         },
         onError: (e: any) => alert(e.message)
     });
@@ -75,13 +76,27 @@ export const EventDetail: React.FC = () => {
         }
     };
 
+    const handleShare = () => {
+        if (navigator.share && event) {
+            navigator.share({
+                title: event.title,
+                text: event.description?.substring(0, 100),
+                url: window.location.href
+            });
+        } else {
+            navigator.clipboard.writeText(window.location.href);
+            alert("Ссылка скопирована!");
+        }
+    };
+
     if (eventLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
     if (!event) return <NotFound />;
 
     const isAdmin = user?.role === UserRole.ADMIN;
+    const isFree = !event.price || event.price === 0;
 
     return (
-        <div className="max-w-4xl mx-auto p-4 lg:p-8">
+        <div className="max-w-5xl mx-auto p-4 lg:p-10 pb-24">
             <EditEventModal 
                 event={event} 
                 isOpen={isEditOpen} 
@@ -89,69 +104,116 @@ export const EventDetail: React.FC = () => {
                 onSuccess={() => queryClient.invalidateQueries({ queryKey: ['event', id] })} 
             />
 
-            <div className="flex justify-between items-center mb-4">
-                <button onClick={() => navigate('/')} className="flex items-center text-gray-500 hover:text-blue-600 transition-colors">
-                    <ChevronLeft className="w-4 h-4 mr-1" /> На главную
-                </button>
-                {isAdmin && (
-                    <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setIsEditOpen(true)}>
-                            <Edit className="w-4 h-4 mr-2" /> Ред.
-                        </Button>
-                        <Button size="sm" variant="danger" onClick={handleDelete}>
-                            <Trash2 className="w-4 h-4" />
-                        </Button>
+            <div className="flex justify-between items-center mb-8">
+                <button onClick={() => navigate(-1)} className="flex items-center text-gray-500 hover:text-blue-600 transition-colors font-bold group">
+                    <div className="p-2 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 rounded-full mr-2">
+                        <ChevronLeft className="w-5 h-5" />
                     </div>
-                )}
+                    Назад к афише
+                </button>
+                <div className="flex gap-2">
+                    <button onClick={handleShare} className="p-3 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 hover:bg-gray-50 transition-colors">
+                        <Share2 className="w-5 h-5 text-gray-500" />
+                    </button>
+                    {isAdmin && (
+                        <>
+                            <button onClick={() => setIsEditOpen(true)} className="p-3 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 hover:text-blue-600 transition-colors">
+                                <Edit className="w-5 h-5" />
+                            </button>
+                            <button onClick={handleDelete} className="p-3 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 hover:text-red-500 transition-colors">
+                                <Trash2 className="w-5 h-5" />
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
-                <div className="h-64 md:h-auto relative">
+            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col md:flex-row">
+                <div className="md:w-1/2 relative bg-gray-100 dark:bg-gray-900 h-64 md:h-auto">
                     <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent md:hidden"></div>
-                    <div className="absolute bottom-4 left-4 text-white md:hidden">
-                        <h1 className="text-2xl font-bold">{event.title}</h1>
+                    <div className="absolute top-6 left-6">
+                        <Badge color="blue" className="px-4 py-2 text-xs font-black uppercase tracking-widest shadow-xl backdrop-blur-md bg-white/90 dark:bg-black/70">
+                            {event.category}
+                        </Badge>
                     </div>
                 </div>
                 
-                <div className="p-6 md:p-8 flex flex-col h-full">
-                    <div className="hidden md:block mb-4">
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{event.title}</h1>
-                        <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">{event.category}</span>
+                <div className="md:w-1/2 p-8 lg:p-12 flex flex-col justify-center">
+                    <h1 className="text-3xl lg:text-4xl font-black text-gray-900 dark:text-white mb-8 leading-tight">
+                        {event.title}
+                    </h1>
+
+                    <div className="space-y-5 mb-10">
+                        <div className="flex items-center gap-4 group">
+                            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                                <Calendar className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Когда</p>
+                                <p className="font-bold dark:text-white">{event.date}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4 group">
+                            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                                <MapPin className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Где</p>
+                                <p className="font-bold dark:text-white">{event.location}</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="space-y-4 text-gray-600 dark:text-gray-300 flex-1">
-                        <div className="flex items-center gap-3">
-                            <Calendar className="w-5 h-5 text-blue-600" />
-                            <span className="font-medium">{event.date}</span>
+                    <div className="bg-gray-50 dark:bg-gray-700/30 p-6 rounded-3xl border border-gray-100 dark:border-gray-600 mb-8 flex items-center justify-between">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Стоимость входа</p>
+                            <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                                {isFree ? 'Бесплатно' : `${event.price} ₽`}
+                            </p>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <MapPin className="w-5 h-5 text-blue-600" />
-                            <span>{event.location}</span>
-                        </div>
-                        <p className="text-sm pt-2">{event.description || "Приходите, будет интересно!"}</p>
+                        {isFree ? (
+                             <div className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-3 rounded-2xl font-bold text-xs uppercase tracking-tighter flex items-center gap-2">
+                                 <CheckCircle2 className="w-4 h-4" /> Свободный вход
+                             </div>
+                        ) : (
+                             <Ticket className="w-8 h-8 text-blue-200 dark:text-blue-800" />
+                        )}
                     </div>
 
-                    <div className="mt-8 pt-6 border-t dark:border-gray-700">
-                        <div className="flex justify-between items-end mb-4">
-                            <span className="text-gray-500 dark:text-gray-400 text-sm">Цена билета</span>
-                            <span className="text-2xl font-bold text-gray-900 dark:text-white">{event.price} ₽</span>
-                        </div>
-                        <Button 
-                            className="w-full py-3 text-lg shadow-lg shadow-blue-200 dark:shadow-none"
+                    {!isFree && (
+                         <Button 
+                            className="w-full py-5 text-xl font-black shadow-2xl shadow-blue-500/30 rounded-2xl transition-all hover:scale-[1.02] active:scale-95"
                             onClick={() => setShowSeats(true)}
                             disabled={showSeats}
-                        >
-                            {showSeats ? 'Выберите место ниже 👇' : 'Купить билет'}
-                        </Button>
+                         >
+                            {showSeats ? 'Выбирайте места ниже' : 'Купить билет онлайн'}
+                         </Button>
+                    )}
+                </div>
+            </div>
+
+            {/* Description Section */}
+            <div className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                        <AlignLeft className="w-5 h-5 text-blue-600" />
                     </div>
+                    <h3 className="text-xl font-black dark:text-white uppercase tracking-tight">О мероприятии</h3>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 lg:p-12 border border-gray-100 dark:border-gray-700 shadow-sm">
+                    <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed whitespace-pre-wrap">
+                        {event.description || "Приглашаем вас на это замечательное городское мероприятие! Подробности программы будут опубликованы в ближайшее время. Следите за обновлениями в нашей афише."}
+                    </p>
                 </div>
             </div>
 
             {/* Seat Selection Area */}
-            {showSeats && (
-                <div className="mt-8 bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-8 border dark:border-gray-700 animate-in slide-in-from-bottom-4 duration-500">
-                    <h3 className="text-xl font-bold text-center mb-6 dark:text-white">Выберите место</h3>
+            {showSeats && !isFree && (
+                <div className="mt-12 bg-gray-50 dark:bg-gray-800/50 rounded-[3rem] p-8 lg:p-16 border-2 border-dashed border-blue-200 dark:border-blue-900/50 animate-in slide-in-from-bottom-8 duration-500">
+                    <div className="text-center mb-12">
+                        <h3 className="text-2xl font-black dark:text-white mb-2">Схема зала</h3>
+                        <p className="text-gray-500">Выберите подходящие места для покупки</p>
+                    </div>
                     
                     <SeatPicker 
                         price={event.price || 350} 
@@ -160,19 +222,19 @@ export const EventDetail: React.FC = () => {
                         onSelect={(r, c) => setSelectedSeat({ row: r, col: c })}
                     />
 
-                    <div className="max-w-xs mx-auto border-t dark:border-gray-700 pt-6 mt-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <span className="text-gray-600 dark:text-gray-400">Итого к оплате:</span>
-                            <span className="text-xl font-bold text-gray-900 dark:text-white">
+                    <div className="max-w-sm mx-auto bg-white dark:bg-gray-800 p-8 rounded-[2rem] shadow-2xl border dark:border-gray-700 mt-12 transform hover:scale-105 transition-all">
+                        <div className="flex justify-between items-center mb-6">
+                            <span className="text-gray-500 font-bold uppercase text-[10px] tracking-widest">К оплате</span>
+                            <span className="text-3xl font-black text-gray-900 dark:text-white">
                                 {selectedSeat ? `${event.price} ₽` : '0 ₽'}
                             </span>
                         </div>
                         <Button 
-                            className="w-full bg-green-600 hover:bg-green-700 text-white" 
+                            className="w-full py-4 text-lg font-black bg-green-600 hover:bg-green-700 text-white rounded-2xl" 
                             disabled={!selectedSeat || buyTicketMutation.isPending}
                             onClick={handleBuy}
                         >
-                            {buyTicketMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" /> Оплатить</>}
+                            {buyTicketMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <><CreditCard className="w-5 h-5 mr-2" /> Оплатить билет</>}
                         </Button>
                     </div>
                 </div>
@@ -180,3 +242,21 @@ export const EventDetail: React.FC = () => {
         </div>
     );
 };
+
+const CheckCircle2: React.FC<any> = (props) => (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      width="24" 
+      height="24" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      {...props}
+    >
+        <circle cx="12" cy="12" r="10" />
+        <path d="m9 12 2 2 4-4" />
+    </svg>
+);

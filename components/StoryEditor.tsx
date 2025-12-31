@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/Common';
 import { X, Type, Link as LinkIcon, Trash2, Check, ZoomIn, ZoomOut, Upload, Loader2, MousePointer2 } from 'lucide-react';
@@ -45,7 +44,6 @@ export const StoryEditor: React.FC<StoryEditorProps> = ({ initialMedia, onSave, 
         try {
             const url = await api.uploadImage(file);
             setMedia(url);
-            // Reset transform when new image loads
             setTransform({ x: 0, y: 0, scale: 1 });
         } catch (e: any) {
             alert(e.message);
@@ -61,7 +59,6 @@ export const StoryEditor: React.FC<StoryEditorProps> = ({ initialMedia, onSave, 
     };
 
     const startPan = (e: React.MouseEvent | React.TouchEvent) => {
-        // Only pan if we are not clicking an element
         if (activeElementId) return;
         setIsDraggingBg(true);
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -90,7 +87,7 @@ export const StoryEditor: React.FC<StoryEditorProps> = ({ initialMedia, onSave, 
         const newEl: StoryElement = {
             id: Date.now().toString(),
             type: 'text',
-            x: 50, y: 50, // Center
+            x: 50, y: 50,
             content: textInput,
             color: 'white',
             bg: 'rgba(0,0,0,0.5)'
@@ -124,25 +121,22 @@ export const StoryEditor: React.FC<StoryEditorProps> = ({ initialMedia, onSave, 
 
     // --- Element Drag Logic ---
     const startDragElement = (e: React.MouseEvent | React.TouchEvent, id: string) => {
-        e.stopPropagation(); // Stop background pan
+        e.stopPropagation();
         setActiveElementId(id);
         setIsDraggingEl(true);
-        // We don't need drag offset for simple center-based positioning logic relative to container
     };
 
     const moveDragElement = (e: React.MouseEvent | React.TouchEvent) => {
         if (!isDraggingEl || !activeElementId || !bgRef.current) return;
-        e.preventDefault(); // Prevent scroll
+        e.preventDefault();
         
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
         
-        // Calculate new position as percentage of container
         const rect = bgRef.current.getBoundingClientRect();
         const xPct = ((clientX - rect.left) / rect.width) * 100;
         const yPct = ((clientY - rect.top) / rect.height) * 100;
 
-        // Clamp to 0-100
         const clampedX = Math.max(0, Math.min(100, xPct));
         const clampedY = Math.max(0, Math.min(100, yPct));
 
@@ -220,7 +214,7 @@ export const StoryEditor: React.FC<StoryEditorProps> = ({ initialMedia, onSave, 
                         className="w-full h-full origin-center pointer-events-none"
                         style={{
                             backgroundImage: `url(${media})`,
-                            backgroundSize: 'contain',
+                            backgroundSize: 'contain', // Изменено обратно на contain для возможности уменьшения
                             backgroundRepeat: 'no-repeat',
                             backgroundPosition: 'center',
                             transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
@@ -273,7 +267,6 @@ export const StoryEditor: React.FC<StoryEditorProps> = ({ initialMedia, onSave, 
 
             {/* Bottom Controls */}
             <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 to-transparent z-20 flex flex-col items-center">
-                {/* Trash Zone Indicator (Visual only, simple implementation) */}
                 {isDraggingEl && (
                     <div className="mb-4 text-red-500 flex flex-col items-center animate-pulse">
                         <Trash2 className="w-8 h-8" />
@@ -281,20 +274,18 @@ export const StoryEditor: React.FC<StoryEditorProps> = ({ initialMedia, onSave, 
                     </div>
                 )}
 
-                {/* Caption Input */}
                 <input 
                     className="bg-transparent border-b border-white/30 text-white placeholder-white/50 w-full max-w-md text-center py-2 mb-4 focus:border-white outline-none"
-                    placeholder="Добавить подпись (для скринридеров)..."
+                    placeholder="Добавить подпись..."
                     value={caption}
                     onChange={e => setCaption(e.target.value)}
                 />
 
-                {/* Zoom Slider */}
                 <div className="flex items-center gap-4 w-full max-w-xs">
                     <ZoomOut className="w-4 h-4 text-gray-400" />
                     <input 
                         type="range" 
-                        min="0.5" 
+                        min="0.1" 
                         max="3" 
                         step="0.1" 
                         value={transform.scale} 

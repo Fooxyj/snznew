@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -7,7 +6,6 @@ import { ToastProvider } from './components/ToastProvider';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ThemeProvider } from './components/ThemeProvider';
-import { CartProvider } from './components/CartProvider';
 import { SplashScreen } from './components/SplashScreen';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { Onboarding } from './components/Onboarding';
@@ -17,13 +15,14 @@ import { DailyBonus } from './components/DailyBonus';
 import { api } from './services/api';
 import { UserRole } from './types';
 
-// Lazy Load Pages to optimize initial bundle size
+// Lazy Load Pages
 const Home = lazy(() => import('./pages/Home').then(m => ({ default: m.Home })));
-const EventsPage = lazy(() => import('./pages/Home').then(m => ({ default: m.EventsPage })));
+// Comment above fix: Map named export NewsFeed from NewsFeed.tsx for lazy loading as EventsPage since it handles the generic feed logic for both news and events
+const EventsPage = lazy(() => import('./pages/NewsFeed').then(m => ({ default: m.NewsFeed })));
 const Classifieds = lazy(() => import('./pages/Classifieds').then(m => ({ default: m.Classifieds })));
 const BusinessDirectory = lazy(() => import('./pages/BusinessDirectory').then(m => ({ default: m.BusinessDirectory })));
 const Profile = lazy(() => import('./pages/Dashboards').then(m => ({ default: m.Profile })));
-const PublicProfile = lazy(() => import('./pages/PublicProfile').then(m => ({ default: m.PublicProfile }))); // New
+const PublicProfile = lazy(() => import('./pages/PublicProfile').then(m => ({ default: m.PublicProfile })));
 const AdminDashboard = lazy(() => import('./pages/Dashboards').then(m => ({ default: m.AdminDashboard })));
 const ConnectBusiness = lazy(() => import('./pages/ConnectBusiness').then(m => ({ default: m.ConnectBusiness })));
 const AuthPage = lazy(() => import('./pages/Auth').then(m => ({ default: m.AuthPage })));
@@ -45,7 +44,6 @@ const Quests = lazy(() => import('./pages/Quests').then(m => ({ default: m.Quest
 const SettingsPage = lazy(() => import('./pages/Settings').then(m => ({ default: m.SettingsPage })));
 const Leaderboard = lazy(() => import('./pages/Leaderboard').then(m => ({ default: m.Leaderboard })));
 const EventDetail = lazy(() => import('./pages/EventDetail').then(m => ({ default: m.EventDetail })));
-const CartPage = lazy(() => import('./pages/Cart').then(m => ({ default: m.CartPage })));
 const CharityPage = lazy(() => import('./pages/Charity').then(m => ({ default: m.CharityPage })));
 const BusinessCRM = lazy(() => import('./pages/BusinessCRM').then(m => ({ default: m.BusinessCRM })));
 const RentalsPage = lazy(() => import('./pages/Rentals').then(m => ({ default: m.RentalsPage })));
@@ -56,6 +54,7 @@ const CityMonitor = lazy(() => import('./pages/CityMonitor').then(m => ({ defaul
 const DeliveryPage = lazy(() => import('./pages/Delivery').then(m => ({ default: m.DeliveryPage })));
 const HousingPage = lazy(() => import('./pages/Housing').then(m => ({ default: m.HousingPage })));
 const SmartCity = lazy(() => import('./pages/SmartCity').then(m => ({ default: m.SmartCity })));
+const LegalPage = lazy(() => import('./pages/Legal').then(m => ({ default: m.LegalPage })));
 
 const App: React.FC = () => {
   const [appReady, setAppReady] = useState(false);
@@ -63,11 +62,11 @@ const App: React.FC = () => {
   useEffect(() => {
     const initApp = async () => {
       try {
-        // Wait for minimum time for splash screen animation
-        await Promise.all([
+        const [_, user] = await Promise.all([
             new Promise(resolve => setTimeout(resolve, 1500)), 
             api.getCurrentUser()
         ]);
+        if (user) api.updateLastSeen();
       } catch (e) {
         console.error("Init failed", e);
       } finally {
@@ -77,11 +76,18 @@ const App: React.FC = () => {
     initApp();
   }, []);
 
+  useEffect(() => {
+      // Обновляем статус каждые 20 секунд для максимально высокой точности
+      const interval = setInterval(() => {
+          api.updateLastSeen();
+      }, 1000 * 20); 
+      return () => clearInterval(interval);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <ToastProvider>
-          <CartProvider>
             <SplashScreen isVisible={!appReady} />
             
             <HashRouter>
@@ -93,14 +99,13 @@ const App: React.FC = () => {
                 
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
-                    {/* Public Routes */}
                     <Route path="/" element={<Home />} />
                     <Route path="/auth" element={<AuthPage />} />
                     <Route path="/news" element={<NewsFeed />} />
                     <Route path="/news/:id" element={<NewsDetail />} />
                     <Route path="/classifieds" element={<Classifieds />} />
                     <Route path="/ad/:id" element={<AdDetail />} />
-                    <Route path="/user/:id" element={<PublicProfile />} /> {/* New Public Profile Route */}
+                    <Route path="/user/:id" element={<PublicProfile />} />
                     <Route path="/events" element={<EventsPage />} />
                     <Route path="/event/:id" element={<EventDetail />} />
                     <Route path="/weather" element={<Weather />} />
@@ -110,8 +115,6 @@ const App: React.FC = () => {
                     <Route path="/business/:id" element={<BusinessDetail />} />
                     <Route path="/search" element={<SearchResults />} />
                     <Route path="/map" element={<ExploreMap />} />
-                    
-                    {/* Feature Routes */}
                     <Route path="/charity" element={<CharityPage />} />
                     <Route path="/rentals" element={<RentalsPage />} />
                     <Route path="/lost-found" element={<LostFound />} />
@@ -122,13 +125,12 @@ const App: React.FC = () => {
                     <Route path="/community/:id" element={<CommunityDetail />} />
                     <Route path="/quests" element={<Quests />} />
                     <Route path="/leaderboard" element={<Leaderboard />} />
-                    <Route path="/cart" element={<CartPage />} />
                     <Route path="/city-monitor" element={<CityMonitor />} />
                     <Route path="/delivery" element={<DeliveryPage />} />
                     <Route path="/housing" element={<HousingPage />} />
                     <Route path="/smart-city" element={<SmartCity />} />
+                    <Route path="/legal" element={<LegalPage />} />
 
-                    {/* Protected Routes */}
                     <Route element={<ProtectedRoute />}>
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/settings" element={<SettingsPage />} />
@@ -136,23 +138,19 @@ const App: React.FC = () => {
                       <Route path="/business-connect" element={<ConnectBusiness />} />
                     </Route>
 
-                    {/* Business Routes - Allow USER as they might own a business without the explicit role yet */}
                     <Route element={<ProtectedRoute allowedRoles={[UserRole.USER, UserRole.BUSINESS, UserRole.ADMIN]} />}>
                       <Route path="/business-crm" element={<BusinessCRM />} />
                     </Route>
 
-                    {/* Admin Routes */}
                     <Route element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]} />}>
                       <Route path="/admin" element={<AdminDashboard />} />
                     </Route>
                     
-                    {/* 404 */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
               </Layout>
             </HashRouter>
-          </CartProvider>
         </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>

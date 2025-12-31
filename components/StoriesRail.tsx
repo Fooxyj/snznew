@@ -1,416 +1,457 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Story, User, UserRole, StoryElement, Business } from '../types';
-import { Plus, X, Upload, Loader2, Eye, ChevronDown, Link as LinkIcon, ExternalLink } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Story, User, UserRole, Business } from '../types';
+import { Plus, X, Loader2, ChevronLeft, ChevronRight, Eye, Users, User as UserIcon, Building2, Check, AlertCircle } from 'lucide-react';
+import { Button } from './ui/Common';
 import { StoryEditor } from './StoryEditor';
-
-const ViewersList: React.FC<{ viewers: {id: string, name: string, avatar: string}[]; onClose: () => void }> = ({ viewers, onClose }) => {
-    return (
-        <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center pointer-events-none">
-            <div className="absolute inset-0" onClick={onClose}></div>
-            <div className="bg-white dark:bg-gray-800 w-full max-w-sm sm:rounded-2xl rounded-t-2xl shadow-2xl p-4 max-h-[60vh] overflow-y-auto pointer-events-auto animate-in slide-in-from-bottom-10">
-                <div className="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b dark:border-gray-700">
-                    <h3 className="font-bold text-lg dark:text-white">Просмотры ({viewers.length})</h3>
-                    <button onClick={onClose}><X className="w-5 h-5 text-gray-500" /></button>
-                </div>
-                <div className="space-y-3">
-                    {viewers.length === 0 ? (
-                        <p className="text-gray-500 text-center py-4">Пока никто не смотрел</p>
-                    ) : (
-                        viewers.map((v, i) => (
-                            <Link to={`/user/${v.id}`} key={i} className="flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors">
-                                <img src={v.avatar} className="w-10 h-10 rounded-full object-cover bg-gray-200" alt="" />
-                                <span className="font-medium text-gray-900 dark:text-white">{v.name}</span>
-                            </Link>
-                        ))
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
+import { useNavigate } from 'react-router-dom';
+import { useToast } from './ToastProvider';
 
 const StoryViewer: React.FC<{ 
-    stories: Story[]; 
-    initialIndex: number; 
+    allStories: Story[]; 
+    initialAuthorId: string;
     currentUser: User | null;
     onClose: () => void 
-}> = ({ stories, initialIndex, currentUser, onClose }) => {
-    const [currentIndex, setCurrentIndex] = useState(initialIndex);
+}> = ({ allStories, initialAuthorId, currentUser, onClose }) => {
+    const navigate = useNavigate();
+    
+    const authorIds = useMemo(() => {
+        const ids: string[] = [];
+        allStories.forEach(s => {
+            if (!ids.includes(s.authorId)) ids.push(s.authorId);
+        });
+        return ids;
+    }, [allStories]);
+
+    const [currentAuthorId, setCurrentAuthorId] = useState(initialAuthorId);
+    const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+    
     const [progress, setProgress] = useState(0);
-    const [showViewers, setShowViewers] = useState(false);
+    const [isImageLoaded, setIsImageLoaded] = useState(false);
+    const [showStats, setShowStats] = useState(false);
     const timerRef = useRef<any>(null);
-    const viewRegisteredRef = useRef<Set<string>>(new Set());
+    const touchStartRef = useRef<number | null>(null);
 
-    // Swipe handlers
-    const [touchStart, setTouchStart] = useState<number | null>(null);
-    const [touchEnd, setTouchEnd] = useState<number | null>(null);
+    const currentAuthorStories = useMemo(() => 
+        allStories.filter(s => s.authorId === currentAuthorId),
+    [allStories, currentAuthorId]);
 
-    const activeStory = stories[currentIndex];
-    // Allow owner if IDs match OR if user is admin (simplified check for admin override viewing)
-    const isOwner = currentUser && (activeStory.authorId === currentUser.id || currentUser.role === UserRole.ADMIN);
+    const activeStory = currentAuthorStories[currentStoryIndex];
 
-    // Register View Effect
-    useEffect(() => {
-        const registerView = async () => {
-            if (!activeStory || !currentUser) return;
-            
-            // Avoid duplicate API calls in same session
-            if (viewRegisteredRef.current.has(activeStory.id)) return;
-            
-            // Check if already in the viewer list to avoid DB call
-            const alreadyViewed = activeStory.viewers?.some(v => v.name === currentUser.name); 
-            if (alreadyViewed) {
-                viewRegisteredRef.current.add(activeStory.id);
-                return;
+    const handleNext = useCallback(() => {
+        if (currentStoryIndex < currentAuthorStories.length - 1) {
+            setIsImageLoaded(false);
+            setCurrentStoryIndex(prev => prev + 1);
+            setProgress(0);
+        } else {
+            const currentAuthorIdx = authorIds.indexOf(currentAuthorId);
+            if (currentAuthorIdx < authorIds.length - 1) {
+                setIsImageLoaded(false);
+                setCurrentAuthorId(authorIds[currentAuthorIdx + 1]);
+                setCurrentStoryIndex(0);
+                setProgress(0);
+            } else {
+                onClose();
             }
+        }
+        setShowStats(false);
+    }, [currentStoryIndex, currentAuthorStories.length, currentAuthorId, authorIds, onClose]);
 
-            // Call API
-            try {
-                await api.viewStory(activeStory.id);
-                viewRegisteredRef.current.add(activeStory.id);
-            } catch (e) {
-                console.error("Failed to register view", e);
+    const handlePrev = useCallback(() => {
+        if (currentStoryIndex > 0) {
+            setIsImageLoaded(false);
+            setCurrentStoryIndex(prev => prev - 1);
+            setProgress(0);
+        } else {
+            const currentAuthorIdx = authorIds.indexOf(currentAuthorId);
+            if (currentAuthorIdx > 0) {
+                const prevAuthorId = authorIds[currentAuthorIdx - 1];
+                const prevAuthorStories = allStories.filter(s => s.authorId === prevAuthorId);
+                setIsImageLoaded(false);
+                setCurrentAuthorId(prevAuthorId);
+                setCurrentStoryIndex(prevAuthorStories.length - 1);
+                setProgress(0);
             }
-        };
+        }
+        setShowStats(false);
+    }, [currentStoryIndex, currentAuthorId, authorIds, allStories]);
 
-        registerView();
-    }, [activeStory?.id, currentUser]);
+    const onTouchStart = (e: React.TouchEvent) => {
+        touchStartRef.current = e.touches[0].clientX;
+    };
 
-    // Auto-advance
+    const onTouchEnd = (e: React.TouchEvent) => {
+        if (!touchStartRef.current) return;
+        const touchEnd = e.changedTouches[0].clientX;
+        const diff = touchStartRef.current - touchEnd;
+
+        if (Math.abs(diff) > 50) { 
+            if (diff > 0) handleNext(); 
+            else handlePrev(); 
+        }
+        touchStartRef.current = null;
+    };
+
     useEffect(() => {
-        if (!activeStory || showViewers) return; // Pause if viewing list
+        if (activeStory) {
+            api.viewStory(activeStory.id);
+        }
+    }, [activeStory?.id]);
+
+    useEffect(() => {
+        if (!activeStory || !isImageLoaded || showStats) return;
+        
         setProgress(0);
-        const duration = 5000; // 5 seconds per story
-        const interval = 50;
-        const step = 100 / (duration / interval);
+        const duration = 5000;
+        const intervalTime = 50;
+        const step = 100 / (duration / intervalTime);
 
         timerRef.current = setInterval(() => {
             setProgress(prev => {
                 if (prev >= 100) {
                     handleNext();
-                    return 0;
+                    return 100;
                 }
                 return prev + step;
             });
-        }, interval);
+        }, intervalTime);
 
         return () => clearInterval(timerRef.current);
-    }, [currentIndex, showViewers]);
-
-    const handleNext = () => {
-        if (currentIndex < stories.length - 1) {
-            setCurrentIndex(prev => prev + 1);
-        } else {
-            onClose();
-        }
-    };
-
-    const handlePrev = () => {
-        if (currentIndex > 0) {
-            setCurrentIndex(prev => prev - 1);
-        }
-    };
-
-    // Swipe Logic
-    const onTouchStartHandler = (e: React.TouchEvent) => setTouchStart(e.targetTouches[0].clientY);
-    const onTouchMoveHandler = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientY);
-    const onTouchEndHandler = () => {
-        if (!touchStart || !touchEnd) return;
-        const distance = touchEnd - touchStart;
-        if (distance > 100) onClose(); // Swipe down to close
-        setTouchStart(null); setTouchEnd(null);
-    };
-
-    // Mouse drag for desktop swipe simulation
-    const onMouseDownHandler = (e: React.MouseEvent) => setTouchStart(e.clientY);
-    const onMouseUpHandler = (e: React.MouseEvent) => {
-        if (!touchStart) return;
-        const distance = e.clientY - touchStart;
-        if (distance > 100) onClose();
-        setTouchStart(null);
-    };
+    }, [activeStory?.id, isImageLoaded, handleNext, showStats]);
 
     if (!activeStory) return null;
 
-    const config = activeStory.contentConfig;
+    const isMyStory = currentUser && activeStory.userId === currentUser.id;
+    const storyTransform = activeStory.contentConfig?.transform || { x: 0, y: 0, scale: 1 };
 
     return (
         <div 
-            className="fixed inset-0 z-[100] bg-black flex items-center justify-center"
-            onTouchStart={onTouchStartHandler}
-            onTouchMove={onTouchMoveHandler}
-            onTouchEnd={onTouchEndHandler}
-            onMouseDown={onMouseDownHandler}
-            onMouseUp={onMouseUpHandler}
+            className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center overflow-hidden animate-in fade-in duration-300"
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
         >
-            {/* Navigation Zones */}
-            <div className="absolute inset-y-0 left-0 w-1/3 z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); handlePrev(); }}></div>
-            <div className="absolute inset-y-0 right-0 w-1/3 z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleNext(); }}></div>
+            {!showStats && (
+                <>
+                    <div className="absolute inset-y-0 left-0 w-1/3 z-40 cursor-pointer" onClick={(e) => { e.stopPropagation(); handlePrev(); }}></div>
+                    <div className="absolute inset-y-0 right-0 w-1/3 z-40 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleNext(); }}></div>
+                </>
+            )}
 
-            <div className="relative w-full max-w-md h-full md:h-[90vh] bg-gray-900 md:rounded-xl overflow-hidden shadow-2xl transition-transform" onClick={e => e.stopPropagation()}>
-                {/* Progress Bar */}
-                <div className="absolute top-4 left-0 right-0 px-2 flex gap-1 z-30">
-                    {stories.map((s, idx) => (
-                        <div key={s.id} className="h-1 bg-white/30 flex-1 rounded-full overflow-hidden">
+            <div className="relative w-full max-w-lg h-full bg-black flex flex-col overflow-hidden">
+                <div className="absolute top-4 left-0 right-0 px-4 flex gap-1.5 z-50">
+                    {currentAuthorStories.map((_, idx) => (
+                        <div key={idx} className="h-1 bg-white/20 flex-1 rounded-full overflow-hidden">
                             <div 
-                                className="h-full bg-white transition-all duration-[50ms] ease-linear"
-                                style={{ 
-                                    width: idx < currentIndex ? '100%' : idx === currentIndex ? `${progress}%` : '0%' 
-                                }}
+                                className="h-full bg-white transition-all duration-75"
+                                style={{ width: idx < currentStoryIndex ? '100%' : idx === currentStoryIndex ? `${progress}%` : '0%' }}
                             ></div>
                         </div>
                     ))}
                 </div>
 
-                {/* Header */}
-                <div className="absolute top-8 left-4 flex items-center gap-3 z-30 pointer-events-none">
-                    <img src={activeStory.authorAvatar} className="w-8 h-8 rounded-full border border-white/50 bg-gray-600" alt="" />
-                    <span className="text-white font-bold text-sm shadow-black drop-shadow-md">{activeStory.authorName}</span>
+                <div className="absolute top-8 left-4 right-4 flex items-center justify-between z-50 pointer-events-none">
+                    <div className="flex items-center gap-3 pointer-events-auto cursor-pointer" onClick={() => { onClose(); navigate(`/user/${activeStory.userId}`); }}>
+                        <img src={activeStory.authorAvatar} className="w-10 h-10 rounded-full border-2 border-white object-cover shadow-lg" alt="" />
+                        <div className="flex flex-col text-left">
+                            <span className="text-white font-black text-sm drop-shadow-md">{activeStory.authorName}</span>
+                            <span className="text-white/60 text-[10px] font-bold uppercase tracking-tighter">Снежинск Онлайн</span>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="text-white p-2 bg-white/10 rounded-full backdrop-blur-md hover:bg-white/20 transition-colors z-50 pointer-events-auto">
+                        <X className="w-6 h-6" />
+                    </button>
                 </div>
-                
-                <button onClick={onClose} className="absolute top-8 right-4 z-40 text-white hover:opacity-70 p-2">
-                    <X className="w-6 h-6" />
-                </button>
 
-                {/* Content Rendering */}
-                <div className="w-full h-full relative overflow-hidden bg-black">
-                    {/* Background Layer (Responsive to config) */}
+                <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center">
+                    {!isImageLoaded && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                            <Loader2 className="w-10 h-10 text-white/20 animate-spin" />
+                        </div>
+                    )}
                     <div 
-                        className="w-full h-full origin-center"
+                        className={`w-full h-full transition-opacity duration-500 ${isImageLoaded ? 'opacity-100' : 'opacity-0'}`}
                         style={{
                             backgroundImage: `url(${activeStory.media})`,
-                            backgroundSize: 'contain',
-                            backgroundRepeat: 'no-repeat',
+                            backgroundSize: 'contain', 
                             backgroundPosition: 'center',
-                            transform: config?.transform 
-                                ? `translate(${config.transform.x}px, ${config.transform.y}px) scale(${config.transform.scale})` 
-                                : 'none'
+                            backgroundRepeat: 'no-repeat',
+                            transform: `translate(${storyTransform.x}px, ${storyTransform.y}px) scale(${storyTransform.scale})`,
+                            transformOrigin: 'center'
                         }}
-                    />
-
-                    {/* Interactive Layers */}
-                    {config?.elements?.map(el => (
-                        <div
-                            key={el.id}
-                            className="absolute transform -translate-x-1/2 -translate-y-1/2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg z-30 flex items-center gap-2 pointer-events-auto cursor-pointer hover:scale-105 transition-transform"
-                            style={{
-                                left: `${el.x}%`,
-                                top: `${el.y}%`,
-                                backgroundColor: el.bg,
-                                color: el.color,
-                                maxWidth: '80%'
-                            }}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (el.type === 'link' && el.url) {
-                                    window.open(el.url, '_blank');
-                                }
+                    >
+                        <img 
+                            src={activeStory.media} 
+                            onLoad={() => setIsImageLoaded(true)}
+                            className="hidden"
+                            alt=""
+                        />
+                    </div>
+                    
+                    {activeStory.contentConfig?.elements?.map((el: any) => (
+                        <div 
+                            key={el.id} 
+                            className="absolute p-3 rounded-xl text-sm font-black shadow-2xl z-30 select-none whitespace-nowrap" 
+                            style={{ 
+                                left: `${el.x}%`, 
+                                top: `${el.y}%`, 
+                                backgroundColor: el.bg, 
+                                color: el.color, 
+                                transform: 'translate(-50%, -50%)' 
                             }}
                         >
-                            {el.type === 'link' && <ExternalLink className="w-3 h-3" />}
                             {el.content}
                         </div>
                     ))}
                 </div>
-                
-                {/* Fallback Caption (if no config or legacy) */}
-                {(!config || config.elements.length === 0) && activeStory.caption && (
-                    <div className="absolute bottom-20 left-0 right-0 p-4 text-center z-30 pointer-events-none">
-                        <div className="inline-block bg-black/50 backdrop-blur-md px-4 py-2 rounded-xl text-white text-sm">
-                            {activeStory.caption}
-                        </div>
+
+                {activeStory.caption && (
+                    <div className="absolute bottom-24 left-0 right-0 p-6 bg-gradient-to-t from-black/90 to-transparent text-white text-center italic z-30 text-sm pointer-events-none">
+                        {activeStory.caption}
                     </div>
                 )}
 
-                {/* Viewers Eye (Only for Owner) */}
-                {isOwner && (
-                    <div className="absolute bottom-6 left-4 z-50">
+                {isMyStory && (
+                    <div className="absolute bottom-8 left-0 right-0 px-6 z-50 flex justify-center">
                         <button 
-                            onClick={(e) => { e.stopPropagation(); setShowViewers(true); }}
-                            className="flex items-center gap-2 text-white bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full hover:bg-black/60 transition-colors"
+                            onClick={(e) => { e.stopPropagation(); setShowStats(true); }}
+                            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-white/20 px-5 py-2.5 rounded-full transition-all text-white active:scale-95 shadow-xl"
                         >
                             <Eye className="w-4 h-4" />
-                            <span className="text-xs font-bold">{activeStory.viewers?.length || 0}</span>
+                            <span className="text-xs font-black uppercase tracking-tighter">{activeStory.viewers?.length || 0} просмотров</span>
                         </button>
                     </div>
                 )}
-            </div>
 
-            {/* Viewers Modal Overlay */}
-            {showViewers && activeStory.viewers && (
-                <ViewersList 
-                    viewers={activeStory.viewers} 
-                    onClose={() => setShowViewers(false)} 
-                />
-            )}
+                {showStats && (
+                    <div className="absolute inset-0 bg-white dark:bg-gray-900 z-[100] p-6 animate-in slide-in-from-bottom duration-300 flex flex-col rounded-t-[2.5rem] mt-16 sm:mt-20 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="flex flex-col">
+                                <h3 className="text-gray-900 dark:text-white font-black text-xl flex items-center gap-2">
+                                    <Users className="w-5 h-5 text-blue-500" /> Жители
+                                </h3>
+                                <span className="text-xs text-gray-500 font-bold uppercase tracking-widest">Просмотрели историю</span>
+                            </div>
+                            <button onClick={() => setShowStats(false)} className="p-2 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-full hover:bg-gray-200 transition-colors">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar pr-1">
+                            {activeStory.viewers && activeStory.viewers.length > 0 ? (
+                                activeStory.viewers.map((v: any, idx: number) => (
+                                    <div 
+                                        key={v.id || idx} 
+                                        onClick={() => {
+                                            onClose();
+                                            navigate(`/user/${v.id}`);
+                                        }}
+                                        className="flex items-center gap-4 bg-gray-50 dark:bg-gray-800/50 p-3.5 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
+                                    >
+                                        <img 
+                                            src={v.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(v.name)}&background=random`} 
+                                            className="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-700 shadow-sm" 
+                                            alt="" 
+                                        />
+                                        <div className="flex-1">
+                                            <span className="text-gray-900 dark:text-white font-bold text-base group-hover:text-blue-600 transition-colors">{v.name}</span>
+                                            <p className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Смотрел(а) историю</p>
+                                        </div>
+                                        <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" />
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                                    <Eye className="w-16 h-16 opacity-10 mb-4" />
+                                    <p className="italic text-sm font-bold uppercase tracking-widest opacity-50">Здесь пока пусто</p>
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div className="mt-4 pt-4 border-t dark:border-gray-800">
+                             <Button variant="outline" className="w-full py-4 rounded-2xl border-gray-200 dark:border-gray-700 text-gray-500" onClick={() => setShowStats(false)}>
+                                Закрыть список
+                             </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
 
 export const StoriesRail: React.FC = () => {
-    const [groupedStories, setGroupedStories] = useState<Record<string, Story[]>>({});
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-    
-    // Viewing State
-    const [activeAuthorId, setActiveAuthorId] = useState<string | null>(null);
-    
-    // Creating State
+    const queryClient = useQueryClient();
+    const { success, error: showError } = useToast();
+    const [viewAuthorId, setViewAuthorId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
+    const [selectedBusinessId, setSelectedBusinessId] = useState<string | undefined>(undefined);
+    const [showAuthorPicker, setShowAuthorPicker] = useState(false);
+
+    const { data: user } = useQuery({ queryKey: ['user'], queryFn: api.getCurrentUser });
+    const { data: myBusinesses = [] } = useQuery({ 
+        queryKey: ['myBusinesses'], 
+        queryFn: api.getMyBusinesses, 
+        enabled: !!user 
+    });
     
-    // Author Selection State
-    const [availableAuthors, setAvailableAuthors] = useState<{id: string, name: string, avatar: string}[]>([]);
-    const [selectedAuthorId, setSelectedAuthorId] = useState<string>(''); // '' means self
-    const [canCreate, setCanCreate] = useState(false);
+    const { data: stories = [], isLoading } = useQuery({ 
+        queryKey: ['stories'], 
+        queryFn: api.getStories,
+        refetchInterval: 30000 
+    });
 
-    const loadData = async () => {
-        try {
-            const [s, u] = await Promise.all([api.getStories(), api.getCurrentUser()]);
-            setCurrentUser(u);
+    const groupedStoriesByAuthor = useMemo(() => {
+        const authors = new Map();
+        if (!Array.isArray(stories)) return [];
+        
+        stories.forEach(s => {
+            const authorData = authors.get(s.authorId) || { ...s, isAllViewed: true };
             
-            let userCanPost = false;
-            let authors: {id: string, name: string, avatar: string}[] = [];
-
-            if (u) {
-                // If Admin, can post as self or any managed profile
-                if (u.role === UserRole.ADMIN) {
-                    userCanPost = true;
-                    authors.push({ id: '', name: 'Мой профиль', avatar: u.avatar });
-                    const allBiz = await api.getBusinesses();
-                    authors = [...authors, ...allBiz.map(b => ({ id: b.id, name: b.name, avatar: b.image }))];
-                } 
-                // If Business, check permissions
-                else if (u.role === UserRole.BUSINESS) {
-                    const myBiz = await api.getMyBusinesses();
-                    // Filter businesses that have permission
-                    const allowedBiz = myBiz.filter(b => b.canPostStories);
-                    
-                    if (allowedBiz.length > 0) {
-                        userCanPost = true;
-                        // Business users post as their business usually, but let's default to first allowed business
-                        authors = allowedBiz.map(b => ({ id: b.id, name: b.name, avatar: b.image }));
-                        // If we want to allow personal profile posting for business owners? Usually no, strict business account.
-                        // But let's set default selection to the first business ID
-                        if (authors.length > 0) setSelectedAuthorId(authors[0].id);
-                    }
-                }
+            // Если текущий пользователь НЕ смотрел хотя бы одну историю этого автора,
+            // то помечаем автора как "есть непросмотренное"
+            const hasViewedThis = user && s.viewers?.some(v => v.id === user.id);
+            if (!hasViewedThis) {
+                authorData.isAllViewed = false;
             }
-            
-            setCanCreate(userCanPost);
-            setAvailableAuthors(authors);
-            
-            // Group stories by author
-            const grouped = s.reduce((acc, story) => {
-                if (!acc[story.authorId]) {
-                    acc[story.authorId] = [];
-                }
-                acc[story.authorId].push(story);
-                return acc;
-            }, {} as Record<string, Story[]>);
-            setGroupedStories(grouped);
 
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
+            authors.set(s.authorId, authorData);
+        });
+        return Array.from(authors.values());
+    }, [stories, user]);
+
+    const handleCreateClick = () => {
+        if (!user) return;
+        if (myBusinesses.length > 0) {
+            setShowAuthorPicker(true);
+        } else {
+            setIsCreating(true);
+            setSelectedBusinessId(undefined);
         }
     };
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const startCreating = (bizId?: string) => {
+        setSelectedBusinessId(bizId);
+        setShowAuthorPicker(false);
+        setIsCreating(true);
+    };
 
-    const submitStory = async (media: string, caption: string, config: any) => {
+    const onSaveStory = async (media: string, caption: string, config: any) => {
         try {
-            // Pass the selected business ID (if any) or undefined for profile
-            // If selectedAuthorId is '', it means 'self' (for admin mostly)
-            const businessId = selectedAuthorId !== '' ? selectedAuthorId : undefined;
-            await api.createStory(media, caption, businessId, config);
-            
+            await api.createStory(media, caption, selectedBusinessId, config);
+            success("История отправлена!");
             setIsCreating(false);
-            loadData();
-        } catch (e: any) {
-            alert(e.message);
+            queryClient.invalidateQueries({ queryKey: ['stories'] });
+        } catch (err: any) {
+            console.error("Story Save Error:", err);
+            showError(`Не удалось опубликовать: ${err.message}`);
         }
     };
-
-    if (loading) return null;
-
-    const authorIds = Object.keys(groupedStories);
-    const selectedAuthor = availableAuthors.find(a => a.id === selectedAuthorId) || availableAuthors[0];
 
     return (
-        <div className="mb-6">
-            {/* Viewer Modal */}
-            {activeAuthorId && groupedStories[activeAuthorId] && (
+        <div className="mb-2 relative">
+            {viewAuthorId && stories.length > 0 && (
                 <StoryViewer 
-                    stories={groupedStories[activeAuthorId]} 
-                    initialIndex={0} 
-                    currentUser={currentUser}
-                    onClose={() => setActiveAuthorId(null)} 
+                    allStories={stories} 
+                    initialAuthorId={viewAuthorId}
+                    currentUser={user || null}
+                    onClose={() => {
+                        setViewAuthorId(null);
+                        // Инвалидируем кэш, чтобы рамка истории обновилась сразу после просмотра
+                        queryClient.invalidateQueries({ queryKey: ['stories'] });
+                    }} 
                 />
             )}
 
-            {/* Creation Modal (Editor) */}
             {isCreating && (
-                <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-md flex flex-col justify-center items-center">
-                    {/* Author Selector Overlay - Moved down to avoid overlap with Close button */}
-                    {availableAuthors.length > 1 && (
-                        <div className="absolute top-20 left-4 z-[125] bg-black/60 rounded-xl p-2 flex items-center gap-2 border border-white/20">
-                            <img src={selectedAuthor.avatar} className="w-8 h-8 rounded-full object-cover" alt="" />
-                            <select 
-                                className="bg-transparent text-white text-sm font-bold appearance-none outline-none pr-6 cursor-pointer"
-                                value={selectedAuthorId}
-                                onChange={(e) => setSelectedAuthorId(e.target.value)}
-                            >
-                                {availableAuthors.map(author => (
-                                    <option key={author.id} value={author.id} className="text-black">{author.name}</option>
-                                ))}
-                            </select>
-                            <ChevronDown className="w-4 h-4 text-white absolute right-2 pointer-events-none" />
-                        </div>
-                    )}
-
+                <div className="fixed inset-0 z-[10000] bg-black">
                     <StoryEditor 
-                        onSave={submitStory} 
+                        onSave={onSaveStory} 
                         onClose={() => setIsCreating(false)} 
                     />
                 </div>
             )}
 
-            {/* Rail */}
-            <div className="flex gap-4 overflow-x-auto pb-4 items-center">
-                {/* Create Button - RESTRICTED */}
-                {currentUser && canCreate && (
-                    <div className="flex flex-col items-center gap-1 cursor-pointer shrink-0" onClick={() => setIsCreating(true)}>
-                        <div className="w-16 h-16 rounded-full border-2 border-gray-200 dark:border-gray-700 p-0.5 relative">
-                            <img src={currentUser.avatar} className="w-full h-full rounded-full object-cover opacity-50" alt="" />
-                            <div className="absolute bottom-0 right-0 bg-blue-600 rounded-full p-1 border-2 border-white dark:border-gray-900">
-                                <Plus className="w-3 h-3 text-white" />
-                            </div>
+            {showAuthorPicker && (
+                <div className="fixed inset-0 z-[10001] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowAuthorPicker(false)}>
+                    <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b dark:border-gray-700">
+                            <h3 className="text-xl font-black text-gray-900 dark:text-white">Автор истории</h3>
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-1">От чьего имени публикация?</p>
                         </div>
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Вы</span>
+                        <div className="p-4 space-y-2">
+                            <button 
+                                onClick={() => startCreating(undefined)}
+                                className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                            >
+                                <img src={user?.avatar} className="w-12 h-12 rounded-full object-cover border-2 border-gray-200" alt="" />
+                                <div className="text-left">
+                                    <div className="font-bold text-gray-900 dark:text-white">{user?.name}</div>
+                                    <div className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Личный профиль</div>
+                                </div>
+                            </button>
+                            {myBusinesses.map(biz => (
+                                <button 
+                                    key={biz.id}
+                                    onClick={() => startCreating(biz.id)}
+                                    className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                                >
+                                    <img src={biz.image} className="w-12 h-12 rounded-full object-cover border-2 border-blue-100" alt="" />
+                                    <div className="text-left">
+                                        <div className="font-bold text-gray-900 dark:text-white">{biz.name}</div>
+                                        <div className="text-[10px] text-blue-500 font-black uppercase tracking-tighter">Бизнес-аккаунт</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="p-4 bg-gray-50 dark:bg-gray-700/30">
+                            <Button variant="ghost" className="w-full text-gray-400 font-black uppercase text-xs tracking-widest" onClick={() => setShowAuthorPicker(false)}>
+                                Отмена
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide px-1">
+                {user && (
+                    <div className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0 group" onClick={handleCreateClick}>
+                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center group-hover:border-blue-500 transition-colors bg-white dark:bg-gray-800 shadow-sm">
+                            <Plus className="w-6 h-6 text-gray-400 group-hover:text-blue-50" />
+                        </div>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Создать</span>
                     </div>
                 )}
 
-                {/* Stories Grouped by Author */}
-                {authorIds.map((aid) => {
-                    const stories = groupedStories[aid];
-                    const firstStory = stories[0];
-                    return (
-                        <div key={aid} className="flex flex-col items-center gap-1 cursor-pointer shrink-0" onClick={() => setActiveAuthorId(aid)}>
-                            <div className="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-yellow-400 to-purple-600">
-                                <div className="w-full h-full rounded-full border-2 border-white dark:border-gray-900 overflow-hidden bg-gray-200 dark:bg-gray-700">
-                                    <img src={firstStory.authorAvatar} className="w-full h-full object-cover" alt="" />
+                {isLoading && stories.length === 0 ? (
+                    [1,2,3].map(i => (
+                        <div key={i} className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-800 animate-pulse shrink-0" />
+                    ))
+                ) : (
+                    groupedStoriesByAuthor.map((authorStory) => (
+                        <div key={authorStory.authorId} className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0" onClick={() => setViewAuthorId(authorStory.authorId)}>
+                            <div className={`w-16 h-16 rounded-full p-[2.5px] shadow-md transform active:scale-90 transition-all duration-500 ${
+                                (authorStory as any).isAllViewed 
+                                ? 'bg-gray-200 dark:bg-gray-700' 
+                                : 'bg-gradient-to-tr from-yellow-400 via-orange-500 to-purple-600'
+                            }`}>
+                                <div className="w-full h-full rounded-full border-2 border-white dark:border-gray-900 overflow-hidden bg-gray-100 dark:bg-gray-800">
+                                    <img src={authorStory.authorAvatar} className="w-full h-full object-cover" alt={authorStory.authorName} />
                                 </div>
                             </div>
-                            <span className="text-xs font-medium text-gray-800 dark:text-gray-300 w-16 truncate text-center">{firstStory.authorName}</span>
+                            <span className={`text-[10px] font-bold truncate w-16 text-center transition-colors ${
+                                (authorStory as any).isAllViewed ? 'text-gray-400' : 'text-gray-700 dark:text-gray-300'
+                            }`}>
+                                {authorStory.authorName}
+                            </span>
                         </div>
-                    );
-                })}
+                    ))
+                )}
+                
+                {stories.length === 0 && !isLoading && !user && (
+                    <div className="py-4 px-2 text-xs text-gray-400 font-medium italic">Историй пока нет</div>
+                )}
             </div>
         </div>
     );
