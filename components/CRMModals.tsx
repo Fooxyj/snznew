@@ -42,14 +42,14 @@ export const CreateProductModal: React.FC<{ businessId: string; isOpen: boolean;
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center px-6 py-4 border-b dark:border-gray-700 shrink-0">
                     <h3 className="font-bold text-lg dark:text-white uppercase tracking-tight">Добавить товар</h3>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
                 </div>
                 
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 custom-scrollbar">
+                <form id="product-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 custom-scrollbar">
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Название товара</label>
                         <input className="w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Напр: Капучино 0.3" required />
@@ -113,7 +113,7 @@ export const CreateProductModal: React.FC<{ businessId: string; isOpen: boolean;
                 </form>
 
                 <div className="px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 shrink-0">
-                    <Button className="w-full py-4 text-lg font-black uppercase tracking-tighter" disabled={loading || uploading}>
+                    <Button form="product-form" className="w-full py-4 text-lg font-black uppercase tracking-tighter" disabled={loading || uploading}>
                         {loading ? <Loader2 className="animate-spin w-6 h-6" /> : 'Добавить в каталог'}
                     </Button>
                 </div>
@@ -166,14 +166,14 @@ export const EditProductModal: React.FC<{ product: Product; isOpen: boolean; onC
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center px-6 py-4 border-b dark:border-gray-700 shrink-0">
                     <h3 className="font-bold text-lg dark:text-white uppercase tracking-tight">Редактировать товар</h3>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
                 </div>
                 
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 custom-scrollbar">
+                <form id="edit-product-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 custom-scrollbar">
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Название</label>
                         <input className="w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
@@ -215,7 +215,7 @@ export const EditProductModal: React.FC<{ product: Product; isOpen: boolean; onC
                 </form>
 
                 <div className="px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 shrink-0">
-                    <Button className="w-full py-4 text-lg font-black uppercase tracking-tighter" disabled={loading || uploading}>
+                    <Button form="edit-product-form" className="w-full py-4 text-lg font-black uppercase tracking-tighter" disabled={loading || uploading}>
                         {loading ? <Loader2 className="animate-spin w-6 h-6" /> : 'Сохранить изменения'}
                     </Button>
                 </div>
@@ -266,14 +266,14 @@ export const CreateServiceModal: React.FC<{ businessId: string; isOpen: boolean;
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center px-6 py-4 border-b dark:border-gray-700 shrink-0">
                     <h3 className="font-bold text-lg dark:text-white uppercase tracking-tight">Добавить услугу</h3>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
                 </div>
                 
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 custom-scrollbar">
+                <form id="service-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 custom-scrollbar">
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Название услуги</label>
                         <input className="w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Напр: Мужская стрижка" required />
@@ -324,7 +324,7 @@ export const CreateServiceModal: React.FC<{ businessId: string; isOpen: boolean;
                 </form>
 
                 <div className="px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 shrink-0">
-                    <Button className="w-full py-4 text-lg font-black uppercase tracking-tighter" disabled={loading || uploading}>
+                    <Button form="service-form" className="w-full py-4 text-lg font-black uppercase tracking-tighter" disabled={loading || uploading}>
                         {loading ? <Loader2 className="animate-spin w-6 h-6" /> : 'Опубликовать услугу'}
                     </Button>
                 </div>
@@ -369,14 +369,14 @@ export const CreateRentalModal: React.FC<{ isOpen: boolean; onClose: () => void;
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center px-6 py-4 border-b dark:border-gray-700 shrink-0">
                     <h2 className="font-bold text-lg dark:text-white uppercase tracking-tight">Сдать вещь в аренду</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
                 </div>
                 
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 custom-scrollbar">
+                <form id="rental-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 custom-scrollbar">
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Название</label>
                         <input className="w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Напр: Перфоратор Bosch" required />
@@ -427,7 +427,7 @@ export const CreateRentalModal: React.FC<{ isOpen: boolean; onClose: () => void;
                 </form>
 
                 <div className="px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 shrink-0">
-                    <Button className="w-full py-4 text-lg font-black uppercase tracking-tighter" disabled={loading || uploading}>
+                    <Button form="rental-form" className="w-full py-4 text-lg font-black uppercase tracking-tighter" disabled={loading || uploading}>
                         {loading ? <Loader2 className="animate-spin w-6 h-6" /> : 'Разместить предложение'}
                     </Button>
                 </div>

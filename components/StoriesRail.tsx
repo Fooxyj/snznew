@@ -322,7 +322,7 @@ export const StoriesRail: React.FC = () => {
     }, [stories, user]);
 
     const handleCreateClick = () => {
-        if (!user) return;
+        if (!user || user.role !== UserRole.ADMIN) return;
         if (myBusinesses.length > 0) {
             setShowAuthorPicker(true);
         } else {
@@ -415,7 +415,8 @@ export const StoriesRail: React.FC = () => {
             )}
 
             <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide px-1">
-                {user && (
+                {/* Кнопка создания видна только админам */}
+                {user?.role === UserRole.ADMIN && (
                     <div className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0 group" onClick={handleCreateClick}>
                         <div className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center group-hover:border-blue-500 transition-colors bg-white dark:bg-gray-800 shadow-sm">
                             <Plus className="w-6 h-6 text-gray-400 group-hover:text-blue-50" />

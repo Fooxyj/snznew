@@ -10,7 +10,6 @@ export const Onboarding: React.FC = () => {
   useEffect(() => {
     const seen = localStorage.getItem('snz_onboarding_seen');
     if (!seen) {
-      // Small delay for smooth entrance after splash screen
       const timer = setTimeout(() => setIsVisible(true), 2500); 
       return () => clearTimeout(timer);
     }
@@ -24,7 +23,7 @@ export const Onboarding: React.FC = () => {
   const steps = [
     {
       title: "Добро пожаловать!",
-      desc: "Снежинск Онлайн — это единое приложение для жизни в любимом городе.",
+      desc: "Снежинск Лайф — это единое приложение для жизни в любимом городе.",
       icon: <Map className="w-16 h-16 text-blue-600" />,
       color: "bg-blue-100"
     },
@@ -48,7 +47,6 @@ export const Onboarding: React.FC = () => {
     <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-500">
       <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl p-8 shadow-2xl animate-in slide-in-from-bottom-10 duration-500 flex flex-col items-center text-center relative overflow-hidden">
         
-        {/* Background decorative blobs */}
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -64,7 +62,6 @@ export const Onboarding: React.FC = () => {
           {steps[step].desc}
         </p>
 
-        {/* Indicators */}
         <div className="flex gap-2 mb-8">
           {steps.map((_, idx) => (
             <div 

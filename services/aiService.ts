@@ -1,7 +1,6 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
-const SYSTEM_INSTRUCTION = `Вы — интеллектуальный ассистент портала "Снежинск Онлайн". Ваша задача — помогать пользователям находить информацию о городе и услугах. Будьте вежливы и лаконичны.`;
+const SYSTEM_INSTRUCTION = `Вы — интеллектуальный ассистент портала "Снежинск Лайф". Ваша задача — помогать пользователям находить информацию о городе и услугах. Будьте вежливы и лаконичны.`;
 
 export const aiService = {
   async sendMessage(message: string, history: { role: string, parts: { text: string }[] }[] = []) {
@@ -20,16 +19,16 @@ export const aiService = {
       });
 
       return response.text;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Gemini AI Core Error:", error);
-      throw error;
+      // Return a friendly localized error message if fetch fails
+      if (error.message?.includes('fetch') || error.message?.includes('network')) {
+        return "Извините, Снежик временно не может связаться с сервером. Проверьте подключение к интернету.";
+      }
+      return "Ой, что-то пошло не так в моей нейронной сети. Попробуйте переформулировать вопрос.";
     }
   },
 
-  /**
-   * Разбирает неструктурированный текст в структурированные блоки.
-   * Используется в админке для быстрого создания контента.
-   */
   async parseDocumentToBlocks(rawText: string): Promise<any[]> {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });

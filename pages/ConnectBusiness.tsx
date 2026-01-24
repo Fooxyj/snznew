@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { Button } from '../components/ui/Common';
-import { Loader2, Briefcase, Upload, User, Building, Heart } from 'lucide-react';
+import { Loader2, Briefcase, Upload, User, Building, Star, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WORK_SCHEDULES } from '../constants';
 import { PhoneInput } from '../components/ui/PhoneInput';
@@ -11,13 +11,13 @@ export const ConnectBusiness: React.FC = () => {
     const [isMaster, setIsMaster] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
-        category: 'Хендмейд и Услуги',
+        category: 'Еда и Хендмейд',
         description: '',
         address: '',
         phone: '',
         inn: '',
         ogrn: '',
-        workHours: '09:00 - 18:00',
+        workHours: 'По договоренности',
         image: '',
         coverImage: ''
     });
@@ -65,13 +65,11 @@ export const ConnectBusiness: React.FC = () => {
             await api.createBusiness({
                 ...formData,
                 isMaster: isMaster,
-                // Если это мастер, мы принудительно ставим категорию, которая видна в разделе "Хендмейд"
-                category: isMaster ? 'Хендмейд и Услуги' : formData.category,
+                category: formData.category,
                 verificationStatus: isMaster ? 'verified' : 'pending'
             });
-            alert(isMaster ? "Ваш профиль мастера создан и доступен в разделе 'Хендмейд и Мастера'!" : "Заявка на подключение бизнеса отправлена!");
-            navigate('/profile');
-            window.location.reload(); 
+            alert(isMaster ? "Ваш профиль специалиста создан! Теперь вы доступны в разделе 'Специалисты'." : "Заявка на подключение бизнеса отправлена!");
+            navigate('/business-crm');
         } catch (e: any) {
             alert(e.message);
         } finally {
@@ -82,8 +80,8 @@ export const ConnectBusiness: React.FC = () => {
     return (
         <div className="max-w-2xl mx-auto p-4 lg:p-8 pb-24">
             <h1 className="text-3xl font-black mb-6 dark:text-white flex items-center gap-3 uppercase tracking-tight">
-                {isMaster ? <Heart className="w-10 h-10 text-pink-500" /> : <Briefcase className="w-10 h-10 text-blue-600" />}
-                {isMaster ? 'Стать Мастером' : 'Бизнес-аккаунт'}
+                {isMaster ? <Star className="w-10 h-10 text-orange-500 fill-current" /> : <Briefcase className="w-10 h-10 text-blue-600" />}
+                {isMaster ? 'Специалист' : 'Бизнес-аккаунт'}
             </h1>
 
             <div className="grid grid-cols-2 gap-4 mb-8">
@@ -95,35 +93,42 @@ export const ConnectBusiness: React.FC = () => {
                     <Building className={`w-8 h-8 ${!isMaster ? 'text-blue-600' : 'text-gray-400'}`} />
                     <div>
                         <div className="font-black text-sm uppercase dark:text-white">Компания</div>
-                        <div className="text-[10px] text-gray-500 uppercase font-bold">Организация, магазин</div>
+                        <div className="text-[10px] text-gray-500 uppercase font-bold">Магазин, кафе, сервис</div>
                     </div>
                 </button>
                 <button 
                     type="button"
-                    onClick={() => { setIsMaster(true); setFormData({...formData, category: 'Хендмейд и Услуги'}); }}
-                    className={`p-6 rounded-3xl border-2 transition-all text-left flex flex-col gap-3 ${isMaster ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800'}`}
+                    onClick={() => { setIsMaster(true); setFormData({...formData, category: 'Еда и Хендмейд'}); }}
+                    className={`p-6 rounded-3xl border-2 transition-all text-left flex flex-col gap-3 ${isMaster ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800'}`}
                 >
-                    <User className={`w-8 h-8 ${isMaster ? 'text-pink-500' : 'text-gray-400'}`} />
+                    <Star className={`w-8 h-8 ${isMaster ? 'text-orange-500 fill-current' : 'text-gray-400'}`} />
                     <div>
-                        <div className="font-black text-sm uppercase dark:text-white">Мастер</div>
-                        <div className="text-[10px] text-gray-500 uppercase font-bold">Частные услуги и товары</div>
+                        <div className="font-black text-sm uppercase dark:text-white">Специалист</div>
+                        <div className="text-[10px] text-gray-500 uppercase font-bold">Частные услуги, фриланс</div>
                     </div>
                 </button>
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 shadow-xl border border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl mb-8">
+                    <Info className="w-5 h-5 text-blue-600 shrink-0" />
+                    <p className="text-xs text-blue-800 dark:text-blue-300 font-medium">
+                        {isMaster ? 'Профиль специалиста — это ваша личная витрина услуг. Жители смогут звонить вам напрямую или писать в чат. Ваше качество подтверждается рейтингом.' : 'Бизнес-аккаунт позволяет управлять магазином, заказами и сотрудниками.'}
+                    </p>
+                </div>
+
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">
-                            {isMaster ? 'Имя или Название мастерской' : 'Название компании'}
+                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">
+                            {isMaster ? 'Как вас называть в каталоге?' : 'Название компании'}
                         </label>
-                        <input className="w-full border rounded-2xl p-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder={isMaster ? "Напр: Торты от Марии" : "Название ООО или ИП"} />
+                        <input className="w-full border rounded-2xl p-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder={isMaster ? "Напр: Кондитер Мария / Электрик Александр" : "Название организации"} />
                     </div>
                     
                     {!isMaster && (
                         <div className="grid grid-cols-2 gap-4 animate-in fade-in">
                             <div>
-                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ИНН (необязательно)</label>
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ИНН</label>
                                 <input 
                                     className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
                                     value={formData.inn} 
@@ -132,7 +137,7 @@ export const ConnectBusiness: React.FC = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ОГРН (необязательно)</label>
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ОГРН</label>
                                 <input 
                                     className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
                                     value={formData.ogrn} 
@@ -144,14 +149,19 @@ export const ConnectBusiness: React.FC = () => {
                     )}
 
                     <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">Специализация</label>
+                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">Категория деятельности</label>
                         <select className="w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-bold" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                             {isMaster ? (
                                 <>
-                                    <option value="Хендмейд и Услуги">Торты и Домашняя еда</option>
-                                    <option value="Хендмейд и Услуги">Рукоделие и Подарки</option>
-                                    <option value="Хендмейд и Услуги">Маникюр / Брови / Красота</option>
-                                    <option value="Хендмейд и Услуги">Ремонт и Бытовые услуги</option>
+                                    <option value="Еда и Хендмейд">Еда на заказ и Хендмейд</option>
+                                    <option value="Ремонт и Быт">Ремонт и Бытовые услуги</option>
+                                    <option value="Обучение и Репетиторы">Обучение и Репетиторы</option>
+                                    <option value="Красота и Здоровье">Красота и Уход (мастера)</option>
+                                    <option value="IT и Фриланс">IT и Компьютерная помощь</option>
+                                    <option value="Фото и Креатив">Фотография и Дизайн</option>
+                                    <option value="Праздники и Шоу">Праздники и Анимация</option>
+                                    <option value="Клининг">Уборка и Клининг</option>
+                                    <option value="Зооуслуги">Уход за животными</option>
                                 </>
                             ) : (
                                 <>
@@ -166,13 +176,13 @@ export const ConnectBusiness: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">{isMaster ? 'Где вы находитесь? (Район)' : 'Адрес'}</label>
-                        <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required placeholder={isMaster ? "Центр / Поселок / Улица" : "ул. Ленина, 15"} />
+                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">{isMaster ? 'Где вы оказываете услуги?' : 'Адрес офиса/магазина'}</label>
+                        <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required placeholder={isMaster ? "Напр: Выезд на дом / Весь город / Район" : "ул. Ленина, 15"} />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">Телефон</label>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">Телефон для связи</label>
                             <PhoneInput 
                                 value={formData.phone}
                                 onChangeText={val => setFormData({...formData, phone: val})}
@@ -180,7 +190,7 @@ export const ConnectBusiness: React.FC = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">Часы приема</label>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">График работы</label>
                             <select 
                                 className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 value={formData.workHours}
@@ -193,8 +203,8 @@ export const ConnectBusiness: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">О ваших работах</label>
-                        <textarea rows={4} className="w-full border rounded-xl p-4 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required placeholder={isMaster ? "Расскажите про ваши тортики, начинки или услуги..." : "Краткое описание вашей деятельности"} />
+                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">О себе и ваших услугах</label>
+                        <textarea rows={4} className="w-full border rounded-xl p-4 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required placeholder={isMaster ? "Расскажите кратко о своем опыте..." : "Краткое описание вашей деятельности"} />
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
@@ -222,8 +232,8 @@ export const ConnectBusiness: React.FC = () => {
                         </div>
                     </div>
 
-                    <Button className={`w-full py-5 text-xl font-black uppercase tracking-tighter border-none shadow-2xl ${isMaster ? 'bg-pink-500 hover:bg-pink-600 shadow-pink-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'}`} disabled={loading || uploadingImage || uploadingCover}>
-                        {loading ? <Loader2 className="animate-spin" /> : isMaster ? 'Создать профиль мастера' : 'Подать заявку'}
+                    <Button className={`w-full py-5 text-xl font-black uppercase tracking-tighter border-none shadow-2xl ${isMaster ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'}`} disabled={loading || uploadingImage || uploadingCover}>
+                        {loading ? <Loader2 className="animate-spin" /> : isMaster ? 'Создать профиль' : 'Зарегистрировать бизнес'}
                     </Button>
                 </form>
             </div>

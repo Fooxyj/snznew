@@ -8,28 +8,23 @@ export const PWAInstallPrompt: React.FC = () => {
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    // Check if already installed
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
     if (isStandalone) return;
 
-    // Check if dismissed previously
     const isDismissed = localStorage.getItem('pwa_prompt_dismissed');
     if (isDismissed) {
         const dismissedAt = parseInt(isDismissed);
         const now = Date.now();
-        // Show again after 3 days
         if (now - dismissedAt < 1000 * 60 * 60 * 24 * 3) return;
     }
 
-    // Detect Platform
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIosDevice);
 
-    // Delay showing
     const timer = setTimeout(() => {
       setIsVisible(true);
-    }, 3000);
+    }, 4000);
 
     return () => clearTimeout(timer);
   }, []);
@@ -40,12 +35,9 @@ export const PWAInstallPrompt: React.FC = () => {
   };
 
   const handleInstall = () => {
-    // Real PWA install logic would use `beforeinstallprompt` event for Android
-    // For this demo, we simulate the experience or show instructions for iOS
     if (isIOS) {
         alert("Нажмите кнопку 'Поделиться' в браузере и выберите 'На экран «Домой»'");
     } else {
-        // Fallback or actual prompt trigger if available
         alert("Чтобы установить, нажмите настройки браузера (три точки) -> 'Установить приложение'");
     }
     handleDismiss();
@@ -54,34 +46,32 @@ export const PWAInstallPrompt: React.FC = () => {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[100] animate-in slide-in-from-bottom-10 fade-in duration-500">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-2xl border border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row items-center gap-4 relative">
+    <div className="fixed top-20 left-4 right-4 lg:left-80 lg:right-4 z-[100] max-w-sm ml-auto animate-in slide-in-from-top-5 fade-in duration-500">
+      <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl p-2.5 shadow-[0_15px_40px_rgba(0,0,0,0.2)] border border-blue-100 dark:border-gray-700 flex items-center gap-3 relative">
         <button 
             onClick={handleDismiss} 
-            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            className="absolute -top-1 -right-1 bg-white dark:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-full shadow-md border dark:border-gray-600 transition-colors"
         >
-            <X className="w-5 h-5" />
+            <X className="w-3 h-3" />
         </button>
         
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/30">
-                <span className="text-white font-bold text-xl">S</span>
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
+                <span className="text-white font-black text-sm">S</span>
             </div>
-            <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">Установите Снежинск Онлайн</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Быстрый доступ прямо с экрана домой</p>
+            <div className="min-w-0">
+                <h3 className="font-bold text-gray-900 dark:text-white text-[10px] truncate leading-none mb-0.5">Снежинск Лайф</h3>
+                <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none">Быстрый доступ</p>
             </div>
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-            <Button 
-                onClick={handleInstall} 
-                className="flex-1 sm:w-auto whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white"
-            >
-                {isIOS ? <Share className="w-4 h-4 mr-2" /> : <Download className="w-4 h-4 mr-2" />}
-                {isIOS ? 'Как установить' : 'Установить'}
-            </Button>
-        </div>
+        <Button 
+            onClick={handleInstall} 
+            className="shrink-0 py-1.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-8"
+        >
+            {isIOS ? <Share className="w-3 h-3 mr-1" /> : <Download className="w-3 h-3 mr-1" />}
+            {isIOS ? 'ИНФО' : 'УСТАНОВИТЬ'}
+        </Button>
       </div>
     </div>
   );

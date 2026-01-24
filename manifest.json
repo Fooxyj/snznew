@@ -1,5 +1,6 @@
+
 {
-  "name": "Снежинск Онлайн",
+  "name": "Снежинск Лайф",
   "short_name": "Снежинск",
   "start_url": "/",
   "display": "standalone",
@@ -7,12 +8,12 @@
   "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "https://ui-avatars.com/api/?name=SO&background=0D8ABC&color=fff&size=192&rounded=true&bold=true",
+      "src": "https://ui-avatars.com/api/?name=SL&background=0D8ABC&color=fff&size=192&rounded=true&bold=true",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://ui-avatars.com/api/?name=SO&background=0D8ABC&color=fff&size=512&rounded=true&bold=true",
+      "src": "https://ui-avatars.com/api/?name=SL&background=0D8ABC&color=fff&size=512&rounded=true&bold=true",
       "sizes": "512x512",
       "type": "image/png"
     }

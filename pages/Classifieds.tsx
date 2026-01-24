@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge, Button } from '../components/ui/Common';
-import { Search, Grid, List, ShoppingBag, Crown, Megaphone, Users, ArrowRight, MapPin, Wand2 } from 'lucide-react';
+import { Search, Grid, List, ShoppingBag, Crown, Megaphone, Users, ArrowRight, MapPin, Wand2, Heart } from 'lucide-react';
 import { Ad, PromoAd } from '../types';
 import { api } from '../services/api';
 import { CreateAdModal } from '../components/CreateAdModal';
@@ -37,6 +36,17 @@ export const Classifieds: React.FC = () => {
           regularAds: filteredAds.filter(ad => !ad.isVip && !ad.isPremium) 
       };
   }, [filteredAds]);
+
+  const handleToggleFavorite = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+        navigate('/auth');
+        return;
+    }
+    await api.toggleFavorite(id, 'ad');
+    queryClient.invalidateQueries({ queryKey: ['user'] });
+  };
 
   return (
     <div className="p-4 lg:p-8 max-w-[1600px] mx-auto space-y-8 pb-32">
@@ -115,7 +125,7 @@ export const Classifieds: React.FC = () => {
                           <div className="space-y-4">
                               <div className="flex items-center gap-2 px-1"><Crown className="w-5 h-5 text-orange-500 fill-current" /><h2 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">VIP Размещение</h2></div>
                               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
-                                  {vipAds.map(ad => <AdCard key={ad.id} ad={ad} onClick={() => navigate(`/ad/${ad.id}`)} />)}
+                                  {vipAds.map(ad => <AdCard key={ad.id} ad={ad} isFav={user?.favorites?.includes(ad.id)} onToggleFav={handleToggleFavorite} onClick={() => navigate(`/ad/${ad.id}`)} />)}
                               </div>
                           </div>
                       )}
@@ -125,7 +135,7 @@ export const Classifieds: React.FC = () => {
                           <div className="space-y-4">
                               <div className="flex items-center gap-2 px-1"><Wand2 className="w-5 h-5 text-indigo-500" /><h2 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">PRO Предложения</h2></div>
                               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
-                                  {proAds.map(ad => <AdCard key={ad.id} ad={ad} onClick={() => navigate(`/ad/${ad.id}`)} />)}
+                                  {proAds.map(ad => <AdCard key={ad.id} ad={ad} isFav={user?.favorites?.includes(ad.id)} onToggleFav={handleToggleFavorite} onClick={() => navigate(`/ad/${ad.id}`)} />)}
                               </div>
                           </div>
                       )}
@@ -137,7 +147,7 @@ export const Classifieds: React.FC = () => {
                               {regularAds.length === 0 && vipAds.length === 0 && proAds.length === 0 ? (
                                   <p className="col-span-full text-center py-10 text-gray-400 font-bold uppercase text-xs">Нет объявлений</p>
                               ) : (
-                                  regularAds.map(ad => <AdCard key={ad.id} ad={ad} onClick={() => navigate(`/ad/${ad.id}`)} />)
+                                  regularAds.map(ad => <AdCard key={ad.id} ad={ad} isFav={user?.favorites?.includes(ad.id)} onToggleFav={handleToggleFavorite} onClick={() => navigate(`/ad/${ad.id}`)} />)
                               )}
                           </div>
                       </div>
@@ -149,7 +159,7 @@ export const Classifieds: React.FC = () => {
   );
 };
 
-const AdCard: React.FC<{ ad: Ad, onClick: () => void }> = ({ ad, onClick }) => {
+const AdCard: React.FC<{ ad: Ad, isFav?: boolean, onToggleFav?: (e: React.MouseEvent, id: string) => void, onClick: () => void }> = ({ ad, isFav, onToggleFav, onClick }) => {
   const containerClass = ad.isVip 
     ? "border border-orange-500/30 shadow-orange-500/5 shadow-lg" 
     : ad.isPremium
@@ -160,8 +170,16 @@ const AdCard: React.FC<{ ad: Ad, onClick: () => void }> = ({ ad, onClick }) => {
     <div onClick={onClick} className={`bg-white dark:bg-gray-800 rounded-lg overflow-hidden hover:shadow-xl transition-all duration-300 group flex flex-col cursor-pointer relative h-full ${containerClass}`}>
       <div className="aspect-[3/4] relative overflow-hidden bg-gray-50 dark:bg-gray-900 shrink-0">
         <img src={ad.image} alt={ad.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.01]" />
-        {ad.isVip && <div className="absolute top-2 left-2 bg-orange-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded z-10 shadow-lg">VIP</div>}
-        {!ad.isVip && ad.isPremium && <div className="absolute top-2 left-2 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded z-10 shadow-lg">PRO</div>}
+        
+        {/* Кнопка избранного в верхнем правом углу */}
+        {onToggleFav && (
+            <button 
+                onClick={(e) => onToggleFav(e, ad.id)}
+                className={`absolute top-2.5 right-2.5 p-2 rounded-xl backdrop-blur-md border transition-all z-20 ${isFav ? 'bg-red-500 border-red-400 text-white shadow-lg' : 'bg-black/20 border-white/10 text-white hover:bg-black/40'}`}
+            >
+                <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
+            </button>
+        )}
       </div>
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>

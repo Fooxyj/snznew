@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -80,11 +79,11 @@ const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
                         <input required className="w-full border dark:border-gray-700 rounded-2xl p-4 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold" placeholder={type === 'lost' ? "Напр: Ключи от машины" : "Напр: Карта Сбербанка"} value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                     </div>
                     <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1">Где потеряно/найдено?</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1">Где это произошло?</label>
                         <input required className="w-full border dark:border-gray-700 rounded-2xl p-4 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold" placeholder="Район, улица или магазин" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
                     </div>
                     <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1">Описание деталей</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 block ml-1">Описание</label>
                         <textarea required className="w-full border dark:border-gray-700 rounded-2xl p-4 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-medium resize-none" rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -129,8 +128,7 @@ export const LostFound: React.FC = () => {
     const { data: currentUser } = useQuery({ queryKey: ['user'], queryFn: api.getCurrentUser });
     const { data: items = [], isLoading } = useQuery({ 
         queryKey: ['lostFound', filter], 
-        queryFn: () => api.getLostFoundItems(filter),
-        staleTime: 1000 * 30 // 30 seconds fresh
+        queryFn: () => api.getLostFoundItems(filter)
     });
 
     const resolveMutation = useMutation({
@@ -155,7 +153,7 @@ export const LostFound: React.FC = () => {
                 id: item.id,
                 title: item.title,
                 image: item.image,
-                text: `Здравствуйте! Я по поводу вашего объявления в Бюро находок: "${item.title}"`
+                text: `Здравствуйте! Я по поводу объявления в Бюро находок: "${item.title}"`
             });
             const chatId = await api.startChat(item.authorId, contextMsg);
             navigate(`/chat?id=${chatId}`);
@@ -171,9 +169,9 @@ export const LostFound: React.FC = () => {
                     <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white flex items-center justify-center md:justify-start gap-4 tracking-tighter">
                         <HelpCircle className="w-10 h-10 text-blue-600" /> Бюро находок
                     </h1>
-                    <p className="text-gray-500 font-medium mt-1 text-lg">Вернем потерянное и найдем владельцев</p>
+                    <p className="text-gray-500 font-medium mt-1 text-lg">Поможем вернуть потерянное и найти владельцев</p>
                 </div>
-                <Button onClick={handleCreateClick} className="rounded-2xl py-4 px-10 font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-95">
+                <Button onClick={handleCreateClick} className="rounded-2xl py-4 px-10 font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-blue-500/20 transition-all hover:scale-[1.02]">
                     <Plus className="w-4 h-4 mr-2" /> Подать объявление
                 </Button>
             </div>
@@ -193,10 +191,9 @@ export const LostFound: React.FC = () => {
             {isLoading ? (
                 <div className="flex justify-center py-20"><Loader2 className="w-12 h-12 text-blue-600 animate-spin" /></div>
             ) : items.length === 0 ? (
-                <div className="text-center py-32 bg-white dark:bg-gray-800 rounded-[3rem] border-2 border-dashed dark:border-gray-700 shadow-inner">
+                <div className="text-center py-32 bg-white dark:bg-gray-800 rounded-[3rem] border-2 border-dashed dark:border-gray-700">
                     <Search className="w-20 h-20 mx-auto mb-6 opacity-10 text-gray-400" />
-                    <p className="font-black text-gray-400 uppercase tracking-[0.2em] text-sm">В этом разделе пока пусто</p>
-                    <p className="text-gray-400 mt-2 text-xs">Будьте первым, кто разместит объявление!</p>
+                    <p className="font-black text-gray-400 uppercase tracking-[0.2em] text-sm">Объявлений пока нет</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -217,7 +214,7 @@ export const LostFound: React.FC = () => {
                             </div>
                             <div className="p-7 flex-1 flex flex-col">
                                 <h3 className="font-extrabold text-xl mb-2 dark:text-white leading-tight uppercase tracking-tight line-clamp-2">{item.title}</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 line-clamp-3 leading-relaxed italic">
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 line-clamp-3 leading-relaxed flex-1 italic">
                                     "{item.description}"
                                 </p>
                                 

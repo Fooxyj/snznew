@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Common';
 import { 
     Moon, Sun, Bell, Shield, Lock, Trash2, Smartphone, 
     Mail, Loader2, FileText, ChevronRight, User as UserIcon, 
-    Camera, Check, Save
+    Camera, Check, Save, FileJson, MapPinOff, ShieldAlert, Navigation
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
@@ -28,6 +28,12 @@ export const SettingsPage: React.FC = () => {
     const [uploading, setUploading] = useState(false);
     const [notificationsEmail, setNotificationsEmail] = useState(true);
     const [notificationsPush, setNotificationsPush] = useState(true);
+    
+    // Новые состояния для приватности
+    const [geoEnabled, setGeoEnabled] = useState(() => {
+        return localStorage.getItem('app_geo_enabled') !== 'false';
+    });
+    const [isExporting, setIsExporting] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -45,6 +51,16 @@ export const SettingsPage: React.FC = () => {
         onError: (e: any) => showError("Ошибка: " + e.message)
     });
 
+    const deleteAccountMutation = useMutation({
+        mutationFn: () => api.deleteAccount(),
+        onSuccess: () => {
+            success("Ваш аккаунт и данные были безвозвратно удалены.");
+            queryClient.invalidateQueries({ queryKey: ['user'] });
+            navigate('/');
+        },
+        onError: (e: any) => showError("Не удалось удалить данные: " + e.message)
+    });
+
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -52,7 +68,7 @@ export const SettingsPage: React.FC = () => {
         try {
             const url = await api.uploadImage(file);
             setAvatar(url);
-            success("Фото загружено. Не забудьте сохранить изменения.");
+            success("Фото загружено.");
         } catch (e: any) {
             showError(e.message);
         } finally {
@@ -65,9 +81,57 @@ export const SettingsPage: React.FC = () => {
         updateProfileMutation.mutate({ name, avatar });
     };
 
-    const handleDeleteAccount = () => {
-        if(confirm("Вы уверены? Это действие необратимо. Все ваши данные будут удалены.")) {
-            alert("Запрос на удаление отправлен.");
+    const handleToggleGeo = () => {
+        const newState = !geoEnabled;
+        setGeoEnabled(newState);
+        localStorage.setItem('app_geo_enabled', String(newState));
+        success(newState ? "Доступ к геолокации разрешен" : "Доступ к геолокации ограничен");
+    };
+
+    const handleExportData = async () => {
+        if (!user) return;
+        setIsExporting(true);
+        try {
+            // Собираем данные для выгрузки
+            const content = await api.getUserContent(user.id);
+            const exportObj = {
+                profile: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    xp: user.xp,
+                    createdAt: user.createdAt
+                },
+                ads: content.ads,
+                favorites: user.favorites,
+                exportedAt: new Date().toISOString(),
+                platform: "Снежинск Лайф"
+            };
+
+            const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `my_data_${user.name.replace(/\s+/g, '_')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            success("Архив с данными успешно сформирован и загружен");
+        } catch (e) {
+            showError("Не удалось сформировать архив данных");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleWithdrawConsent = () => {
+        const confirmed = window.confirm(
+            "Отзыв согласия на обработку данных приведет к немедленному удалению вашего аккаунта и всей связанной информации (объявлений, сообщений, XP). Продолжить?"
+        );
+        if (confirmed) {
+            deleteAccountMutation.mutate();
         }
     };
 
@@ -104,7 +168,7 @@ export const SettingsPage: React.FC = () => {
                         
                         <div className="flex-1 w-full space-y-4">
                             <div>
-                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">Как вас зовут?</label>
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">Имя в системе</label>
                                 <input 
                                     type="text" 
                                     className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl px-5 py-4 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 transition-all font-bold"
@@ -118,9 +182,70 @@ export const SettingsPage: React.FC = () => {
                                 disabled={updateProfileMutation.isPending || (name === user?.name && avatar === user?.avatar)}
                                 className="w-full sm:w-auto px-8 py-3.5 rounded-2xl"
                             >
-                                {updateProfileMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-4 h-4 mr-2" /> Сохранить профиль</>}
+                                {updateProfileMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-4 h-4 mr-2" /> Сохранить изменения</>}
                             </Button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Privacy Management - НОВЫЙ БЛОК */}
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border dark:border-gray-700 overflow-hidden mb-8">
+                <div className="p-5 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <h2 className="font-black text-xs uppercase tracking-widest flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                        <Shield className="w-4 h-4" /> Конфиденциальность и данные
+                    </h2>
+                </div>
+                <div className="p-6 space-y-6">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-2xl transition-colors ${geoEnabled ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
+                                {geoEnabled ? <Navigation className="w-5 h-5" /> : <MapPinOff className="w-5 h-5" />}
+                            </div>
+                            <div className="flex-1">
+                                <div className="font-bold text-gray-900 dark:text-white">Доступ к геолокации</div>
+                                <div className="text-xs text-gray-500">Нужен для поиска объявлений рядом и квестов</div>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={handleToggleGeo}
+                            className={`w-14 h-8 rounded-full p-1 transition-colors ${geoEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                        >
+                            <div className={`w-6 h-6 bg-white rounded-full transition-transform ${geoEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
+
+                    <div className="pt-4 border-t dark:border-gray-700">
+                        <button 
+                            onClick={handleExportData}
+                            disabled={isExporting}
+                            className="w-full flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors group"
+                        >
+                            <div className="flex items-center gap-4 text-left">
+                                <FileJson className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                                <div>
+                                    <div className="font-bold text-sm text-gray-900 dark:text-white">Экспорт моих данных</div>
+                                    <p className="text-[10px] text-gray-500 uppercase font-black">JSON Архив</p>
+                                </div>
+                            </div>
+                            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4 text-gray-300" />}
+                        </button>
+                    </div>
+
+                    <div className="pt-2">
+                        <button 
+                            onClick={handleWithdrawConsent}
+                            className="w-full flex items-center justify-between p-4 rounded-2xl bg-red-50/30 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group border border-transparent hover:border-red-100 dark:hover:border-red-900/30"
+                        >
+                            <div className="flex items-center gap-4 text-left">
+                                <ShieldAlert className="w-5 h-5 text-red-500" />
+                                <div>
+                                    <div className="font-bold text-sm text-red-600">Отозвать согласие</div>
+                                    <p className="text-[10px] text-red-500/60 uppercase font-black">Прекратить обработку</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-red-200 group-hover:text-red-500" />
+                        </button>
                     </div>
                 </div>
             </div>
@@ -148,63 +273,20 @@ export const SettingsPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Notifications */}
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border dark:border-gray-700 overflow-hidden mb-8">
-                <div className="p-5 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                    <h2 className="font-black text-xs uppercase tracking-widest flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                        <Bell className="w-4 h-4" /> Уведомления
-                    </h2>
-                </div>
-                <div className="p-6 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-blue-600 dark:text-blue-400">
-                                <Mail className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <div className="font-bold text-gray-900 dark:text-white">Email рассылка</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">Только важные новости города</div>
-                            </div>
-                        </div>
-                        <input type="checkbox" checked={notificationsEmail} onChange={e => setNotificationsEmail(e.target.checked)} className="w-6 h-6 rounded-lg text-blue-600" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-2xl text-purple-600 dark:text-purple-400">
-                                <Smartphone className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <div className="font-bold text-gray-900 dark:text-white">Push уведомления</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">О новых сообщениях в чате</div>
-                            </div>
-                        </div>
-                        <input type="checkbox" checked={notificationsPush} onChange={e => setNotificationsPush(e.target.checked)} className="w-6 h-6 rounded-lg text-blue-600" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Legal */}
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border dark:border-gray-700 overflow-hidden mb-8">
-                <Link to="/legal" className="p-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-2xl text-gray-500">
-                            <Shield className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <span className="font-bold text-gray-900 dark:text-white">Правовая информация</span>
-                            <p className="text-xs text-gray-500">Условия и приватность</p>
-                        </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" />
-                </Link>
-            </div>
-
             <div className="p-6 bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30 flex items-center justify-between">
                 <div>
                     <div className="font-bold text-red-700 dark:text-red-400">Удалить аккаунт</div>
-                    <div className="text-xs text-red-600/60 dark:text-red-400/60">Все данные будут стерты</div>
+                    <div className="text-xs text-red-600/60 dark:text-red-400/60">Все данные будут стерты навсегда</div>
                 </div>
-                <Button variant="danger" size="sm" onClick={handleDeleteAccount} className="rounded-xl">Удалить</Button>
+                <Button 
+                    variant="danger" 
+                    size="sm" 
+                    onClick={() => { if(window.confirm("Удалить аккаунт навсегда?")) deleteAccountMutation.mutate(); }} 
+                    className="rounded-xl"
+                    disabled={deleteAccountMutation.isPending}
+                >
+                    {deleteAccountMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Удалить'}
+                </Button>
             </div>
         </div>
     );

@@ -70,8 +70,8 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col h-[85vh]">
+    <div className="fixed inset-0 z-[130] flex items-start justify-center pt-10 md:pt-20 p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col h-[90vh] md:h-[85vh]">
         <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800 shrink-0">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">Подать объявление</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -100,6 +100,11 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
             <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Описание</label>
                 <textarea required rows={4} placeholder="Опишите ваш товар..." className="w-full px-4 py-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Местоположение</label>
+                <input required type="text" placeholder="Снежинск" className="w-full px-4 py-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
             </div>
 
             <div>

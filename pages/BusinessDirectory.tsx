@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CATEGORIES } from '../constants';
 import { Button, Rating, formatAddress, formatPhone } from '../components/ui/Common';
-import { MapPin, Phone, Clock, Map as MapIcon, List, Loader2, ArrowRight, Heart } from 'lucide-react';
+import { MapPin, Phone, Clock, Map as MapIcon, List, Loader2, ArrowRight, Star, User } from 'lucide-react';
 import { api } from '../services/api';
 import { YandexMap } from '../components/YandexMap';
 import { BusinessCardSkeleton } from '../components/ui/Skeleton';
@@ -60,7 +60,7 @@ export const BusinessDirectory: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">{categoryLabel}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-             {isLoading ? 'Загрузка...' : `Найдено ${businesses.length} организаций`}
+             {isLoading ? 'Загрузка...' : `Найдено ${businesses.length} объектов`}
           </p>
         </div>
         <Button variant="outline" onClick={() => setShowMap(!showMap)} className="dark:border-gray-600 dark:text-gray-200">
@@ -81,7 +81,7 @@ export const BusinessDirectory: React.FC = () => {
                 <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
                     <List className="w-8 h-8 opacity-30" />
                 </div>
-                <p>В этой категории пока нет организаций.</p>
+                <p>В этой категории пока ничего не найдено.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -89,6 +89,7 @@ export const BusinessDirectory: React.FC = () => {
                     const cleanPhone = formatPhone(biz.phone);
                     const cleanAddress = formatAddress(biz.address);
                     const isMaster = !!biz.isMaster;
+                    const hasRating = (biz.reviewsCount || 0) > 0;
 
                     return (
                         <div 
@@ -99,15 +100,26 @@ export const BusinessDirectory: React.FC = () => {
                             {/* Image Area */}
                             <div className="relative h-48 overflow-hidden bg-gray-100 dark:bg-gray-700">
                                 <img 
-                                    src={biz.image} 
+                                    src={biz.image || 'https://picsum.photos/seed/biz/400/300'} 
                                     alt={biz.name} 
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                                 />
-                                <div className="absolute top-3 right-3 bg-white/90 dark:bg-black/70 backdrop-blur px-2 py-1 rounded-lg shadow-sm">
-                                    <Rating value={biz.rating} count={biz.reviewsCount} />
-                                </div>
-                                <div className={`absolute bottom-3 left-3 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-lg flex items-center gap-1 ${isMaster ? 'bg-pink-500' : 'bg-blue-600'}`}>
-                                    {isMaster ? <><Heart className="w-3 h-3 fill-current" /> Хендмейд</> : biz.category}
+                                {hasRating ? (
+                                    <div className="absolute top-3 right-3 bg-white/90 dark:bg-black/70 backdrop-blur px-2 py-1 rounded-lg shadow-sm">
+                                        <Rating value={biz.rating} count={biz.reviewsCount} />
+                                    </div>
+                                ) : (
+                                    <div className="absolute top-3 right-3 bg-blue-600 text-white text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest shadow-sm">
+                                        Новый
+                                    </div>
+                                )}
+                                <div className={`absolute bottom-3 left-3 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-lg flex items-center gap-1.5 ${isMaster ? 'bg-orange-600' : 'bg-blue-600'}`}>
+                                    {isMaster ? (
+                                        <>
+                                            <Star className="w-3.5 h-3.5 fill-current" />
+                                            Спец
+                                        </>
+                                    ) : biz.category}
                                 </div>
                             </div>
 
@@ -118,7 +130,7 @@ export const BusinessDirectory: React.FC = () => {
                                         {biz.name}
                                     </h3>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 min-h-[2.5em]">
-                                        {biz.description || 'Описание отсутствует'}
+                                        {biz.description || 'Описание в процессе наполнения'}
                                     </p>
                                 </div>
 
@@ -141,10 +153,10 @@ export const BusinessDirectory: React.FC = () => {
                                                 <Phone className="w-3.5 h-3.5 mr-2" /> {cleanPhone}
                                             </button>
                                         ) : (
-                                            <span className="text-sm text-gray-400 italic">Нет телефона</span>
+                                            <span className="text-sm text-gray-400 italic">Телефон не указан</span>
                                         )}
                                         
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center group-hover:translate-x-1 transition-transform ${isMaster ? 'bg-pink-50 text-pink-600' : 'bg-blue-50 text-blue-600'}`}>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center group-hover:translate-x-1 transition-transform ${isMaster ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>
                                             <ArrowRight className="w-4 h-4" />
                                         </div>
                                     </div>

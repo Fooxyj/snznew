@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -42,6 +42,19 @@ export const PublicProfile: React.FC = () => {
         queryFn: api.getCurrentUser
     });
 
+    const registrationYear = useMemo(() => {
+        if (!user?.createdAt) return null;
+        try {
+            const date = new Date(user.createdAt);
+            if (isNaN(date.getTime())) return null;
+            const year = date.getFullYear();
+            // Если год больше текущего (ошибка сервера), откатываем на 2025
+            return year > 2025 ? 2025 : year;
+        } catch (e) {
+            return 2025;
+        }
+    }, [user?.createdAt]);
+
     if (userLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
     
     if (!user) {
@@ -80,9 +93,9 @@ export const PublicProfile: React.FC = () => {
                                 {user.badges?.map(b => <BadgeIcon key={b} name={b} />)}
                             </h1>
                             <div className="flex items-center justify-center md:justify-start gap-3 text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                {user.createdAt && (
+                                {registrationYear && (
                                     <span className="flex items-center gap-1">
-                                        <Calendar className="w-3 h-3" /> На сайте с {new Date(user.createdAt).getFullYear()}
+                                        <Calendar className="w-3 h-3" /> На сайте с {registrationYear}
                                     </span>
                                 )}
                             </div>

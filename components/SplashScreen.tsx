@@ -10,7 +10,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ isVisible = true }) 
 
   useEffect(() => {
     if (!isVisible) {
-      // Ждем окончания анимации (500мс) перед удалением из DOM
       const timer = setTimeout(() => setShouldRender(false), 500);
       return () => clearTimeout(timer);
     }
@@ -28,7 +27,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ isVisible = true }) 
           Снежинск
         </h1>
         <span className="text-sm md:text-base font-bold tracking-[0.5em] text-blue-200 uppercase block">
-          Онлайн
+          Лайф
         </span>
         <div className="mt-8 flex justify-center">
             <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>

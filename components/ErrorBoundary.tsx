@@ -1,6 +1,4 @@
-
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-// Comment above fix: Corrected typo from RefreshCcw to RefreshCw to match other components.
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Button } from './ui/Common';
 
@@ -14,44 +12,39 @@ interface State {
   error: Error | null;
 }
 
-// Comment above fix: Explicitly extending Component with Props and State generic parameters ensures that inherited members like state, props, and setState are correctly typed and recognized by the TypeScript compiler.
+/**
+ * ErrorBoundary component to catch rendering errors and show a fallback UI.
+ */
+// Comment above fix: Explicitly extending Component to ensure inheritance properties like setState and props are correctly resolved by the TS compiler
 export class ErrorBoundary extends Component<Props, State> {
-  // Comment above fix: Initializing the state object outside the constructor improves type detection for the 'state' property across the class.
+  // Comment above fix: Class property initialization for state is standard in React components
   public state: State = {
     hasError: false,
     error: null
   };
 
-  constructor(props: Props) {
-    super(props);
-  }
-
-  // Comment above fix: Implementing the static getDerivedStateFromError lifecycle method to update the component's state when an error is thrown during rendering.
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  // Comment above fix: Implementation of componentDidCatch for logging error information and stack traces.
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  // Comment above fix: handleReset defined as an arrow function to ensure proper 'this' binding when calling this.setState, which is inherited from the base Component class.
+  // Comment above fix: Property initializer with arrow function to bind 'this' correctly for methods accessing class properties
   public handleReset = (): void => {
-    // Comment above fix: Explicitly using this.setState from the inherited Component class
+    // Comment above fix: Explicitly call setState which is inherited from Component
     this.setState({ hasError: false, error: null });
     window.location.href = '/';
   };
 
-  // Comment above fix: render method accessing this.state and this.props, which are standard properties of a class component extending React.Component.
   public render(): ReactNode {
-    // Comment above fix: Correct access to state property inherited from Component
     const { hasError, error } = this.state;
-    // Comment above fix: Correct access to props property inherited from Component
+    // Comment above fix: Accessing props through inherited Component
     const { fallback, children } = this.props;
 
     if (hasError) {
-      if (fallback) return fallback;
+      if (fallback) return fallback as ReactNode;
 
       return (
         <div className="flex flex-col items-center justify-center min-h-[400px] p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border-2 border-dashed border-red-200 dark:border-red-900/30 m-4 shadow-xl">

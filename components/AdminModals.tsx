@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Upload, Trophy, Heart, ImageIcon, Bus, Clock, MapPin, Megaphone, Link as LinkIcon, Layout as LayoutIcon, Wand2, Sparkles, FileText, Trash2, Plus } from 'lucide-react';
+import { X, Loader2, Upload, Trophy, Heart, ImageIcon, Bus, Clock, MapPin, Megaphone, Link as LinkIcon, Layout as LayoutIcon, Wand2, Sparkles, FileText, Trash2, Plus, ShieldAlert } from 'lucide-react';
 import { Button, Badge } from './ui/Common';
 import { api } from '../services/api';
 import { aiService } from '../services/aiService';
@@ -199,13 +199,13 @@ export const CreateExclusivePageModal: React.FC<AdminModalProps> = ({ isOpen, on
 };
 
 export const CreatePromoAdModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSuccess, item }) => {
-    const [formData, setFormData] = useState({ title: '', description: '', image_url: '', link_url: '', price: '', category: 'Партнеры', is_active: true });
+    const [formData, setFormData] = useState({ title: '', description: '', image_url: '', link_url: '', price: '', category: 'Партнеры', is_active: true, erid: '', advertiser_info: '' });
     const [uploading, setUploading] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (item && isOpen) setFormData({ title: item.title, description: item.description || '', image_url: item.image_url, link_url: item.link_url || '', price: item.price?.toString() || '', category: item.category || 'Партнеры', is_active: item.is_active });
-        else if (!item && isOpen) setFormData({ title: '', description: '', image_url: '', link_url: '', price: '', category: 'Партнеры', is_active: true });
+        if (item && isOpen) setFormData({ title: item.title, description: item.description || '', image_url: item.image_url, link_url: item.link_url || '', price: item.price?.toString() || '', category: item.category || 'Партнеры', is_active: item.is_active, erid: item.erid || '', advertiser_info: item.advertiser_info || '' });
+        else if (!item && isOpen) setFormData({ title: '', description: '', image_url: '', link_url: '', price: '', category: 'Партнеры', is_active: true, erid: '', advertiser_info: '' });
     }, [item, isOpen]);
 
     if (!isOpen) return null;
@@ -244,10 +244,23 @@ export const CreatePromoAdModal: React.FC<AdminModalProps> = ({ isOpen, onClose,
                         <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block">Название акции</label>
                         <input className="w-full border rounded-xl p-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-bold" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
                     </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2 sm:col-span-1">
+                            <label className="text-[10px] font-black uppercase text-red-500 flex items-center gap-1 mb-1">Маркировка: erid <ShieldAlert className="w-3 h-3"/></label>
+                            <input className="w-full border-red-200 border rounded-xl p-3 text-xs font-mono dark:bg-gray-700" value={formData.erid} onChange={e => setFormData({...formData, erid: e.target.value})} placeholder="abc123xyz" />
+                        </div>
+                        <div className="col-span-2 sm:col-span-1">
+                            <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block">ИНН / Название</label>
+                            <input className="w-full border rounded-xl p-3 text-xs dark:bg-gray-700" value={formData.advertiser_info} onChange={e => setFormData({...formData, advertiser_info: e.target.value})} placeholder="ООО Ромашка ИНН 123..." />
+                        </div>
+                    </div>
+
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block">Описание предложения</label>
-                        <textarea className="w-full border rounded-xl p-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none" rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required />
+                        <textarea className="w-full border rounded-xl p-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none" rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required />
                     </div>
+                    
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block">Цена "ОТ" (₽)</label>
@@ -282,13 +295,13 @@ export const CreatePromoAdModal: React.FC<AdminModalProps> = ({ isOpen, onClose,
 };
 
 export const CreateBannerModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSuccess, item }) => {
-    const [formData, setFormData] = useState({ image_url: '', link_url: '', title: '', is_active: true, position: 'home_top' as string });
+    const [formData, setFormData] = useState({ image_url: '', link_url: '', title: '', is_active: true, position: 'home_top' as string, erid: '', advertiser_info: '' });
     const [uploading, setUploading] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (item && isOpen) setFormData({ image_url: item.image_url, link_url: item.link_url || '', title: item.title || '', is_active: item.is_active, position: item.position || 'home_top' });
-        else if (!item && isOpen) setFormData({ image_url: '', link_url: '', title: '', is_active: true, position: 'home_top' });
+        if (item && isOpen) setFormData({ image_url: item.image_url, link_url: item.link_url || '', title: item.title || '', is_active: item.is_active, position: item.position || 'home_top', erid: item.erid || '', advertiser_info: item.advertiser_info || '' });
+        else if (!item && isOpen) setFormData({ image_url: '', link_url: '', title: '', is_active: true, position: 'home_top', erid: '', advertiser_info: '' });
     }, [item, isOpen]);
 
     if (!isOpen) return null;
@@ -322,6 +335,12 @@ export const CreateBannerModal: React.FC<AdminModalProps> = ({ isOpen, onClose, 
                     <button onClick={onClose}><X className="text-gray-400"/></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30 space-y-3">
+                        <p className="text-[9px] font-black text-red-600 uppercase tracking-widest flex items-center gap-1.5"><ShieldAlert className="w-3 h-3"/> Обязательно по 38-ФЗ</p>
+                        <input className="w-full border rounded-lg p-2 text-xs font-mono dark:bg-gray-700" placeholder="Токен рекламы (erid)" value={formData.erid} onChange={e => setFormData({...formData, erid: e.target.value})} />
+                        <input className="w-full border rounded-lg p-2 text-xs dark:bg-gray-700" placeholder="Рекламодатель (ООО + ИНН)" value={formData.advertiser_info} onChange={e => setFormData({...formData, advertiser_info: e.target.value})} />
+                    </div>
+
                     <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block">Заголовок</label>
                         <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
@@ -379,7 +398,7 @@ export const CreateTransportModal: React.FC<AdminModalProps> = ({ isOpen, onClos
         try { if (item) await api.updateTransport(item.id, formData); else await api.createTransport(formData); onSuccess(); onClose(); } catch (e: any) { alert(e.message); } finally { setLoading(false); }
     };
     return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"><div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]"><div className="flex justify-between items-center mb-6"><h2 className="text-xl font-black dark:text-white uppercase flex items-center gap-2"><Bus className="text-blue-600"/> {item ? 'Править рейс' : 'Новый рейс'}</h2><button onClick={onClose}><X className="text-gray-400"/></button></div><form onSubmit={handleSubmit} className="space-y-5">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"><div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]"><div className="flex justify-between items-center mb-6"><h2 className="text-xl font-black dark:text-white uppercase flex items-center gap-2"><Bus className="text-blue-600"/> {item ? 'Новый рейс' : 'Новый рейс'}</h2><button onClick={onClose}><X className="text-gray-400"/></button></div><form onSubmit={handleSubmit} className="space-y-5">
             <div><label className="text-[10px] font-black uppercase text-gray-400 mb-1 block">Тип</label><div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl">{(['city', 'intercity', 'taxi'] as const).map((t) => (<button key={t} type="button" onClick={() => setFormData({ ...formData, type: t })} className={`py-2 text-[10px] font-black uppercase rounded-lg transition-all ${formData.type === t ? 'bg-white dark:bg-gray-600 text-blue-600 shadow-sm' : 'text-gray-400'}`}>{t === 'city' ? 'Город' : t === 'intercity' ? 'Межгород' : 'Такси'}</button>))}</div></div>
             <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Название / Маршрут" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
             <textarea className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Расписание" rows={3} value={formData.schedule} onChange={e => setFormData({...formData, schedule: e.target.value})} required />

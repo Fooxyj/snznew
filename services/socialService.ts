@@ -36,353 +36,405 @@ const formatRelativeDate = (dateStr: string | null | undefined): string => {
 };
 
 export const socialService = {
-  // Comment above fix: Added notification subscription and management methods
-  async subscribeToNotifications(userId: string, callback: (n: Notification) => void) {
-    if (!isSupabaseConfigured() || !supabase) return { unsubscribe: () => {} };
-    
-    const channel = supabase
-      .channel(`notifs-${userId}`)
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'notifications', 
-        filter: `user_id=eq.${userId}` 
-      }, (payload) => {
-        const n = payload.new as any;
-        callback({
-            id: n.id,
-            userId: n.user_id,
-            text: n.text || n.message,
-            isRead: n.is_read,
-            createdAt: n.created_at
-        });
-      })
-      .subscribe();
-      
-    return { unsubscribe: () => supabase.removeChannel(channel) };
-  },
-
-  async markAllNotificationsRead(userId: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId);
-      }
-  },
-
-  async deleteNotification(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          await supabase.from('notifications').delete().eq('id', id);
-      }
-  },
-
-  async markNotificationRead(id: string): Promise<void> {
-      if (isSupabaseConfigured() && supabase) {
-          await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-      }
-  },
-
-  // Comment above fix: Added job vacancy management methods
-  async getVacancies(): Promise<Vacancy[]> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('vacancies').select('*').order('created_at', { ascending: false });
-          return (data || []).map((v: any) => ({ id: v.id, title: v.title, salaryMin: v.salary_min, salaryMax: v.salary_max, companyName: v.company_name, description: v.description, contactPhone: v.contact_phone, schedule: v.schedule, authorId: v.author_id, createdAt: v.created_at, status: v.status }));
-      }
-      return mockStore.vacancies || [];
-  },
-  async createVacancy(data: any) {
-      const user = await authService.getCurrentUser();
-      if (isSupabaseConfigured() && supabase && user) {
-          const { error } = await supabase.from('vacancies').insert({ 
-              title: data.title, company_name: data.companyName, description: data.description, 
-              salary_min: data.salaryMin, salary_max: data.salaryMax, contact_phone: data.contactPhone, 
-              schedule: data.schedule, author_id: user.id, status: 'approved', created_at: new Date().toISOString() 
-          });
-          if (error) throw error;
-      }
-  },
-
-  // Comment above fix: Added resume management methods
-  async getResumes(): Promise<Resume[]> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('resumes').select('*').order('created_at', { ascending: false });
-          return (data || []).map((r: any) => ({ id: r.id, name: r.name, profession: r.profession, salaryExpectation: r.salary_expectation, experience: r.experience, about: r.about, phone: r.phone, authorId: r.author_id, createdAt: r.created_at, status: r.status }));
-      }
-      return mockStore.resumes || [];
-  },
-  async createResume(data: any) {
-      const user = await authService.getCurrentUser();
-      if (isSupabaseConfigured() && supabase && user) {
-          const { error } = await supabase.from('resumes').insert({ 
-              name: data.name, profession: data.profession, salary_expectation: data.salaryExpectation, 
-              experience: data.experience, about: data.about, phone: data.phone, 
-              author_id: user.id, status: 'approved', created_at: new Date().toISOString() 
-          });
-          if (error) throw error;
-      }
-  },
-
-  // Comment above fix: Added bonus shop and coupon management methods
-  async getCoupons(): Promise<Coupon[]> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('coupons').select('*');
-          return data || [];
-      }
-      return mockStore.coupons || [];
-  },
-  async getMyCoupons(): Promise<UserCoupon[]> {
-      const user = await authService.getCurrentUser();
-      if (isSupabaseConfigured() && supabase && user) {
-          const { data } = await supabase.from('user_coupons').select('*, coupons(title, image)').eq('user_id', user.id);
-          return (data || []).map((c: any) => ({ id: c.id, userId: c.user_id, couponId: c.coupon_id, code: c.code, couponTitle: c.coupons?.title, couponImage: c.coupons?.image }));
-      }
-      return [];
-  },
-  async buyCoupon(id: string) {
-      const user = await authService.getCurrentUser();
-      if (!user || !supabase) throw new Error("Unauthorized");
-      const { data: coupon } = await supabase.from('coupons').select('price').eq('id', id).single();
-      if (!coupon) throw new Error("Coupon not found");
-      if (user.xp < coupon.price) throw new Error("Недостаточно XP");
-      
-      const { error: xpError } = await supabase.from('profiles').update({ xp: user.xp - coupon.price }).eq('id', user.id);
-      if (xpError) throw xpError;
-
-      const { error: insError } = await supabase.from('user_coupons').insert({ 
-          user_id: user.id, 
-          coupon_id: id, 
-          code: `SNZ-${Math.random().toString(36).substring(7).toUpperCase()}` 
-      });
-      if (insError) throw insError;
+  async getUnreadChatsCount(): Promise<number> {
+      try {
+        const user = await authService.getCurrentUser();
+        if (!user) return 0;
+        
+        if (isSupabaseConfigured() && supabase) {
+            const { count } = await supabase.from('messages').select('*', { count: 'exact', head: true }).eq('is_read', false).neq('sender_id', user.id);
+            return count || 0;
+        }
+        return mockStore.conversations.filter(c => c.unreadCount && c.unreadCount > 0).length;
+      } catch (e) { return 0; }
   },
 
   async getConversations(): Promise<Conversation[]> {
-    const user = await authService.getCurrentUser();
-    if (!user || !isSupabaseConfigured() || !supabase) return [];
-    
-    const { data: convos, error: convError } = await supabase
-        .from('conversations')
-        .select('id, participant1_id, participant2_id, business_id')
-        .or(`participant1_id.eq.${user.id},participant2_id.eq.${partnerId}),and(participant1_id.eq.${partnerId},participant2_id.eq.${user.id})`);
-    
-    if (convError || !convos) return [];
-
-    const convoIds = convos.map(c => c.id);
-
-    const [messagesRes, unreadRes] = await Promise.all([
-        supabase
-            .from('messages')
-            .select('conversation_id, text, created_at')
-            .in('conversation_id', convoIds)
-            .order('created_at', { ascending: false }),
-        supabase
-            .from('messages')
-            .select('conversation_id')
-            .in('conversation_id', convoIds)
-            .eq('is_read', false)
-            .neq('sender_id', user.id)
-    ]);
-
-    const lastMsgMap = new Map<string, { text: string, date: string }>();
-    if (messagesRes.data) {
-        messagesRes.data.forEach(m => {
-            if (!lastMsgMap.has(m.conversation_id)) {
-                lastMsgMap.set(m.conversation_id, { text: m.text, date: m.created_at });
-            }
-        });
-    }
-
-    const unreadCountMap = new Map<string, number>();
-    if (unreadRes.data) {
-        unreadRes.data.forEach(m => {
-            unreadCountMap.set(m.conversation_id, (unreadCountMap.get(m.conversation_id) || 0) + 1);
-        });
-    }
-
-    const partnerIds = convos.map(c => c.participant1_id === user.id ? c.participant2_id : c.participant1_id);
-    const businessIds = convos.map(c => c.business_id).filter(Boolean);
-    
-    const [profsRes, bizRes] = await Promise.all([
-        supabase.from('profiles').select('id, name, avatar, last_seen').in('id', [...new Set(partnerIds)]),
-        businessIds.length > 0 ? supabase.from('businesses').select('id, name, image, author_id').in('id', [...new Set(businessIds)]) : { data: [] }
-    ]);
-
-    const profMap = new Map<string, any>(profsRes.data?.map(p => [p.id, p]) || []);
-    const bizMap = new Map<string, any>(bizRes.data?.map(b => [b.id, b]) || []);
-    
-    return convos.map(c => {
-        const business = c.business_id ? bizMap.get(c.business_id) : null;
-        const partnerId = c.participant1_id === user.id ? c.participant2_id : c.participant1_id;
-        const partnerProfile = profMap.get(partnerId);
-
-        let partnerName = partnerProfile?.name || 'Пользователь';
-        let partnerAvatar = partnerProfile?.avatar || '';
-
-        if (business && business.author_id !== user.id) {
-            partnerName = business.name;
-            partnerAvatar = business.image;
-        } else if (business && business.author_id === user.id) {
-            partnerName = `${partnerName} (в ${business.name})`;
-        }
-
-        const realLastMsg = lastMsgMap.get(c.id);
-        let lastText = realLastMsg?.text || '';
-        const rawDate = realLastMsg?.date || null;
-
-        if (lastText.startsWith('{')) {
-            try {
-                const parsed = JSON.parse(lastText);
-                if (parsed.type === 'ad_inquiry') lastText = '💬 Запрос по объявлению';
-            } catch (e) {}
-        } else if (lastText.startsWith('http')) {
-             lastText = '📷 Фотография';
-        }
-
-        return {
-            id: c.id,
-            participant1Id: c.participant1_id,
-            participant2Id: c.participant2_id,
-            partnerId,
-            partnerName,
-            partnerAvatar,
-            lastMessageDate: formatRelativeDate(rawDate),
-            lastMessageText: lastText || 'Сообщений нет',
-            businessId: c.business_id,
-            unreadCount: unreadCountMap.get(c.id) || 0,
-            _rawDate: rawDate ? new Date(rawDate.replace(' ', 'T')).getTime() : 0
-        };
-    }).sort((a, b) => b._rawDate - a._rawDate);
-  },
-
-  async startChat(partnerId: string, context?: string, businessId?: string): Promise<string> {
-    const user = await authService.getCurrentUser();
-    if (!user || !isSupabaseConfigured() || !supabase) throw new Error("Unauthorized");
-    
-    let query = supabase.from('conversations').select('id')
-        .or(`and(participant1_id.eq.${user.id},participant2_id.eq.${partnerId}),and(participant1_id.eq.${partnerId},participant2_id.eq.${user.id})`);
-    
-    if (businessId) {
-        query = query.eq('business_id', businessId);
-    } else {
-        query = query.is('business_id', null);
-    }
-    
-    const { data: existing } = await query.maybeSingle();
-    
-    let convoId = '';
-    
-    if (existing) {
-        convoId = existing.id;
-    } else {
-        const { data: created, error } = await supabase.from('conversations').insert({
-            participant1_id: user.id,
-            participant2_id: partnerId,
-            business_id: businessId || null
-        }).select().single();
-
-        if (error) throw error;
-        convoId = created.id;
-    }
-
-    if (context) {
-        await this.sendMessage(convoId, context);
-    }
-    
-    return convoId;
-  },
-
-  async deleteConversation(convoId: string): Promise<void> {
-    if (!isSupabaseConfigured() || !supabase) return;
-    await supabase.from('messages').delete().eq('conversation_id', convoId);
-    await supabase.from('conversations').delete().eq('id', convoId);
-  },
-
-  async sendMessage(convoId: string, text: string): Promise<void> {
-    const user = await authService.getCurrentUser();
-    if (!user || !isSupabaseConfigured() || !supabase) return;
-    
-    const now = new Date().toISOString();
-    await supabase.from('messages').insert({ 
-        conversation_id: convoId, 
-        sender_id: user.id, 
-        text,
-        created_at: now
-    });
-  },
-
-  async getMessages(convoId: string): Promise<Message[]> {
-    if (!isSupabaseConfigured() || !supabase) return [];
-    const { data } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', convoId)
-        .order('created_at', { ascending: true });
-    
-    return (data || []).map(m => ({
-        id: m.id,
-        conversationId: m.conversation_id,
-        senderId: m.sender_id,
-        text: m.text,
-        createdAt: m.created_at,
-        isRead: m.is_read
-    }));
-  },
-
-  async markMessagesAsRead(convoId: string): Promise<void> {
-    const user = await authService.getCurrentUser();
-    if (!user || !isSupabaseConfigured() || !supabase) return;
-    await supabase.from('messages').update({ is_read: true }).eq('conversation_id', convoId).neq('sender_id', user.id);
-  },
-
-  async getUnreadChatsCount(): Promise<number> {
-    const user = await authService.getCurrentUser();
-    if (!user || !isSupabaseConfigured() || !supabase) return 0;
-    try {
-        const { count, error } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('is_read', false)
-            .neq('sender_id', user.id);
+      try {
+        const user = await authService.getCurrentUser();
+        if (!user) return [];
         
-        if (error) return 0;
-        return count || 0;
-    } catch (e) {
-        return 0;
-    }
+        if (isSupabaseConfigured() && supabase) {
+            const { data: convos, error } = await supabase
+                .from('conversations')
+                .select(`id, participant1_id, participant2_id, business_id`)
+                .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`);
+
+            if (error) throw error;
+            if (!convos || convos.length === 0) return [];
+
+            const convoIds = convos.map(c => c.id);
+
+            // Получаем только те диалоги, где есть сообщения
+            const { data: allLastMsgs } = await supabase
+                .from('messages')
+                .select('conversation_id, text, created_at')
+                .in('conversation_id', convoIds)
+                .order('created_at', { ascending: false });
+
+            const lastMsgMap = new Map<string, any>();
+            if (allLastMsgs) {
+                allLastMsgs.forEach(m => {
+                    if (!lastMsgMap.has(m.conversation_id)) {
+                        lastMsgMap.set(m.conversation_id, m);
+                    }
+                });
+            }
+
+            const { data: unreadCounts } = await supabase
+                .from('messages')
+                .select('conversation_id')
+                .in('conversation_id', convoIds)
+                .eq('is_read', false)
+                .neq('sender_id', user.id);
+
+            const unreadMap = new Map<string, number>();
+            if (unreadCounts) {
+                unreadCounts.forEach(m => {
+                    unreadMap.set(m.conversation_id, (unreadMap.get(m.conversation_id) || 0) + 1);
+                });
+            }
+
+            const partnerIds = new Set<string>();
+            const bizIds = new Set<string>();
+            convos.forEach(c => {
+                partnerIds.add(c.participant1_id === user.id ? c.participant2_id : c.participant1_id);
+                if (c.business_id) bizIds.add(c.business_id);
+            });
+
+            const [profilesRes, businessesRes] = await Promise.all([
+                supabase.from('profiles').select('id, name, avatar').in('id', Array.from(partnerIds)),
+                bizIds.size > 0 
+                    ? supabase.from('businesses').select('id, name, author_id').in('id', Array.from(bizIds))
+                    : Promise.resolve({ data: [] })
+            ]);
+
+            const profileMap = new Map<string, any>(profilesRes.data?.map(p => [p.id, p]) || []);
+            const bizMap = new Map<string, any>(businessesRes.data?.map(b => [b.id, b]) || []);
+
+            const result = convos
+                .map((c: any) => {
+                    const partnerId = c.participant1_id === user.id ? c.participant2_id : c.participant1_id;
+                    const partnerProfile = profileMap.get(partnerId);
+                    const lastMsg = lastMsgMap.get(c.id);
+                    const bizData = c.business_id ? bizMap.get(c.business_id) : null;
+                    
+                    const rawDate = lastMsg?.created_at || '1970-01-01T00:00:00Z';
+
+                    return {
+                        id: c.id,
+                        participant1Id: c.participant1_id,
+                        participant2Id: c.participant2_id,
+                        partnerId: partnerId,
+                        partnerName: partnerProfile?.name || 'Житель Снежинска',
+                        partnerAvatar: partnerProfile?.avatar || '',
+                        businessId: c.business_id,
+                        businessName: bizData?.name,
+                        businessOwnerId: bizData?.author_id,
+                        lastMessageDate: lastMsg ? formatRelativeDate(rawDate) : '—',
+                        lastMessageDateRaw: rawDate,
+                        lastMessageText: lastMsg ? lastMsg.text : 'Нет сообщений',
+                        unreadCount: unreadMap.get(c.id) || 0
+                    };
+                })
+                // КРИТИЧЕСКИЙ ФИЛЬТР: Убираем пустые диалоги из списка
+                .filter(c => c.lastMessageDateRaw !== '1970-01-01T00:00:00Z');
+
+            return result.sort((a, b) => {
+                const dateA = new Date(a.lastMessageDateRaw || 0).getTime();
+                const dateB = new Date(b.lastMessageDateRaw || 0).getTime();
+                return dateB - dateA;
+            });
+        }
+        
+        const mockResult = mockStore.conversations.filter(c => c.participant1Id === user.id || c.participant2Id === user.id);
+        return mockResult.sort((a, b) => {
+             const dateA = new Date(a.lastMessageDateRaw || 0).getTime();
+             const dateB = new Date(b.lastMessageDateRaw || 0).getTime();
+             return dateB - dateA;
+        });
+      } catch (e: any) { 
+          console.error("Conversations fetch error:", e.message);
+          return []; 
+      }
+  },
+
+  async getMessages(cid: string): Promise<Message[]> {
+      if (!cid || cid === 'undefined') return [];
+      try {
+        if (isSupabaseConfigured() && supabase) {
+            const { data, error } = await supabase.from('messages').select('*').eq('conversation_id', cid).order('created_at', { ascending: true });
+            if (!error && data) {
+                return data.map(m => ({ ...m, conversationId: m.conversation_id, senderId: m.sender_id, createdAt: m.created_at, isRead: m.is_read }));
+            }
+        }
+      } catch (e) {}
+      
+      return mockStore.messages.filter(m => m.conversationId === cid).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  },
+
+  async sendMessage(cid: string, text: string): Promise<Message> {
+      if (!cid || cid === 'undefined') throw new Error("Invalid conversation ID");
+      const user = await authService.getCurrentUser();
+      if (!user) throw new Error("Unauthorized");
+
+      if (isSupabaseConfigured() && supabase) {
+          const { data, error } = await supabase.from('messages').insert({ conversation_id: cid, sender_id: user.id, text, is_read: false }).select().single();
+          if (error) throw error;
+          return { ...data, conversationId: data.conversation_id, senderId: data.sender_id, createdAt: data.created_at, isRead: data.is_read };
+      }
+      
+      const newMessage: Message = {
+          id: Math.random().toString(36).substring(7),
+          conversationId: cid,
+          senderId: user.id,
+          text: text,
+          createdAt: new Date().toISOString(),
+          isRead: true
+      };
+      mockStore.messages.push(newMessage);
+      return newMessage;
+  },
+
+  async deleteMessage(mid: string): Promise<void> {
+      if (!mid) return;
+      const user = await authService.getCurrentUser();
+      if (!user) throw new Error("Unauthorized");
+
+      if (isSupabaseConfigured() && supabase) {
+          const { error } = await supabase.from('messages').delete().eq('id', mid).eq('sender_id', user.id);
+          if (error) throw error;
+      } else {
+          const idx = mockStore.messages.findIndex(m => m.id === mid);
+          if (idx !== -1) mockStore.messages.splice(idx, 1);
+      }
+  },
+
+  async deleteConversation(cid: string): Promise<void> {
+      if (!cid) return;
+      const user = await authService.getCurrentUser();
+      if (!user) throw new Error("Unauthorized");
+
+      if (isSupabaseConfigured() && supabase) {
+          // Удаляем диалог и все сообщения в нем
+          await supabase.from('messages').delete().eq('conversation_id', cid);
+          const { error } = await supabase.from('conversations').delete().eq('id', cid);
+          if (error) throw error;
+      } else {
+          const idx = mockStore.conversations.findIndex(c => c.id === cid);
+          if (idx !== -1) mockStore.conversations.splice(idx, 1);
+          mockStore.messages = mockStore.messages.filter(m => m.conversationId !== cid);
+      }
+  },
+
+  async markMessagesAsRead(cid: string) {
+      if (!cid || cid === 'undefined') return;
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return;
+      await supabase.from('messages').update({ is_read: true }).eq('conversation_id', cid).neq('sender_id', user.id);
+  },
+
+  async startChat(partnerId: string, text: string, businessId?: string): Promise<string> {
+      if (!partnerId || partnerId === 'undefined') throw new Error("Invalid partner ID");
+      const user = await authService.getCurrentUser();
+      if (!user) throw new Error("Unauthorized");
+      
+      if (isSupabaseConfigured() && supabase) {
+          // Ищем существующий диалог между этими двумя участниками
+          const { data: existing } = await supabase
+            .from('conversations')
+            .select('id')
+            .or(`and(participant1_id.eq.${user.id},participant2_id.eq.${partnerId}),and(participant1_id.eq.${partnerId},participant2_id.eq.${user.id})`)
+            .maybeSingle();
+          
+          let cid = existing?.id;
+          if (!cid) {
+              const { data: newConvo, error: insertError } = await supabase.from('conversations').insert({ 
+                  participant1_id: user.id, 
+                  participant2_id: partnerId, 
+                  business_id: businessId
+              }).select().maybeSingle();
+              
+              if (insertError) {
+                  // Повторная попытка без бизнес-id если первый insert не удался
+                  const { data: retryConvo, error: retryError } = await supabase.from('conversations').insert({ 
+                      participant1_id: user.id, 
+                      participant2_id: partnerId
+                  }).select().maybeSingle();
+                  
+                  if (retryError) throw retryError;
+                  cid = retryConvo?.id;
+              } else {
+                  cid = newConvo?.id;
+              }
+              
+              if (!cid) throw new Error("Не удалось создать диалог.");
+          }
+          
+          // Отправляем сообщение, если оно передано
+          if (text && cid) await this.sendMessage(cid, text);
+          return cid;
+      }
+      
+      const existingMock = mockStore.conversations.find(c => (c.participant1Id === user.id && c.participant2Id === partnerId) || (c.participant1Id === partnerId && c.participant2Id === user.id));
+      if (existingMock) {
+          if (text) await this.sendMessage(existingMock.id, text);
+          return existingMock.id;
+      }
+      
+      const newId = 'mc' + Math.random().toString(36).substring(7);
+      mockStore.conversations.push({
+          id: newId,
+          participant1Id: user.id,
+          participant2Id: partnerId,
+          partnerId: partnerId,
+          partnerName: 'Новый собеседник',
+          partnerAvatar: '',
+          lastMessageDate: 'Сейчас',
+          lastMessageDateRaw: new Date().toISOString(),
+          lastMessageText: text,
+          unreadCount: 0
+      });
+      if (text) await this.sendMessage(newId, text);
+      return newId;
   },
 
   async getComments(newsId: string): Promise<Comment[]> {
+      if (!newsId || newsId === 'undefined') return [];
       if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('comments').select('*').eq('news_id', newsId).order('created_at', { ascending: false });
-          return data?.map((c: any) => ({
-              id: c.id,
-              newsId: c.news_id,
-              authorName: c.author_name,
-              authorAvatar: c.author_avatar,
-              text: c.text,
-              date: formatRelativeDate(c.created_at)
-          })) || [];
+          const { data } = await supabase.from('comments').select('*, profiles(name, avatar)').eq('news_id', newsId).order('created_at', { ascending: false });
+          return data?.map(c => ({ id: c.id, newsId: c.news_id, authorName: c.profiles?.name || 'Житель', authorAvatar: c.profiles?.avatar, text: c.text, date: formatRelativeDate(c.created_at) })) || [];
       }
       return [];
   },
 
-  async addComment(newsId: string, text: string): Promise<void> {
+  async addComment(newsId: string, text: string) {
+      if (!newsId || newsId === 'undefined') throw new Error("Invalid news ID");
       const user = await authService.getCurrentUser();
       if (!user || !isSupabaseConfigured() || !supabase) throw new Error("Unauthorized");
-      await supabase.from('comments').insert({
-          news_id: newsId,
-          author_name: user.name,
-          author_avatar: user.avatar,
-          text
-      });
+      await supabase.from('comments').insert({ news_id: newsId, user_id: user.id, text });
+  },
+
+  async sendReport(tid: string, type: string, reason: string) {
+      if (!tid || tid === 'undefined') return;
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return;
+      await supabase.from('reports').insert({ user_id: user.id, target_id: tid, target_type: type, reason, status: 'new' });
+  },
+
+  async sendSuggestion(text: string) {
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return;
+      await supabase.from('suggestions').insert({ user_id: user.id, text, is_read: false });
+  },
+
+  async getCoupons(): Promise<Coupon[]> {
+      if (isSupabaseConfigured() && supabase) {
+          const { data } = await supabase.from('coupons').select('*').order('price', { ascending: true });
+          return data || [];
+      }
+      return mockStore.coupons;
+  },
+
+  async getMyCoupons(): Promise<UserCoupon[]> {
+      try {
+        const user = await authService.getCurrentUser();
+        if (!user) return [];
+        
+        if (isSupabaseConfigured() && supabase) {
+            const { data } = await supabase.from('user_coupons').select('*, coupons(title, image)').eq('user_id', user.id);
+            return (data || []).map(uc => ({
+                id: uc.id,
+                userId: uc.user_id,
+                couponId: uc.coupon_id,
+                code: uc.code,
+                couponTitle: (uc.coupons as any)?.title,
+                couponImage: (uc.coupons as any)?.image
+            }));
+        }
+      } catch (e) { return []; }
+      return [];
+  },
+
+  async buyCoupon(id: string) {
+      if (!id || id === 'undefined') throw new Error("Invalid coupon ID");
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return;
+      const { data: coupon } = await supabase.from('coupons').select('price').eq('id', id).single();
+      if (!coupon || user.xp < coupon.price) throw new Error("Not enough XP");
+      await supabase.from('user_coupons').insert({ user_id: user.id, coupon_id: id, code: `SNZ-${Math.random().toString(36).substring(7).toUpperCase()}` });
+      await supabase.from('profiles').update({ xp: user.xp - coupon.price }).eq('id', user.id);
+  },
+
+  async viewStory(id: string) {
+      if (!id || id === 'undefined') return;
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return;
+      await supabase.from('story_views').upsert({ story_id: id, user_id: user.id }, { onConflict: 'story_id,user_id' });
+  },
+
+  async createStory(media: string, caption: string, businessId: string | undefined, config: any) {
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return;
+      await supabase.from('stories').insert({ user_id: user.id, business_id: businessId, media, caption, content_config: config, status: 'published' });
+  },
+
+  async createCommunity(d: any) {
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return;
+      await supabase.from('communities').insert({ ...d, author_id: user.id, status: 'pending' });
+  },
+
+  async getCommunities(): Promise<Community[]> {
+      if (isSupabaseConfigured() && supabase) {
+          const { data } = await supabase.from('communities').select('*').eq('status', 'approved');
+          return data?.map(c => ({ ...c, membersCount: 0 })) || [];
+      }
+      return mockStore.communities;
+  },
+
+  async getCommunityById(id: string): Promise<Community | null> {
+      if (!id || id === 'undefined') return null;
+      if (isSupabaseConfigured() && supabase) {
+          const { data = null } = await supabase.from('communities').select('*').eq('id', id).single();
+          return data ? { ...data, membersCount: 0 } : null;
+      }
+      return null;
+  },
+
+  async getCommunityPosts(id: string): Promise<CommunityPost[]> {
+      if (!id || id === 'undefined') return [];
+      if (isSupabaseConfigured() && supabase) {
+          const { data } = await supabase.from('community_posts').select('*, profiles(name, avatar)').eq('community_id', id).order('created_at', { ascending: false });
+          return data?.map(p => ({ id: p.id, communityId: p.community_id, authorId: p.author_id, authorName: p.profiles?.name, authorAvatar: p.profiles?.avatar, content: p.content, image: p.image, likes: p.likes || 0, createdAt: p.created_at })) || [];
+      }
+      return [];
+  },
+
+  async leaveCommunity(id: string) {
+      if (!id || id === 'undefined') return;
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return;
+      await supabase.from('community_members').delete().eq('community_id', id).eq('user_id', user.id);
+  },
+
+  async createCommunityPost(cid: string, content: string, image: string) {
+      if (!cid || cid === 'undefined') return;
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return;
+      await supabase.from('community_posts').insert({ community_id: cid, author_id: user.id, content, image });
   },
 
   async getStories(): Promise<Story[]> {
+    try {
       if (isSupabaseConfigured() && supabase) {
           const { data, error } = await supabase
             .from('stories')
             .select('*, story_views(user_id, profiles(name, avatar))')
             .order('created_at', { ascending: false });
           
-          if (error || !data) return [];
+          if (error) throw error;
+          if (!data) return [];
 
           const profileIds = [...new Set(data.map(s => s.user_id).filter(Boolean))];
           const bizIds = [...new Set(data.map(s => s.business_id).filter(Boolean))];
@@ -430,207 +482,9 @@ export const socialService = {
               };
           });
       }
-      return [];
-  },
-
-  async createStory(media: string, caption: string, businessId?: string, config?: any): Promise<void> {
-      const user = await authService.getCurrentUser();
-      if (!user || !isSupabaseConfigured() || !supabase) throw new Error("Unauthorized");
-      
-      const storyData = {
-          user_id: user.id,
-          author_id: user.id, 
-          business_id: businessId || null,
-          media,
-          caption: caption || '',
-          content_config: config || {},
-          created_at: new Date().toISOString()
-      };
-
-      const { error } = await supabase.from('stories').insert(storyData);
-      
-      if (error) {
-          console.error("Supabase Story Insert Error:", error);
-          throw new Error(`Ошибка сохранения в БД: ${error.message}`);
-      }
-  },
-
-  async viewStory(storyId: string): Promise<void> {
-      const user = await authService.getCurrentUser();
-      if (!user || !isSupabaseConfigured() || !supabase) return;
-      
-      await supabase.from('story_views').upsert({
-          story_id: storyId,
-          user_id: user.id
-      }, { onConflict: 'story_id, user_id' });
-  },
-
-  async getCommunities(): Promise<Community[]> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('communities').select('*').eq('status', 'approved');
-          return data || [];
-      }
-      return [];
-  },
-
-  async getCommunityById(id: string): Promise<Community | null> {
-      if (isSupabaseConfigured() && supabase) {
-          const user = await authService.getCurrentUser();
-          const { data: community } = await supabase.from('communities').select('*').eq('id', id).single();
-          if (community && user) {
-              const { data: membership } = await supabase.from('community_members').select('*').eq('community_id', id).eq('user_id', user.id).maybeSingle();
-              return { ...community, isMember: !!membership };
-          }
-          return community;
-      }
-      return null;
-  },
-
-  async createCommunity(data: any): Promise<void> {
-      const user = await authService.getCurrentUser();
-      if (!user || !isSupabaseConfigured() || !supabase) throw new Error("Unauthorized");
-      await supabase.from('communities').insert({
-          name: data.name,
-          description: data.description,
-          image: data.image,
-          author_id: user.id,
-          status: 'pending',
-          members_count: 1
-      });
-  },
-
-  async leaveCommunity(communityId: string): Promise<void> {
-    const user = await authService.getCurrentUser();
-    if (!user || !isSupabaseConfigured() || !supabase) return;
-    await supabase.from('community_members').delete().eq('community_id', communityId).eq('user_id', user.id);
-    
-    const { data } = await supabase.from('communities').select('members_count').eq('id', communityId).single();
-    if (data) {
-        await supabase.from('communities').update({ members_count: Math.max(0, (data.members_count || 0) - 1) }).eq('id', communityId);
-    }
-},
-
-async getCommunityPosts(communityId: string): Promise<CommunityPost[]> {
-    if (isSupabaseConfigured() && supabase) {
-        const { data } = await supabase.from('community_posts').select('*').eq('community_id', communityId).order('created_at', { ascending: false });
-        if (!data) return [];
-        
-        const authorIds = [...new Set(data.map(p => p.author_id))];
-        const { data: profs } = await supabase.from('profiles').select('id, name, avatar').in('id', authorIds);
-        const profMap = new Map<string, any>(profs?.map(p => [p.id, p]) || []);
-
-        return data.map((p: any) => ({
-            id: p.id,
-            communityId: p.community_id,
-            authorId: p.author_id,
-            authorName: profMap.get(p.author_id)?.name || 'Пользователь',
-            authorAvatar: profMap.get(p.author_id)?.avatar || '',
-            content: p.content,
-            image: p.image,
-            likes: p.likes || 0,
-            createdAt: p.created_at
-        }));
+    } catch (e: any) {
+        console.error("Get stories failed:", e?.message || e);
     }
     return [];
-},
-
-async createCommunityPost(communityId: string, content: string, image?: string): Promise<void> {
-    const user = await authService.getCurrentUser();
-    if (!user || !isSupabaseConfigured() || !supabase) throw new Error("Unauthorized");
-    await supabase.from('community_posts').insert({
-        community_id: communityId,
-        author_id: user.id,
-        content,
-        image: image || null
-    });
-},
-
-async sendSuggestion(text: string): Promise<void> {
-    const user = await authService.getCurrentUser();
-    if (!isSupabaseConfigured() || !supabase) return;
-    await supabase.from('suggestions').insert({
-        user_id: user?.id || null,
-        text,
-        date: new Date().toISOString()
-    });
-},
-
-async sendReport(targetId: string, targetType: string, reason: string): Promise<void> {
-    const user = await authService.getCurrentUser();
-    if (!isSupabaseConfigured() || !supabase) return;
-    await supabase.from('reports').insert({
-        user_id: user?.id || null,
-        target_id: targetId,
-        target_type: targetType,
-        reason,
-        status: 'new',
-        date: new Date().toISOString()
-    });
-},
-
-// Comment above fix: Implementation for confirming ride bookings and updating seat availability
-async confirmRideBooking(rideId: string, passengerId: string, count: number): Promise<void> {
-    if (isSupabaseConfigured() && supabase) {
-        const { data: ride } = await supabase.from('rides').select('*').eq('id', rideId).single();
-        if (!ride) throw new Error("Поездка не найдена");
-        
-        let passengers = [];
-        try {
-            passengers = JSON.parse(ride.passengers || '[]');
-        } catch (e) { passengers = []; }
-        
-        if (!Array.isArray(passengers)) passengers = [];
-        
-        // Add passenger ID multiple times based on seat count
-        for(let i=0; i<count; i++) {
-            passengers.push(passengerId);
-        }
-        
-        const { error } = await supabase.from('rides').update({
-            passengers: JSON.stringify(passengers),
-            seats: Math.max(0, ride.seats - count)
-        }).eq('id', rideId);
-        
-        if (error) throw error;
-    }
-},
-
-// Comment above fix: Added getMyRides method to retrieve user's active rides
-async getMyRides(): Promise<Ride[]> {
-    const user = await authService.getCurrentUser();
-    if (isSupabaseConfigured() && supabase && user) {
-        const { data } = await supabase.from('rides').select('*').eq('driver_id', user.id);
-        return (data || []).map((r: any) => ({
-            id: r.id, fromCity: r.from_city, toCity: r.to_city, date: r.date, time: r.time, price: r.price, seats: r.seats, carModel: r.car_model, driverId: r.driver_id, driverName: r.driver_name, driverAvatar: r.driver_avatar, passengers: r.passengers
-        }));
-    }
-    return [];
-},
-
-// Comment above fix: Added deleteRide method to handle ride removal
-async deleteRide(id: string): Promise<void> {
-    if (isSupabaseConfigured() && supabase) {
-        await supabase.from('rides').delete().eq('id', id);
-    }
-},
-
-// Comment above fix: Added createRide method to handle new ride publication
-async createRide(data: any): Promise<void> {
-    const user = await authService.getCurrentUser();
-    if (isSupabaseConfigured() && supabase && user) {
-        await supabase.from('rides').insert({
-            from_city: data.fromCity,
-            to_city: data.toCity,
-            date: data.date,
-            time: data.time,
-            price: data.price,
-            seats: data.seats,
-            car_model: data.carModel,
-            driver_id: user.id,
-            driver_name: user.name,
-            driver_avatar: user.avatar,
-            status: 'approved'
-        });
-    }
-}
+  },
 };

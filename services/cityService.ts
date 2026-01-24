@@ -5,377 +5,615 @@ import { isSupabaseConfigured } from '../config';
 import { authService } from './authService';
 import { mockStore } from './mockData';
 
-const mapLostFoundFromDB = (item: any): LostFoundItem => ({
-    id: item.id,
-    type: item.type,
-    title: item.title,
-    description: item.description,
-    image: item.image,
-    location: item.location,
-    date: item.date,
-    contactName: item.contact_name || item.contactName || 'Не указано',
-    contactPhone: item.contact_phone || item.contactPhone || '',
-    isResolved: item.is_resolved === true,
-    authorId: item.author_id,
-    status: item.status
+const formatRelativeDate = (dateStr: string | null | undefined): string => {
+    if (!dateStr || dateStr === 'null' || dateStr === 'undefined' || dateStr === '') return 'Недавно';
+    const normalizedDate = dateStr.includes(' ') && !dateStr.includes('T') 
+        ? dateStr.replace(' ', 'T') 
+        : dateStr;
+    let date = new Date(normalizedDate);
+    if (isNaN(date.getTime())) return 'Недавно';
+    const now = new Date();
+    const isToday = now.getDate() === date.getDate() && now.getMonth() === date.getMonth() && now.getFullYear() === date.getFullYear();
+    if (isToday) return `Сегодня, ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const mapNewsItem = (n: any): NewsItem => ({
+    ...n,
+    date: n.date || n.created_at || new Date().toISOString()
 });
 
-const mapRentalFromDB = (r: any): RentalItem => ({
-    id: r.id,
-    title: r.title,
-    description: r.description,
-    image: r.image,
-    pricePerDay: r.price_per_day,
-    deposit: r.deposit,
-    category: r.category,
-    authorId: r.author_id,
-    isAvailable: r.is_available === true,
-    status: r.status
+const mapEventItem = (e: any): Event => ({
+    ...e,
+    authorId: e.author_id,
+    date: e.date || e.created_at || 'Дата уточняется'
 });
 
 export const cityService = {
-    async getWeather() {
-        try {
-            const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=56.08&longitude=60.73&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,weather_code&wind_speed_unit=ms&timezone=Asia%2FYekaterinburg');
-            const data = await res.json();
-            return { temp: Math.round(data.current.temperature_2m), wind: Math.round(data.current.wind_speed_10m), code: data.current.weather_code, humidity: data.current.relative_humidity_2m, pressure: Math.round(data.current.surface_pressure * 0.750062) }; 
-        } catch (e) { return { temp: 0, wind: 0, code: 3, humidity: 0, pressure: 0 }; }
-    },
-
-    async getWeatherForecast() {
-        try {
-            const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=56.08&longitude=60.73&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&wind_speed_unit=ms&timezone=Asia%2FYekaterinburg');
-            const data = await res.json();
-            return data.daily.time.map((dateStr: string, index: number) => ({
-                day: new Date(dateStr).toLocaleDateString('ru-RU', { weekday: 'short' }),
-                tempDay: Math.round(data.daily.temperature_2m_max[index]),
-                tempNight: Math.round(data.daily.temperature_2m_min[index]),
-                code: data.daily.weather_code[index],
-                wind: Math.round(data.daily.wind_speed_10m_max[index]),
-                precip: data.daily.precipitation_probability_max[index]
-            })).slice(0, 7);
-        } catch (e) { return []; }
-    },
-
     async getNews(): Promise<NewsItem[]> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('news').select('*').order('id', { ascending: false });
-          return data || [];
+      if (!isSupabaseConfigured() || !supabase) return mockStore.news;
+      try {
+          const { data, error } = await supabase
+            .from('news')
+            .select('*')
+            .limit(100);
+            
+          if (error) throw error;
+          if (data) return data.map(mapNewsItem).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          return mockStore.news;
+      } catch (e: any) {
+          const errMsg = e?.message || String(e);
+          if (!errMsg.includes('fetch') && !errMsg.includes('network')) {
+              console.error("Supabase news fetch error:", errMsg);
+          }
+          return mockStore.news;
       }
-      return mockStore.news;
     },
 
     async getNewsById(id: string): Promise<NewsItem | null> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('news').select('*').eq('id', id).maybeSingle();
-          return data;
-      }
-      return mockStore.news.find(n => n.id === id) || null;
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                const { data, error = null } = await supabase.from('news').select('*').eq('id', id).maybeSingle();
+                if (error) throw error;
+                return data ? mapNewsItem(data) : null;
+            } catch (e: any) {
+                const errMsg = e?.message || String(e);
+                if (!errMsg.includes('fetch')) console.error("Get news by id failed:", errMsg);
+                return mockStore.news.find(n => n.id === id) || null;
+            }
+        }
+        return mockStore.news.find(n => n.id === id) || null;
+    },
+
+    async updateNews(id: string, data: any) {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                await supabase.from('news').update(data).eq('id', id);
+            } catch (e) {}
+        }
+    },
+
+    async createNews(data: any): Promise<NewsItem> {
+        if (isSupabaseConfigured() && supabase) {
+            const { data: saved, error } = await supabase.from('news').insert(data).select().single();
+            if (error) throw error;
+            return mapNewsItem(saved);
+        }
+        const newItem = { ...data, id: Math.random().toString(), date: new Date().toISOString(), views: 0, commentsCount: 0 };
+        mockStore.news.push(newItem);
+        return newItem;
+    },
+
+    async deleteNews(id: string) {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                await supabase.from('news').delete().eq('id', id);
+            } catch (e) {}
+        }
     },
 
     async getEvents(): Promise<Event[]> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('events').select('*').order('id', { ascending: false });
-          return (data || []).map((e: any) => ({ ...e, authorId: e.author_id }));
+      try {
+        if (isSupabaseConfigured() && supabase) {
+            const { data, error } = await supabase.from('events').select('*').limit(100);
+            if (error) throw error;
+            return (data || []).map(mapEventItem);
+        }
+      } catch (e: any) {
+          const errMsg = e?.message || String(e);
+          if (!errMsg.includes('fetch')) console.error("Get events failed:", errMsg);
       }
       return mockStore.events;
     },
 
     async getEventById(id: string): Promise<Event | null> {
-      if (isSupabaseConfigured() && supabase) {
-          const { data } = await supabase.from('events').select('*').eq('id', id).maybeSingle();
-          if (data) return { ...data, authorId: data.author_id };
-      }
-      return mockStore.events.find(e => e.id === id) || null;
-    },
-
-    async getRides(): Promise<Ride[]> {
-        if (isSupabaseConfigured() && supabase) {
-            const { data } = await supabase.from('rides').select('*').order('id', { ascending: false });
-            return (data || []).map((r: any) => ({
-                id: r.id, fromCity: r.from_city, toCity: r.to_city, date: r.date, time: r.time, price: r.price, seats: r.seats, carModel: r.car_model, driverId: r.driver_id, driverName: r.driver_name, driverAvatar: r.driver_avatar, passengers: r.passengers
-            }));
-        }
-        return mockStore.rides;
-    },
-
-    async getLostFoundItems(type?: string): Promise<LostFoundItem[]> {
         if (isSupabaseConfigured() && supabase) {
             try {
-                let query = supabase.from('lost_found').select('*');
-                if (type && type !== 'all') {
-                    query = query.eq('type', type);
-                }
-                // Пробуем сортировку по id, так как в JSON был idx, id точно есть
-                const { data, error } = await query.order('id', { ascending: false });
+                const { data, error = null } = await supabase.from('events').select('*').eq('id', id).maybeSingle();
                 if (error) throw error;
-                return (data || []).map(mapLostFoundFromDB);
-            } catch (e) {
-                console.error("Supabase LostFound error:", e);
-                return [];
+                return data ? mapEventItem(data) : null;
+            } catch (e: any) {
+                const errMsg = e?.message || String(e);
+                if (!errMsg.includes('fetch')) console.error("Get event by id failed:", errMsg);
+                return mockStore.events.find(e => e.id === id) || null;
             }
         }
-        return type && type !== 'all' ? mockStore.lostFound.filter(i => i.type === type) : mockStore.lostFound;
+        return mockStore.events.find(e => e.id === id) || null;
     },
 
-    async createLostFoundItem(data: any) {
-        const user = await authService.getCurrentUser();
-        if (!user || !supabase) throw new Error("Unauthorized");
-        const { error } = await supabase.from('lost_found').insert({
-            type: data.type,
-            title: data.title,
-            description: data.description,
-            image: data.image,
-            location: data.location,
-            contact_name: data.contactName,
-            contact_phone: data.contactPhone,
-            author_id: user.id,
-            status: 'approved',
-            date: new Date().toLocaleDateString('ru-RU')
-        });
-        if (error) throw error;
-    },
-
-    async resolveLostFoundItem(id: string) {
-        if (!supabase) return;
-        await supabase.from('lost_found').update({ is_resolved: true }).eq('id', id);
-    },
-
-    async getRentals(): Promise<RentalItem[]> {
+    async updateEvent(id: string, data: any) {
         if (isSupabaseConfigured() && supabase) {
-            const { data } = await supabase.from('rentals').select('*').eq('is_available', true).eq('status', 'approved');
-            return (data || []).map(mapRentalFromDB);
+            try {
+                const dbData = { ...data, author_id: data.authorId };
+                delete dbData.authorId;
+                await supabase.from('events').update(dbData).eq('id', id);
+            } catch (e) {}
         }
-        return mockStore.rentals;
     },
 
-    async getAppeals(): Promise<Appeal[]> {
+    async createEvent(data: any): Promise<Event> {
         if (isSupabaseConfigured() && supabase) {
-            const { data } = await supabase.from('appeals').select('*').order('id', { ascending: false });
-            return (data || []).map(a => ({ ...a, authorId: a.author_id, resultImage: a.result_image }));
+            const dbData = { ...data, author_id: data.authorId };
+            delete dbData.authorId;
+            const { data: saved, error } = await supabase.from('events').insert(dbData).select().single();
+            if (error) throw error;
+            return mapEventItem(saved);
         }
-        return mockStore.appeals;
+        return { ...data, id: 'e' + Date.now() };
     },
 
-    async getNotifications(): Promise<Notification[]> {
-        const user = await authService.getCurrentUser();
-        if (isSupabaseConfigured() && supabase && user) {
-            const { data } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('id', { ascending: false });
-            return (data || []).map((n: any) => ({ id: n.id, userId: n.user_id, text: n.text || n.message, isRead: n.is_read, createdAt: n.created_at }));
+    async deleteEvent(id: string) {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                await supabase.from('events').delete().eq('id', id);
+            } catch (e) {}
         }
-        return [];
     },
 
     async getTransportSchedules(): Promise<TransportSchedule[]> {
         if (isSupabaseConfigured() && supabase) {
-            const { data } = await supabase.from('transport_schedules').select('*').order('id', { ascending: true });
-            return (data || []).map((t: any) => ({
-                id: t.id, type: t.type, routeNumber: t.route_number, title: t.title, schedule: t.schedule, workHours: t.work_hours, price: t.price ? parseFloat(t.price) : 0, phone: t.phone
-            }));
+            try {
+                const { data, error = null } = await supabase.from('transport_schedules').select('*');
+                if (error) throw error;
+                return data || [];
+            } catch (e: any) {
+                const errMsg = e?.message || String(e);
+                if (!errMsg.includes('fetch')) console.error("Transport schedules fetch error:", errMsg);
+                return [];
+            }
         }
         return [];
     },
 
-    // Comment above fix: Added getQuests method to retrieve city exploration missions
+    async updateTransport(id: string, data: any) {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                await supabase.from('transport_schedules').update(data).eq('id', id);
+            } catch (e) {}
+        }
+    },
+
+    async createTransport(data: any) {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                await supabase.from('transport_schedules').insert(data);
+            } catch (e) {}
+        }
+    },
+
     async getQuests(): Promise<Quest[]> {
         if (isSupabaseConfigured() && supabase) {
-            const { data } = await supabase.from('quests').select('*').order('id', { ascending: true });
-            return data || [];
+            try {
+                const user = await authService.getCurrentUser();
+                const { data: quests, error } = await supabase.from('quests').select('*');
+                if (error) throw error;
+                if (user) {
+                    const { data: completions } = await supabase.from('quest_completions').select('quest_id').eq('user_id', user.id);
+                    const completedIds = completions?.map(c => c.quest_id) || [];
+                    return (quests || []).map(q => ({ ...q, isCompleted: completedIds.includes(q.id) }));
+                }
+                return quests || [];
+            } catch (e: any) {
+                const errMsg = e?.message || String(e);
+                if (!errMsg.includes('fetch')) console.error("Get quests failed:", errMsg);
+                return mockStore.quests;
+            }
         }
         return mockStore.quests;
     },
 
-    // Comment above fix: Added completeQuest method for user rewarding upon geolocation validation
-    async completeQuest(questId: string, lat: number, lng: number): Promise<number> {
-        const user = await authService.getCurrentUser();
-        if (!user || !supabase) throw new Error("Unauthorized");
-        
-        const { data: quest } = await supabase.from('quests').select('*').eq('id', questId).single();
-        if (!quest) throw new Error("Quest not found");
-
-        const reward = quest.xp_reward || quest.xpReward || 100;
-        await supabase.from('user_quests').upsert({ user_id: user.id, quest_id: questId, completed: true });
-        await supabase.from('profiles').update({ xp: (user.xp || 0) + reward }).eq('id', user.id);
-        return reward;
-    },
-
-    // Comment above fix: Added createAppeal method for urban monitoring
-    async createAppeal(data: any) {
-        const user = await authService.getCurrentUser();
-        if (!user || !supabase) throw new Error("Unauthorized");
-        const { error } = await supabase.from('appeals').insert({
-            title: data.title,
-            description: data.description,
-            location: data.location,
-            image: data.image,
-            author_id: user.id,
-            status: 'new',
-            created_at: new Date().toISOString()
-        });
-        if (error) throw error;
-    },
-
-    // Comment above fix: Added resolveAppeal method to update problem status and add result evidence
-    async resolveAppeal(id: string, resultImage: string) {
-        if (!supabase) return;
-        await supabase.from('appeals').update({ status: 'done', result_image: resultImage }).eq('id', id);
-    },
-
-    // Comment above fix: Added housing-related methods for bill management and meter readings
-    async getUtilityBills(): Promise<UtilityBill[]> {
-        const user = await authService.getCurrentUser();
-        if (isSupabaseConfigured() && supabase && user) {
-            const { data } = await supabase.from('utility_bills').select('*').eq('user_id', user.id);
-            return (data || []).map((b: any) => ({ id: b.id, userId: b.user_id, serviceName: b.service_name, amount: b.amount, period: b.period, isPaid: b.is_paid }));
-        }
-        return [];
-    },
-
-    async submitMeterReading(type: string, value: number) {
-        const user = await authService.getCurrentUser();
-        if (isSupabaseConfigured() && supabase && user) {
-            await supabase.from('meter_readings').insert({ user_id: user.id, type, value, date: new Date().toISOString() });
-        }
-    },
-
-    async payUtilityBill(billId: string, amount: number) {
+    async updateQuest(id: string, data: any) {
         if (isSupabaseConfigured() && supabase) {
-            await supabase.from('utility_bills').update({ is_paid: true }).eq('id', billId);
+            try {
+                await supabase.from('quests').update(data).eq('id', id);
+            } catch (e) {}
         }
     },
 
-    // Comment above fix: Added charity-related methods for campaigns and donations
+    async createQuest(data: any) {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                await supabase.from('quests').insert(data);
+            } catch (e) {}
+        }
+    },
+
+    async completeQuest(id: string, lat: number, lng: number): Promise<number> {
+        const user = await authService.getCurrentUser();
+        if (!user) throw new Error("Unauthorized");
+        if (isSupabaseConfigured() && supabase) {
+            const { data: quest } = await supabase.from('quests').select('*').eq('id', id).single();
+            if (!quest) throw new Error("Quest not found");
+            await supabase.from('quest_completions').insert({ user_id: user.id, quest_id: id });
+            await supabase.from('profiles').update({ xp: (user.xp || 0) + (quest.xp_reward || 0) }).eq('id', user.id);
+            return quest.xp_reward || 0;
+        }
+        return 100;
+    },
+
     async getCampaigns(): Promise<Campaign[]> {
         if (isSupabaseConfigured() && supabase) {
-            const { data } = await supabase.from('campaigns').select('*').order('created_at', { ascending: false });
-            return (data || []).map((c: any) => ({ id: c.id, title: c.title, description: c.description, targetAmount: c.target_amount, collectedAmount: c.collected_amount, organizerName: c.organizer_name, image: c.image }));
+            try {
+                const { data, error } = await supabase.from('campaigns').select('*');
+                if (error) throw error;
+                return data?.map((c: any) => ({ ...c, targetAmount: c.target_amount, collectedAmount: c.collected_amount, organizerName: c.organizer_name })) || [];
+            } catch (e: any) {
+                const errMsg = e?.message || String(e);
+                if (!errMsg.includes('fetch')) console.error("Get campaigns failed:", errMsg);
+                return mockStore.campaigns;
+            }
         }
         return mockStore.campaigns;
     },
 
+    async updateCampaign(id: string, data: any) {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                const dbData = { ...data, target_amount: data.targetAmount, collected_amount: data.collectedAmount, organizer_name: data.organizerName };
+                delete dbData.targetAmount; delete dbData.collectedAmount; delete dbData.organizerName;
+                await supabase.from('campaigns').update(dbData).eq('id', id);
+            } catch (e) {}
+        }
+    },
+
     async createCampaign(data: any) {
         if (isSupabaseConfigured() && supabase) {
-            await supabase.from('campaigns').insert({
-                title: data.title,
-                description: data.description,
-                target_amount: data.targetAmount,
-                collected_amount: 0,
-                organizer_name: data.organizerName,
-                image: data.image
-            });
+            try {
+                const dbData = { ...data, target_amount: data.targetAmount, collected_amount: 0, organizer_name: data.organizerName };
+                delete dbData.targetAmount; delete dbData.organizerName;
+                await supabase.from('campaigns').insert(dbData);
+            } catch (e) {}
         }
     },
 
     async donateToCampaign(id: string, amount: number) {
         if (isSupabaseConfigured() && supabase) {
-            const { data: camp } = await supabase.from('campaigns').select('collected_amount').eq('id', id).single();
-            if (camp) {
-                await supabase.from('campaigns').update({ collected_amount: (camp.collected_amount || 0) + amount }).eq('id', id);
-            }
+            try {
+                const { data: camp } = await supabase.from('campaigns').select('collected_amount').eq('id', id).single();
+                await supabase.from('campaigns').update({ collected_amount: (camp?.collected_amount || 0) + amount }).eq('id', id);
+            } catch (e) {}
         }
     },
 
-    // Comment above fix: Added smart device management methods for city infrastructure control
+    async getLostFoundItems(type: string): Promise<LostFoundItem[]> {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                let q = supabase.from('lost_found').select('*').eq('status', 'approved');
+                if (type !== 'all') q = q.eq('type', type);
+                const { data, error } = await q;
+                if (error) throw error;
+                return data?.map((it: any) => ({ ...it, authorId: it.author_id, contactName: it.contact_name, contactPhone: it.contact_phone, isResolved: it.is_resolved })) || [];
+            } catch (e: any) {
+                const errMsg = e?.message || String(e);
+                if (!errMsg.includes('fetch')) console.error("Get lost found items failed:", errMsg);
+                return mockStore.lostFound;
+            }
+        }
+        return mockStore.lostFound;
+    },
+
+    async createLostFoundItem(data: any) {
+        const user = await authService.getCurrentUser();
+        if (!user || !isSupabaseConfigured() || !supabase) return;
+        try {
+            const dbData = { ...data, author_id: user.id, contact_name: data.contactName, contact_phone: data.contactPhone, status: 'pending' };
+            delete dbData.contactName; delete dbData.contactPhone;
+            await supabase.from('lost_found').insert(dbData);
+        } catch (e) {}
+    },
+
+    async resolveLostFoundItem(id: string) {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                await supabase.from('lost_found').update({ is_resolved: true }).eq('id', id);
+            } catch (e) {}
+        }
+    },
+
+    async getAppeals(): Promise<Appeal[]> {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                const { data, error } = await supabase.from('appeals').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+                return data?.map((a: any) => ({ ...a, authorId: a.author_id, resultImage: a.result_image })) || [];
+            } catch (e: any) {
+                const errMsg = e?.message || String(e);
+                if (!errMsg.includes('fetch')) console.error("Get appeals failed:", errMsg);
+                return mockStore.appeals;
+            }
+        }
+        return mockStore.appeals;
+    },
+
+    async createAppeal(data: any) {
+        const user = await authService.getCurrentUser();
+        if (!user || !isSupabaseConfigured() || !supabase) return;
+        try {
+            await supabase.from('appeals').insert({ ...data, author_id: user.id, status: 'new' });
+        } catch (e) {}
+    },
+
+    async resolveAppeal(id: string, resultImage: string) {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                await supabase.from('appeals').update({ status: 'done', result_image: resultImage }).eq('id', id);
+            } catch (e) {}
+        }
+    },
+
+    async getRides(): Promise<Ride[]> {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                const { data, error } = await supabase.from('rides').select('*, profiles(name, avatar)').eq('status', 'approved');
+                if (error) throw error;
+                return data?.map((r: any) => ({ ...r, fromCity: r.from_city, toCity: r.to_city, carModel: r.car_model, driverId: r.driver_id, driverName: r.profiles?.name, driverAvatar: r.profiles?.avatar })) || [];
+            } catch (e: any) {
+                const errMsg = e?.message || String(e);
+                if (!errMsg.includes('fetch')) console.error("Get rides failed:", errMsg);
+                return mockStore.rides;
+            }
+        }
+        return mockStore.rides;
+    },
+
+    async createRide(data: any) {
+        const user = await authService.getCurrentUser();
+        if (!user || !isSupabaseConfigured() || !supabase) return;
+        try {
+            const dbData = { ...data, driver_id: user.id, from_city: data.fromCity, to_city: data.toCity, car_model: data.carModel, status: 'pending' };
+            delete dbData.fromCity; delete dbData.toCity; delete dbData.carModel;
+            await supabase.from('rides').insert(dbData);
+        } catch (e) {}
+    },
+
+    async confirmRideBooking(rideId: string, passengerId: string, requestedSeats: number): Promise<void> {
+        if (!isSupabaseConfigured() || !supabase) return;
+        try {
+            const { data: ride } = await supabase.from('rides').select('*').eq('id', rideId).single();
+            if (!ride || ride.seats < requestedSeats) throw new Error("Мест больше нет");
+            
+            const { data: passenger } = await supabase.from('profiles').select('id, name, avatar').eq('id', passengerId).single();
+            const newPassenger = { id: passenger.id, name: passenger.name, avatar: passenger.avatar };
+            
+            const currentDetails = ride.passenger_details || [];
+            await supabase.from('rides').update({
+                seats: ride.seats - requestedSeats,
+                passenger_details: [...currentDetails, newPassenger]
+            }).eq('id', rideId);
+        } catch (e: any) { throw e; }
+    },
+
+    async getMyRides(): Promise<Ride[]> {
+        const user = await authService.getCurrentUser();
+        if (!user || !isSupabaseConfigured() || !supabase) return [];
+        try {
+            const { data, error } = await supabase.from('rides').select('*').eq('driver_id', user.id);
+            if (error) throw error;
+            return data?.map((r: any) => ({ 
+                ...r, 
+                fromCity: r.from_city, 
+                toCity: r.to_city, 
+                carModel: r.car_model, 
+                driverId: r.driver_id,
+                passengerDetails: r.passenger_details 
+            })) || [];
+        } catch (e: any) {
+            const errMsg = e?.message || String(e);
+            if (!errMsg.includes('fetch')) console.error("Get my rides failed:", errMsg);
+            return [];
+        }
+    },
+
+    async deleteRide(id: string) {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                await supabase.from('rides').delete().eq('id', id);
+            } catch (e) {}
+        }
+    },
+
+    async getVacancies(): Promise<Vacancy[]> {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                const { data, error } = await supabase.from('vacancies').select('*').eq('status', 'approved');
+                if (error) throw error;
+                return data?.map((v: any) => ({ ...v, authorId: v.author_id, companyName: v.company_name, salaryMin: v.salary_min, salaryMax: v.salary_max, contactPhone: v.contact_phone })) || [];
+            } catch (e: any) {
+                const errMsg = e?.message || String(e);
+                if (!errMsg.includes('fetch')) console.error("Get vacancies failed:", errMsg);
+                return mockStore.vacancies;
+            }
+        }
+        return mockStore.vacancies;
+    },
+
+    async createVacancy(data: any) {
+        const user = await authService.getCurrentUser();
+        if (!user || !isSupabaseConfigured() || !supabase) return;
+        try {
+            const dbData = { ...data, author_id: user.id, company_name: data.companyName, salary_min: data.salary_min, salary_max: data.salary_max, contact_phone: data.contact_phone, status: 'pending' };
+            delete dbData.companyName; delete dbData.salary_min; delete dbData.salary_max; delete dbData.contactPhone;
+            await supabase.from('vacancies').insert(dbData);
+        } catch (e) {}
+    },
+
+    async getResumes(): Promise<Resume[]> {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                const { data, error } = await supabase.from('resumes').select('*').eq('status', 'approved');
+                if (error) throw error;
+                return data?.map((r: any) => ({ ...r, authorId: r.author_id, salaryExpectation: r.salary_expectation })) || [];
+            } catch (e: any) {
+                const errMsg = e?.message || String(e);
+                if (!errMsg.includes('fetch')) console.error("Get resumes failed:", errMsg);
+                return mockStore.resumes;
+            }
+        }
+        return mockStore.resumes;
+    },
+
+    async createResume(data: any) {
+        const user = await authService.getCurrentUser();
+        if (!user || !isSupabaseConfigured() || !supabase) return;
+        try {
+            const dbData = { ...data, author_id: user.id, salary_expectation: data.salaryExpectation, status: 'pending' };
+            delete dbData.salaryExpectation;
+            await supabase.from('resumes').insert(dbData);
+        } catch (e) {}
+    },
+
     async getSmartDevices(): Promise<SmartDevice[]> {
         if (isSupabaseConfigured() && supabase) {
-            const user = await authService.getCurrentUser();
-            const { data } = await supabase.from('smart_devices').select('*').or(`is_private.eq.false${user ? `,user_id.eq.${user.id}` : ''}`);
-            return (data || []).map((d: any) => ({ id: d.id, type: d.type, name: d.name, location: d.location, imageUrl: d.image_url, isPrivate: d.is_private, status: d.status }));
+            try {
+                const { data, error } = await supabase.from('smart_devices').select('*');
+                if (error) throw error;
+                return data?.map((d: any) => ({ ...d, imageUrl: d.image_url, isPrivate: d.is_private })) || [];
+            } catch (e: any) {
+                return mockStore.smartDevices;
+            }
         }
         return mockStore.smartDevices;
     },
 
-    async controlDevice(id: string, action: string) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return true;
+    async controlDevice(id: string, command: string) {
+        await new Promise(r => setTimeout(r, 1000));
     },
 
-    // Comment above fix: Added getExploreData to aggregate city locations for the interactive map
+    async getWeather(): Promise<any> {
+        try {
+            const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=56.08&longitude=60.73&current_weather=true&relative_humidity_2m=true&surface_pressure=true');
+            if (!res.ok) throw new Error("Weather API error");
+            const data = await res.json();
+            return {
+                temp: data.current_weather.temperature,
+                wind: data.current_weather.windspeed,
+                code: data.current_weather.weathercode,
+                humidity: data.current_weather.relative_humidity_2m,
+                pressure: Math.round(data.current_weather.surface_pressure * 0.750062)
+            };
+        } catch (e: any) {
+            return { temp: 0, wind: 0, code: 0, humidity: 0, pressure: 0 };
+        }
+    },
+
+    async getWeatherForecast(): Promise<any[]> {
+        try {
+            const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=56.08&longitude=60.73&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max&timezone=auto');
+            if (!res.ok) throw new Error("Forecast API error");
+            const data = await res.json();
+            const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+            return data.daily.time.map((t: string, i: number) => ({
+                day: days[new Date(t).getDay()],
+                code: data.daily.weathercode[i],
+                tempDay: Math.round(data.daily.temperature_2m_max[i]),
+                tempNight: Math.round(data.daily.temperature_2m_min[i]),
+                precip: data.daily.precipitation_probability_max[i],
+                wind: data.daily.windspeed_10m_max[i]
+            }));
+        } catch (e: any) {
+            return [];
+        }
+    },
+
     async getExploreData(): Promise<any[]> {
-        const { data: bizsRes } = await supabase.from('businesses').select('*');
-        const { data: questsRes } = await supabase.from('quests').select('*');
-        const { data: appealsRes } = await supabase.from('appeals').select('*');
+        if (!isSupabaseConfigured() || !supabase) return [];
+        try {
+            const [biz, quests, appeals] = await Promise.all([
+                supabase.from('businesses').select('*'),
+                supabase.from('quests').select('*'),
+                supabase.from('appeals').select('*')
+            ]);
+            const results: any[] = [];
+            biz.data?.forEach(b => results.push({ type: 'business', id: b.id, lat: b.lat, lng: b.lng, title: b.name, subtitle: b.category, image: b.image, data: b }));
+            quests.data?.forEach(q => results.push({ type: 'quest', id: q.id, lat: q.lat, lng: q.lng, title: q.title, subtitle: 'Квест', image: q.image, data: q }));
+            appeals.data?.forEach(a => results.push({ type: 'appeal', id: a.id, lat: a.lat, lng: a.lng, title: a.title, subtitle: 'Обращение', image: a.image, data: a }));
+            return results;
+        } catch (e: any) {
+            return [];
+        }
+    },
 
-        const items: any[] = [];
-        (bizsRes || []).forEach(b => items.push({ id: b.id, type: 'business', title: b.name, subtitle: b.category, lat: b.lat, lng: b.lng, image: b.image, data: b }));
-        (questsRes || []).forEach(q => items.push({ id: q.id, type: 'quest', title: q.title, subtitle: 'Городской квест', lat: q.lat, lng: q.lng, image: q.image, data: q }));
-        (appealsRes || []).forEach(a => items.push({ id: a.id, type: 'appeal', title: a.title, subtitle: a.location, lat: a.lat || 56.08, lng: a.lng || 60.73, image: a.image, data: a }));
+    async getSystemStats(): Promise<any> {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                const [u, b, n] = await Promise.all([
+                    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+                    supabase.from('businesses').select('*', { count: 'exact', head: true }),
+                    supabase.from('news').select('*', { count: 'exact', head: true })
+                ]);
+                return { users: u.count, businesses: b.count, news: n.count };
+            } catch (e: any) {
+                return { users: 0, businesses: 0, news: 0 };
+            }
+        }
+        return { users: 0, businesses: 0, news: 0 };
+    },
 
-        return items;
+    async updateBanner(id: string, data: any) {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                await supabase.from('banners').update(data).eq('id', id);
+            } catch (e) {}
+        }
     },
 
-    // Comment above fix: Added administrative creation and update methods for transport, quests, news, events, and campaigns
-    async createTransport(data: any) {
+    async createBanner(data: any) {
         if (isSupabaseConfigured() && supabase) {
-            await supabase.from('transport_schedules').insert({
-                type: data.type, route_number: data.routeNumber, title: data.title, schedule: data.schedule, work_hours: data.workHours, price: data.price, phone: data.phone
-            });
+            try {
+                await supabase.from('banners').insert(data);
+            } catch (e) {}
         }
     },
-    async updateTransport(id: string, data: any) {
-        if (isSupabaseConfigured() && supabase) {
-            await supabase.from('transport_schedules').update({
-                type: data.type, route_number: data.routeNumber, title: data.title, schedule: data.schedule, work_hours: data.workHours, price: data.price, phone: data.phone
-            }).eq('id', id);
-        }
-    },
-    async createQuest(data: any) {
-        if (isSupabaseConfigured() && supabase) {
-            await supabase.from('quests').insert({
-                title: data.title, description: data.description, image: data.image, lat: parseFloat(data.lat), lng: parseFloat(data.lng), xp_reward: Number(data.xpReward)
-            });
-        }
-    },
-    async updateQuest(id: string, data: any) {
-        if (isSupabaseConfigured() && supabase) {
-            await supabase.from('quests').update({
-                title: data.title, description: data.description, image: data.image, lat: parseFloat(data.lat), lng: parseFloat(data.lng), xp_reward: Number(data.xpReward)
-            }).eq('id', id);
-        }
-    },
-    async updateCampaign(id: string, data: any) {
-        if (isSupabaseConfigured() && supabase) {
-            await supabase.from('campaigns').update({
-                title: data.title, description: data.description, target_amount: data.targetAmount, organizer_name: data.organizerName, image: data.image
-            }).eq('id', id);
-        }
-    },
-    async createNews(data: any) {
-        if (isSupabaseConfigured() && supabase) {
-            const { data: saved, error } = await supabase.from('news').insert({
-                title: data.title, category: data.category, content: data.content, image: data.image, date: new Date().toISOString(), views: 0, comments_count: 0
-            }).select().single();
+
+    async getUtilityBills(): Promise<UtilityBill[]> {
+        const user = await authService.getCurrentUser();
+        if (!user || !isSupabaseConfigured() || !supabase) return [];
+        try {
+            const { data, error } = await supabase.from('utility_bills').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
             if (error) throw error;
-            return saved;
+            return data?.map(b => ({ ...b, serviceName: b.service_name, isPaid: b.is_paid })) || [];
+        } catch (e: any) {
+            return [];
         }
-        return {} as any;
     },
-    async updateNews(id: string, data: any) {
+
+    async payUtilityBill(id: string, amount: number) {
         if (isSupabaseConfigured() && supabase) {
-            await supabase.from('news').update({ title: data.title, category: data.category, content: data.content, image: data.image }).eq('id', id);
+            try {
+                await supabase.from('utility_bills').update({ is_paid: true }).eq('id', id);
+            } catch (e) {}
         }
     },
-    async deleteNews(id: string) {
-        if (isSupabaseConfigured() && supabase) await supabase.from('news').delete().eq('id', id);
+
+    async submitMeterReading(type: string, value: number) {
+        const user = await authService.getCurrentUser();
+        if (!user || !isSupabaseConfigured() || !supabase) return;
+        try {
+            await supabase.from('meter_readings').insert({ user_id: user.id, type, value, date: new Date().toISOString() });
+        } catch (e) {}
     },
-    async createEvent(data: any) {
+
+    async getAdById(id: string): Promise<Ad | null> {
         if (isSupabaseConfigured() && supabase) {
-            const { data: saved, error } = await supabase.from('events').insert({
-                title: data.title, date: data.date, location: data.location, category: data.category, description: data.description, price: data.price, image: data.image
-            }).select().single();
-            if (error) throw error;
-            return saved;
+            try {
+                const { data: ad, error } = await supabase.from('ads').select('*').eq('id', id).maybeSingle();
+                if (error) throw error;
+                if (ad) {
+                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', ad.author_id).maybeSingle();
+                    return { 
+                        ...ad, 
+                        authorId: ad.author_id, // Явный маппинг ID автора
+                        date: formatRelativeDate(ad.created_at || ad.date), 
+                        authorName: profile?.name, 
+                        authorAvatar: profile?.avatar, 
+                        authorLastSeen: profile?.last_seen 
+                    };
+                }
+            } catch (e: any) { 
+                const errMsg = e?.message || String(e);
+                if (!errMsg.includes('fetch')) console.error("Get ad by id failed:", errMsg); 
+            }
         }
-        return {} as any;
+        return mockStore.ads.find(a => a.id === id) || null;
     },
-    async updateEvent(id: string, data: any) {
-        if (isSupabaseConfigured() && supabase) {
-            await supabase.from('events').update({
-                title: data.title, date: data.date, location: data.location, category: data.category, description: data.description, price: data.price, image: data.image
-            }).eq('id', id);
-        }
-    },
-    async deleteEvent(id: string) {
-        if (isSupabaseConfigured() && supabase) await supabase.from('events').delete().eq('id', id);
-    }
 };

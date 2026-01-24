@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Product, Service, Event, UserRole, Business } from '../types';
-import { Button, formatAddress, formatPhone } from '../components/ui/Common';
-import { MapPin, Phone, Clock, Loader2, Star, ChevronLeft, ShoppingBag, Plus, X, Calendar, Clock4, Trash2, Film, CreditCard, Globe, MessageCircle, Heart, User, Sparkles, ExternalLink } from 'lucide-react';
+import { Button, formatAddress, formatPhone, Rating } from '../components/ui/Common';
+import { MapPin, Phone, Clock, Loader2, Star, ChevronLeft, ShoppingBag, Plus, X, Calendar, Clock4, Trash2, Film, CreditCard, Globe, MessageCircle, Heart, User, Sparkles, ExternalLink, Send } from 'lucide-react';
 import { YandexMap } from '../components/YandexMap';
 import { CreateEventModal } from '../components/CreateEventModal';
 import { SeatPicker } from '../components/ui/SeatPicker';
@@ -19,6 +19,10 @@ export const BusinessDetail: React.FC = () => {
     
     const [activeTab, setActiveTab] = useState<'menu' | 'services' | 'reviews'>('menu');
     
+    // Review state
+    const [newRating, setNewRating] = useState(5);
+    const [newReviewText, setNewReviewText] = useState('');
+
     const { data: business, isLoading: businessLoading } = useQuery({
         queryKey: ['business', id],
         queryFn: () => api.getBusinessById(id!),
@@ -46,6 +50,36 @@ export const BusinessDetail: React.FC = () => {
     const { data: user } = useQuery({
         queryKey: ['user'],
         queryFn: api.getCurrentUser
+    });
+
+    // ВЫЧИСЛЯЕМЫЙ РЕЙТИНГ (для устранения рассинхрона)
+    // Если отзывы загружены, используем их для расчета актуальных цифр
+    const { displayRating, displayReviewsCount } = useMemo(() => {
+        if (!reviews || reviews.length === 0) {
+            return { 
+                displayRating: business?.rating || 0, 
+                displayReviewsCount: business?.reviewsCount || 0 
+            };
+        }
+        const count = reviews.length;
+        const sum = reviews.reduce((acc, r) => acc + (r.rating || 0), 0);
+        return {
+            displayRating: parseFloat((sum / count).toFixed(1)),
+            displayReviewsCount: count
+        };
+    }, [reviews, business]);
+
+    const addReviewMutation = useMutation({
+        mutationFn: () => api.addReview(id!, newRating, newReviewText),
+        onSuccess: () => {
+            setNewReviewText('');
+            setNewRating(5);
+            // Инвалидируем все связанные данные
+            queryClient.invalidateQueries({ queryKey: ['reviews', id] });
+            queryClient.invalidateQueries({ queryKey: ['business', id] });
+            alert("Спасибо за ваш отзыв!");
+        },
+        onError: (e: any) => alert("Ошибка: " + e.message)
     });
 
     const handleCall = () => {
@@ -82,9 +116,10 @@ export const BusinessDetail: React.FC = () => {
                 const price = (item as any).price ? `${(item as any).price.toLocaleString()} ₽` : 'Цена не указана';
                 
                 contextMsg = JSON.stringify({
-                    type: 'ad_inquiry', 
+                    type: type === 'product' ? 'product_inquiry' : 'service_inquiry', 
                     adId: item.id,
                     businessId: business.id,
+                    businessName: business.name,
                     title: title,
                     price: price,
                     image: (item as any).image || business.image,
@@ -105,20 +140,26 @@ export const BusinessDetail: React.FC = () => {
         }
     };
 
+    const handleSubmitReview = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newReviewText.trim()) return;
+        addReviewMutation.mutate();
+    };
+
     if (businessLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
     if (!business) return <NotFound />;
 
-    const isMaster = business.isMaster;
+    const isMaster = !!business.isMaster;
 
     return (
         <div className="max-w-6xl mx-auto p-4 lg:p-8 pb-24">
             <div className="flex items-center justify-between mb-4">
                 <button onClick={() => navigate(-1)} className="flex items-center text-gray-400 hover:text-blue-600 transition-colors font-bold uppercase text-[10px] tracking-widest">
-                    <ChevronLeft className="w-4 h-4 mr-1" /> К списку
+                    <ChevronLeft className="w-4 h-4 mr-1" /> Назад
                 </button>
             </div>
 
-            {/* Header Redesign - Clear cover (no opacity filter) */}
+            {/* Header section */}
             <div className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden border dark:border-gray-700 shadow-sm mb-12">
                 <div className="h-32 md:h-56 relative overflow-hidden bg-gray-100 dark:bg-gray-900 border-b dark:border-gray-700">
                     {business.coverImage ? (
@@ -129,42 +170,43 @@ export const BusinessDetail: React.FC = () => {
                 </div>
                 
                 <div className="px-6 md:px-10 pb-8 relative">
-                    <div className="flex flex-col md:flex-row gap-6 items-start justify-between">
+                    <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
                         {/* Avatar / Logo */}
                         <div className="w-24 h-24 md:w-36 md:h-36 rounded-[2rem] border-4 border-white dark:border-gray-800 overflow-hidden shadow-xl bg-white shrink-0 -mt-12 md:-mt-20 z-10">
                             <img src={business.image} alt={business.name} className="w-full h-full object-cover" />
                         </div>
 
                         {/* Text Content */}
-                        <div className="flex-1 min-w-0 pt-2">
-                            <div className="flex flex-wrap items-center gap-2 mb-2">
-                                <span className="bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider">
+                        <div className="flex-1 min-w-0 pt-2 break-words w-full">
+                            <div className="flex flex-wrap items-center gap-2 mb-3">
+                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${isMaster ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'}`}>
                                     {isMaster ? 'ЧАСТНЫЙ МАСТЕР' : 'ОРГАНИЗАЦИЯ'}
                                 </span>
-                                <div className="bg-[#fef3c7] dark:bg-yellow-900/40 px-3 py-1 rounded-full text-[#92400e] dark:text-yellow-400 text-[9px] font-black uppercase flex items-center gap-1 border border-yellow-100 dark:border-yellow-900/50">
-                                    <Star className="w-2.5 h-2.5 fill-current" /> {business.rating || 5}
+                                {/* Унифицированная плашка рейтинга с вычисляемыми данными */}
+                                <div className="bg-white dark:bg-black/40 px-1 py-0.5 rounded-lg shadow-sm border dark:border-gray-700">
+                                    <Rating value={displayRating} count={displayReviewsCount} />
                                 </div>
                             </div>
-                            <h1 className="text-3xl md:text-5xl font-black text-[#0f172a] dark:text-white leading-none tracking-tighter uppercase mb-2">
+                            <h1 className="text-3xl md:text-4xl xl:text-5xl font-black text-[#0f172a] dark:text-white leading-[1.1] tracking-tighter uppercase mb-3">
                                 {business.name}
                             </h1>
-                            <div className="flex items-center text-gray-500 font-bold text-sm">
+                            <div className="flex items-center text-gray-500 font-bold text-sm lg:text-base">
                                 <MapPin className="w-4 h-4 mr-1.5 text-gray-400 shrink-0" />
                                 {business.address}
                             </div>
                         </div>
                         
-                        {/* Action Buttons styled like screenshot */}
-                        <div className="flex items-stretch gap-3 w-full md:w-auto md:pt-4">
+                        {/* Action Buttons container */}
+                        <div className="flex items-center gap-3 w-full lg:w-auto lg:pt-6 xl:pt-8 flex-wrap sm:flex-nowrap">
                             <button 
                                 onClick={handleVisitWebsite} 
-                                className="flex-1 md:flex-none h-14 md:h-16 flex items-center justify-center text-white font-black uppercase text-[11px] tracking-widest bg-[#2563eb] hover:bg-blue-700 px-10 rounded-2xl transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                                className="flex-1 sm:flex-none h-14 md:h-16 min-w-[160px] flex items-center justify-center text-white font-black uppercase text-[11px] tracking-widest bg-[#2563eb] hover:bg-blue-700 px-8 rounded-2xl transition-all shadow-lg shadow-blue-500/20 active:scale-95"
                             >
                                 {business.website ? <><Globe className="w-4 h-4 mr-2" /> САЙТ</> : <><Phone className="w-4 h-4 mr-2" /> ПОЗВОНИТЬ</>}
                             </button>
                             <button 
                                 onClick={() => handleContactShop()} 
-                                className="h-14 md:h-16 px-5 md:px-6 flex items-center justify-center gap-2 text-[#0f172a] dark:text-white font-black uppercase text-[11px] tracking-widest bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-2xl transition-all border border-gray-100 dark:border-gray-600 shadow-sm active:scale-95"
+                                className="flex-1 sm:flex-none h-14 md:h-16 px-6 flex items-center justify-center gap-2 text-[#0f172a] dark:text-white font-black uppercase text-[11px] tracking-widest bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-2xl transition-all border border-gray-100 dark:border-gray-600 shadow-sm active:scale-95"
                             >
                                 <MessageCircle className="w-5 h-5" /> ЧАТ
                             </button>
@@ -244,31 +286,80 @@ export const BusinessDetail: React.FC = () => {
                                         </button>
                                     </div>
                                 ))}
+                                {services.length === 0 && <div className="text-center py-10 text-gray-400 font-bold uppercase text-[10px] tracking-widest italic">Услуги пока не добавлены</div>}
                             </div>
                         )}
 
                         {activeTab === 'reviews' && (
-                            <div className="space-y-4 animate-in fade-in">
-                                {reviews.map(r => (
-                                    <div key={r.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] border dark:border-gray-700 shadow-sm">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <img src={r.authorAvatar || `https://ui-avatars.com/api/?name=${r.authorName}`} className="w-10 h-10 rounded-full object-cover" alt="" />
-                                                <div>
-                                                    <div className="font-bold text-sm dark:text-white">{r.authorName}</div>
-                                                    <div className="flex items-center gap-1">
-                                                        {[...Array(5)].map((_, i) => (
-                                                            <Star key={i} className={`w-2.5 h-2.5 ${i < r.rating ? 'text-yellow-400 fill-current' : 'text-gray-200 dark:text-gray-700'}`} />
-                                                        ))}
+                            <div className="space-y-8 animate-in fade-in">
+                                {/* Форма написания отзыва всегда сверху */}
+                                {user ? (
+                                    <div className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] border dark:border-gray-700 shadow-sm mb-10">
+                                        <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-4">Оставить отзыв</h3>
+                                        <form onSubmit={handleSubmitReview}>
+                                            <div className="flex items-center gap-1 mb-4">
+                                                {[1, 2, 3, 4, 5].map(star => (
+                                                    <button 
+                                                        key={star} 
+                                                        type="button" 
+                                                        onClick={() => setNewRating(star)}
+                                                        className="p-1 transition-transform active:scale-90"
+                                                    >
+                                                        <Star className={`w-8 h-8 ${star <= newRating ? 'text-yellow-400 fill-current' : 'text-gray-200 dark:text-gray-700'}`} />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <textarea 
+                                                className="w-full bg-gray-50 dark:bg-gray-900 border-none rounded-2xl p-4 text-sm dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none mb-4 font-medium"
+                                                rows={3}
+                                                placeholder="Расскажите о вашем опыте..."
+                                                value={newReviewText}
+                                                onChange={e => setNewReviewText(e.target.value)}
+                                                required
+                                            />
+                                            <Button 
+                                                className="w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-500/10"
+                                                disabled={addReviewMutation.isPending || !newReviewText.trim()}
+                                            >
+                                                {addReviewMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : <><Send className="w-4 h-4 mr-2" /> Опубликовать</>}
+                                            </Button>
+                                        </form>
+                                    </div>
+                                ) : (
+                                    <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-[2rem] text-center border-2 border-dashed dark:border-gray-700 mb-10">
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 font-bold uppercase tracking-widest">Войдите, чтобы написать отзыв</p>
+                                        <Link to="/auth">
+                                            <Button variant="outline" size="sm" className="rounded-xl px-8 font-black uppercase tracking-widest text-[10px]">Войти</Button>
+                                        </Link>
+                                    </div>
+                                )}
+
+                                <div className="space-y-4">
+                                    {reviews.map(r => (
+                                        <div key={r.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] border dark:border-gray-700 shadow-sm">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <img src={r.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.authorName)}`} className="w-10 h-10 rounded-full object-cover border dark:border-gray-700" alt="" />
+                                                    <div>
+                                                        <div className="font-bold text-sm dark:text-white">{r.authorName}</div>
+                                                        <div className="flex items-center gap-1">
+                                                            {[...Array(5)].map((_, i) => (
+                                                                <Star key={i} className={`w-2.5 h-2.5 ${i < r.rating ? 'text-yellow-400 fill-current' : 'text-gray-200 dark:text-gray-700'}`} />
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 </div>
+                                                <span className="text-[9px] font-black uppercase text-gray-400 tracking-tighter">{r.date}</span>
                                             </div>
-                                            <span className="text-[9px] font-black uppercase text-gray-400">{r.date}</span>
+                                            <p className="text-gray-700 dark:text-gray-300 italic leading-relaxed text-sm">"{r.text}"</p>
                                         </div>
-                                        <p className="text-gray-700 dark:text-gray-300 italic leading-relaxed text-sm">"{r.text}"</p>
-                                    </div>
-                                ))}
-                                {reviews.length === 0 && <div className="text-center py-10 text-gray-400 font-bold uppercase text-[10px] tracking-widest italic">Будьте первым, кто оставит отзыв!</div>}
+                                    ))}
+                                    {reviews.length === 0 && (
+                                        <div className="text-center py-10 text-gray-400 font-bold uppercase text-[10px] tracking-widest italic animate-pulse">
+                                            Будьте первым, кто оставит отзыв!
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -299,7 +390,7 @@ export const BusinessDetail: React.FC = () => {
                                     <div className="p-2.5 bg-gray-50 dark:bg-gray-900 rounded-xl text-gray-400"><Globe className="w-5 h-5" /></div>
                                     <div className="min-w-0">
                                         <p className="text-[9px] font-black uppercase text-gray-400 mb-1 tracking-widest">Официальный сайт</p>
-                                        <a href={business.website.startsWith('http') ? business.website : `https://${business.website}`} target="_blank" className="font-bold text-blue-600 dark:text-blue-400 text-sm truncate block hover:underline">
+                                        <a href={business.website.startsWith('http') ? business.website : `https://${business.website}`} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 dark:text-blue-400 text-sm truncate block hover:underline">
                                             {business.website.replace('https://', '').replace('http://', '')}
                                         </a>
                                     </div>

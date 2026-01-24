@@ -1,14 +1,91 @@
 
-import { ADS_DATA, NEWS_DATA, BUSINESS_DATA, EVENTS_DATA } from '../constants';
-import { Ad, NewsItem, Business, Event, Order, Campaign, Story, RentalItem, Community, CommunityPost, LostFoundItem, Appeal, Ride, SmartDevice, Review, Comment, Suggestion, Report, Quest, AccessRequest, Vacancy, Resume, Banner, Coupon } from '../types';
+import { ADS_DATA, NEWS_DATA, BUSINESS_DATA, EVENTS_DATA, CURRENT_USER } from '../constants';
+import { Ad, NewsItem, Business, Event, Order, Campaign, Story, RentalItem, Community, CommunityPost, LostFoundItem, Appeal, Ride, SmartDevice, Review, Comment, Suggestion, Report, Quest, AccessRequest, Vacancy, Resume, Banner, Coupon, Conversation, Message } from '../types';
 
 export const mockStore = {
   ads: [...ADS_DATA] as Ad[],
   news: [...NEWS_DATA] as NewsItem[],
-  businesses: [...BUSINESS_DATA] as Business[],
+  businesses: [
+    ...BUSINESS_DATA,
+    {
+      id: 'm1',
+      name: 'Тортики от Марины',
+      category: 'Еда и Хендмейд',
+      rating: 5.0,
+      reviewsCount: 12,
+      address: 'ул. Ленина (Центр)',
+      image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?q=80&w=400&auto=format&fit=crop',
+      description: 'Домашние торты и капкейки на заказ. Только натуральные ингредиенты. Срок изготовления от 2 дней.',
+      lat: 56.082,
+      lng: 60.735,
+      phone: '+7 (922) 717-58-62',
+      workHours: '09:00 - 21:00',
+      isMaster: true
+    },
+    {
+      id: 'm2',
+      name: 'Мастер Александр (Электрик)',
+      category: 'Ремонт и Быт',
+      rating: 4.9,
+      reviewsCount: 45,
+      address: 'Весь город',
+      image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=400&auto=format&fit=crop',
+      description: 'Все виды электромонтажных работ. От замены розетки до полной разводки в квартире. Гарантия.',
+      lat: 56.080,
+      lng: 60.730,
+      phone: '+7 (900) 000-00-00',
+      workHours: 'Круглосуточно',
+      isMaster: true
+    },
+    {
+        id: 'b5',
+        name: 'СтройМаркет "Умелец"',
+        category: 'Строительные',
+        rating: 4.6,
+        reviewsCount: 89,
+        address: 'ул. Транспортная, 12',
+        image: 'https://images.unsplash.com/photo-1581141849291-1125c7b692b5?q=80&w=400&auto=format&fit=crop',
+        description: 'Все для строительства и ремонта. Низкие цены, доставка по городу.',
+        lat: 56.09,
+        lng: 60.74,
+        phone: '+7 (35146) 3-00-01',
+        workHours: '09:00 - 20:00',
+        isMaster: false
+    }
+  ] as Business[],
   events: [...EVENTS_DATA] as Event[],
   
-  // Comment above fix: Added missing coupons property to mockStore to resolve access error in socialService
+  conversations: [
+    {
+      id: 'c1',
+      participant1Id: 'u1',
+      participant2Id: 'u2',
+      partnerId: 'u2',
+      partnerName: 'Мария (Снежинск)',
+      partnerAvatar: 'https://picsum.photos/seed/mariya/100/100',
+      lastMessageDate: '10:45',
+      lastMessageText: 'Здравствуйте! Велосипед еще в продаже?',
+      unreadCount: 1
+    },
+    {
+      id: 'c2',
+      participant1Id: 'u1',
+      participant2Id: 'b1',
+      partnerId: 'b1',
+      partnerName: 'Кофейня "Снежинка"',
+      partnerAvatar: 'https://picsum.photos/seed/cafe/100/100',
+      lastMessageDate: 'Вчера',
+      lastMessageText: 'Ваш заказ №442 готов к выдаче.',
+      unreadCount: 0
+    }
+  ] as Conversation[],
+
+  messages: [
+    { id: 'm1', conversationId: 'c1', senderId: 'u2', text: 'Здравствуйте! Велосипед еще в продаже?', createdAt: new Date(Date.now() - 3600000).toISOString(), isRead: false },
+    { id: 'm2', conversationId: 'c2', senderId: 'b1', text: 'Здравствуйте! Ваш заказ №442 принят в работу.', createdAt: new Date(Date.now() - 86400000).toISOString(), isRead: true },
+    { id: 'm3', conversationId: 'c2', senderId: 'b1', text: 'Ваш заказ №442 готов к выдаче.', createdAt: new Date(Date.now() - 82800000).toISOString(), isRead: true }
+  ] as Message[],
+
   coupons: [
     { id: 'c1', title: 'Скидка 20% на кофе', description: 'Действует во всех кофейнях Снежинка.', price: 100, image: 'https://picsum.photos/seed/c1/300/200', partnerName: 'Снежинка' },
     { id: 'c2', title: 'Месяц фитнеса за полцены', description: 'Скидка 50% на абонемент в зал Титан.', price: 500, image: 'https://picsum.photos/seed/c2/300/200', partnerName: 'Титан' }

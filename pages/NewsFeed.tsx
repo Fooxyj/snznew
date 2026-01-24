@@ -9,6 +9,16 @@ import { CreateNewsModal } from '../components/CreateNewsModal';
 import { Button } from '../components/ui/Common';
 import { CardSkeleton } from '../components/ui/Skeleton';
 
+const formatDate = (dateStr: string) => {
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return 'Недавно';
+        return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+        return 'Недавно';
+    }
+};
+
 export const NewsFeed: React.FC = () => {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [searchParams, setSearchParams] = useSearchParams();
@@ -105,7 +115,7 @@ export const NewsFeed: React.FC = () => {
                                         <p className="text-gray-600 dark:text-gray-300 text-sm line-clamp-2">{n.content}</p>
                                     </div>
                                     <div className="flex items-center text-xs text-gray-400 mt-4">
-                                        <Calendar className="w-3 h-3 mr-1" /> {n.date}
+                                        <Calendar className="w-3 h-3 mr-1" /> {formatDate(n.date)}
                                     </div>
                                 </div>
                             </div>

@@ -87,8 +87,8 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden slide-in-from-top h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-[130] flex items-start justify-center pt-10 md:pt-20 p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden slide-in-from-top h-[90vh] md:h-[85vh] flex flex-col">
         <div className="px-8 py-6 border-b flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 dark:border-gray-700 shrink-0">
           <div>
             <h3 className="text-xl font-black text-gray-900 dark:text-white">{item ? 'Редактировать событие' : 'Новое событие'}</h3>
@@ -99,7 +99,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ isOpen, onCl
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+        <form id="event-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-bold text-gray-400 mb-2">Заголовок</label>
@@ -128,14 +128,14 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ isOpen, onCl
               <label className="block text-sm font-bold text-gray-400 mb-2">Афиша</label>
               <div className="border-4 border-dashed border-gray-100 rounded-3xl p-6 text-center cursor-pointer relative group">
                   {formData.image ? <img src={formData.image} className="h-32 mx-auto rounded-xl object-cover" /> : <Upload className="w-12 h-12 mx-auto text-gray-300" />}
-                  <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageUpload} />
               </div>
             </div>
           </div>
         </form>
 
-        <div className="p-8 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-          <Button disabled={isLoading || isUploading} className="w-full py-4 text-lg font-black">
+        <div className="p-8 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0">
+          <Button form="event-form" disabled={isLoading || isUploading} className="w-full py-4 text-lg font-black">
             {isLoading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : item ? 'Сохранить изменения' : 'Опубликовать'}
           </Button>
         </div>
