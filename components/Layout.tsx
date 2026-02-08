@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Menu, X, Home, Newspaper, ShoppingBag, Coffee, Film, Map, 
   Drama, Scissors, Dumbbell, Stethoscope, Bus, Siren, Briefcase, 
-  User as UserIcon, Bell, Search, PlusCircle, LogOut, MessageCircle, HelpCircle, Car, Gift, Users, Flag, Settings, Trophy, Heart, Repeat, Key, ChevronLeft, ArrowUp, Calendar, ChevronDown, ChevronRight, Droplets, Wrench, Building2, Trash2, Lightbulb, MessageSquare, AlertTriangle, Eye, CheckCheck, CheckCircle, Shield, LayoutGrid, Truck, Hammer, Star
+  User as UserIcon, Bell, Search, PlusCircle, LogOut, MessageCircle, HelpCircle, Car, Gift, Users, Flag, Settings, Trophy, Heart, Repeat, Key, ChevronLeft, ArrowUp, Calendar, ChevronDown, ChevronRight, Droplets, Wrench, Building2, Trash2, Lightbulb, MessageSquare, AlertTriangle, Eye, CheckCheck, CheckCircle, Shield, LayoutGrid, Truck, Hammer, Star, Waves
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CATALOG_MENU, SERVICES_MENU } from '../constants';
@@ -15,6 +14,7 @@ import { useTheme } from './ThemeProvider';
 import { supabase } from '../lib/supabase';
 import { isSupabaseConfigured } from '../config';
 import { SuggestIdeaModal } from './SuggestIdeaModal';
+import { CookieConsent } from './CookieConsent';
 
 const Cloud: React.FC<any> = (props) => (
     <svg 
@@ -32,6 +32,15 @@ const Cloud: React.FC<any> = (props) => (
         <path d="M17.5 19c0-1.7-1.3-3-3-3h-1.1c-.2-3.1-2.8-5.5-5.9-5.5C4 10.5 1.5 13 1.5 16.1c0 2.2 1.3 4 3.2 4.9" />
         <path d="M17.5 19c2.5 0 4.5-2 4.5-4.5S20 10 17.5 10c-.5 0-.9.1-1.3.2" />
     </svg>
+);
+
+const LogoIcon: React.FC<any> = (props) => (
+    <div className={`relative ${props.className || 'w-10 h-10'}`}>
+        <div className="absolute inset-0 bg-blue-600 rounded-xl rotate-6 group-hover:rotate-12 transition-transform duration-500"></div>
+        <div className="absolute inset-0 bg-indigo-600 rounded-xl -rotate-3 group-hover:-rotate-6 transition-transform duration-500 opacity-50"></div>
+        <div className="absolute inset-0 flex items-center justify-center text-white font-black text-xl italic z-10">П</div>
+        <Waves className="absolute -bottom-1 -right-1 w-4 h-4 text-white drop-shadow-md" />
+    </div>
 );
 
 const ICON_MAP: Record<string, React.FC<any>> = {
@@ -93,6 +102,17 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     enabled: !!user,
     initialData: 0,
     refetchInterval: 3000 
+  });
+
+  const { data: notificationsCount = 0 } = useQuery({
+    queryKey: ['notificationsCount'],
+    queryFn: async () => {
+        if (!isSupabaseConfigured() || !supabase) return 0;
+        const { count } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('is_read', false);
+        return count || 0;
+    },
+    enabled: !!user,
+    refetchInterval: 10000
   });
 
   const hasBusiness = myBusinesses && myBusinesses.length > 0;
@@ -194,26 +214,30 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   return (
     <div className="h-screen bg-white dark:bg-gray-900 flex overflow-hidden transition-colors duration-200">
       <SuggestIdeaModal isOpen={isIdeaModalOpen} onClose={() => setIsIdeaModalOpen(false)} />
+      <CookieConsent />
 
       <aside className={`fixed lg:static inset-y-0 left-0 z-[110] w-72 bg-white dark:bg-gray-800 border-r dark:border-gray-800 transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} flex flex-col`}>
         <div className="p-6 flex items-center justify-between shrink-0">
-          <Link to="/" className="flex flex-col" onClick={resetMenus}>
-            <h1 className="text-2xl font-black text-blue-600 dark:text-blue-400 leading-none">Снежинск</h1>
-            <span className="text-[10px] font-bold tracking-[0.5em] text-gray-400 uppercase mt-1">Лайф</span>
+          <Link to="/" className="flex items-center gap-3 group" onClick={resetMenus}>
+            <LogoIcon className="w-10 h-10" />
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-black text-gray-900 dark:text-white leading-none tracking-tighter">ПРОСТОР</h1>
+              <span className="text-[8px] font-black tracking-[0.3em] text-blue-600 uppercase mt-0.5">Экосистема города</span>
+            </div>
           </Link>
           <button onClick={closeSidebar} className="lg:hidden p-2 text-gray-400"><X className="w-5 h-5" /></button>
         </div>
         <nav className="flex-1 overflow-y-auto py-2 px-4 space-y-0.5 custom-scrollbar">
           <NavItem to="/" icon={Home} label="Главная" active={location.pathname === '/'} onClick={resetMenus} />
           <NavItem to="/map" icon={Map} label="Карта" active={isActive('/map')} onClick={resetMenus} />
-          <div className="mt-6 mb-2 px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Каталог и Услуги</div>
+          
           {renderMenuSection(CATALOG_MENU)}
-          <div className="mt-6 mb-2 px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Сервисы</div>
           {renderMenuSection(SERVICES_MENU)}
+
           {user && (
             <div className="mt-6">
-              <Link to={hasBusiness ? "/business-crm" : "/business-connect"} onClick={resetMenus} className="block bg-gray-900 dark:bg-blue-600 text-white p-4 rounded-2xl font-bold text-center text-sm shadow-xl active:scale-95 transition-transform">
-                {hasBusiness ? 'Кабинет бизнеса' : 'Подключить бизнес'}
+              <Link to={hasBusiness ? "/business-crm" : "/business-connect"} onClick={resetMenus} className="block bg-blue-600 text-white p-4 rounded-2xl font-bold text-center text-sm shadow-xl shadow-blue-500/20 active:scale-95 transition-transform">
+                {hasBusiness ? 'Управление бизнесом' : 'Стать партнером'}
               </Link>
             </div>
           )}
@@ -226,43 +250,42 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
-          <header className="flex items-center bg-white/95 dark:bg-gray-900/95 backdrop-blur-md h-16 lg:h-20 px-4 lg:px-8 z-[90] sticky top-0 border-b dark:border-gray-800 shrink-0 gap-2 md:gap-4">
+          <header className="flex items-center bg-white/95 dark:bg-gray-900/95 backdrop-blur-md h-16 px-4 lg:px-8 z-[90] sticky top-0 border-b dark:border-gray-800 shrink-0 gap-2 md:gap-4">
               
-              {location.pathname === '/' ? (
-                  <Link to="/" className="flex flex-col shrink-0">
-                      <span className="text-sm font-black text-blue-600 dark:text-blue-400 tracking-tighter leading-none">СНЕЖИНСК</span>
-                      <span className="text-[7px] font-black text-gray-400 uppercase tracking-widest mt-0.5 leading-none">ЛАЙФ</span>
-                  </Link>
-              ) : (
+              {location.pathname !== '/' && (
                   <button onClick={handleBack} className="p-2 -ml-2 text-gray-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl shrink-0">
                       <ChevronLeft className="w-6 h-6" />
                   </button>
               )}
 
-              <form onSubmit={handleSearch} className="flex-1 relative group mx-2">
+              <form onSubmit={handleSearch} className="flex-grow relative group">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input 
                       type="text" 
-                      placeholder="Поиск..." 
+                      placeholder="Поиск по городу..." 
                       className="w-full pl-9 pr-3 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all text-xs font-medium border-transparent focus:border-blue-500/10" 
                       value={searchQuery} 
                       onChange={e => setSearchQuery(e.target.value)} 
                   />
               </form>
 
-              <div className="flex items-center gap-1 shrink-0 ml-auto">
+              <div className="flex items-center gap-1 shrink-0 ml-2 lg:ml-4">
                   {user ? (
                       <>
+                          <Link to="/notifications" className="relative p-2 text-gray-500 hover:text-blue-600 transition-colors">
+                              <Bell className="w-5 h-5 lg:w-6 lg:h-6" />
+                              {notificationsCount > 0 && <span className="absolute top-1.5 right-1.5 lg:top-2 lg:right-2 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-white dark:border-gray-900 animate-pulse"></span>}
+                          </Link>
                           <Link to="/chat" className="relative p-2 text-gray-500 hover:text-blue-600 transition-colors">
                               <MessageCircle className="w-5 h-5 lg:w-6 lg:h-6" />
                               {chatUnreadCount > 0 && <span className="absolute top-1.5 right-1.5 lg:top-2 lg:right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse"></span>}
                           </Link>
                           <Link to="/profile" className="ml-1 shrink-0">
-                              <img src={user.avatar} className="w-8 h-8 lg:w-11 lg:h-11 rounded-full border-2 border-white dark:border-gray-700 shadow-sm object-cover" alt="Profile" />
+                              <img src={user.avatar} className="w-8 h-8 lg:w-10 lg:h-10 rounded-full border-2 border-white dark:border-gray-700 shadow-sm object-cover" alt="Profile" />
                           </Link>
                       </>
                   ) : (
-                      <Link to="/auth" className="shrink-0"><Button size="sm" className="rounded-xl px-4 py-2 text-[10px]">Войти</Button></Link>
+                      <Link to="/auth" className="shrink-0"><Button size="sm" className="rounded-xl px-4 py-2 text-[10px] uppercase font-black tracking-widest">Войти</Button></Link>
                   )}
               </div>
           </header>
@@ -291,13 +314,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   onClick={toggleSidebar}
                   className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/40 active:scale-90 transition-all border-4 border-white dark:border-gray-900"
               >
-                  <LayoutGrid className="w-6 h-6 text-white" />
+                  <LogoIcon className="w-7 h-7" />
               </button>
-              <span className="text-[9px] font-black uppercase text-blue-600 mt-1">Город</span>
+              <span className="text-[9px] font-black uppercase text-blue-600 mt-1">Простор</span>
           </div>
 
           <NavLink to="/chat" className={({isActive}) => `flex flex-col items-center gap-1 text-[9px] font-bold uppercase transition-colors relative flex-1 mb-1 ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
-              <MessageCircle className="w-5 h-5" /> {chatUnreadCount > 0 && <span className="absolute -top-1 right-4 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>} Сообщения
+              <MessageCircle className="w-5 h-5" /> {chatUnreadCount > 0 && <span className="absolute -top-1 right-4 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>} Чат
           </NavLink>
           <NavLink to={user ? "/profile" : "/auth"} className={({isActive}) => `flex flex-col items-center gap-1 text-[9px] font-bold uppercase transition-colors flex-1 mb-1 ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
               <UserIcon className="w-5 h-5" /> Профиль

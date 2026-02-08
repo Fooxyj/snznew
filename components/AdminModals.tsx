@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Upload, Trophy, Heart, ImageIcon, Bus, Clock, MapPin, Megaphone, Link as LinkIcon, Layout as LayoutIcon, Wand2, Sparkles, FileText, Trash2, Plus, ShieldAlert } from 'lucide-react';
+import { X, Loader2, Upload, Trophy, Heart, ImageIcon, Bus, Clock, MapPin, Megaphone, Link as LinkIcon, Layout as LayoutIcon, Wand2, Sparkles, FileText, Trash2, Plus, ShieldAlert, Globe, QrCode } from 'lucide-react';
 import { Button, Badge } from './ui/Common';
 import { api } from '../services/api';
 import { aiService } from '../services/aiService';
@@ -205,6 +204,7 @@ export const CreatePromoAdModal: React.FC<AdminModalProps> = ({ isOpen, onClose,
 
     useEffect(() => {
         if (item && isOpen) setFormData({ title: item.title, description: item.description || '', image_url: item.image_url, link_url: item.link_url || '', price: item.price?.toString() || '', category: item.category || 'Партнеры', is_active: item.is_active, erid: item.erid || '', advertiser_info: item.advertiser_info || '' });
+        // Comment above fix: Changed advertiser_info default value from boolean 'true' to an empty string to fix the type assignment error
         else if (!item && isOpen) setFormData({ title: '', description: '', image_url: '', link_url: '', price: '', category: 'Партнеры', is_active: true, erid: '', advertiser_info: '' });
     }, [item, isOpen]);
 
@@ -429,23 +429,137 @@ export const CreateQuestModal: React.FC<AdminModalProps> = ({ isOpen, onClose, o
 };
 
 export const CreateAdminCampaignModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSuccess, item }) => {
-    const [formData, setFormData] = useState({ title: '', description: '', targetAmount: '', organizerName: '', image: '' });
-    const [uploading, setUploading] = useState(false);
+    const [formData, setFormData] = useState({ title: '', description: '', targetAmount: '', organizerName: '', image: '', qrCode: '', linkUrl: '' });
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const [uploadingQr, setUploadingQr] = useState(false);
     const [loading, setLoading] = useState(false);
+
     useEffect(() => {
-        if (item && isOpen) setFormData({ title: item.title, description: item.description, targetAmount: item.targetAmount.toString(), organizerName: item.organizerName, image: item.image });
-        else if (!item && isOpen) setFormData({ title: '', description: '', targetAmount: '', organizerName: '', image: '' });
+        if (item && isOpen) {
+            setFormData({ 
+                title: item.title, 
+                description: item.description, 
+                targetAmount: item.targetAmount.toString(), 
+                organizerName: item.organizerName, 
+                image: item.image,
+                qrCode: item.qrCode || '',
+                linkUrl: item.linkUrl || ''
+            });
+        } else if (!item && isOpen) {
+            setFormData({ title: '', description: '', targetAmount: '', organizerName: '', image: '', qrCode: '', linkUrl: '' });
+        }
     }, [item, isOpen]);
+
     if (!isOpen) return null;
-    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]; if (!file) return; setUploading(true);
-        try { const url = await api.uploadImage(file); setFormData(prev => ({ ...prev, image: url })); } catch (e: any) { alert(e.message); } finally { setUploading(false); }
+
+    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'image' | 'qrCode') => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        if (field === 'image') setUploadingImage(true);
+        else setUploadingQr(true);
+
+        try {
+            const url = await api.uploadImage(file);
+            setFormData(prev => ({ ...prev, [field]: url }));
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            if (field === 'image') setUploadingImage(false);
+            else setUploadingQr(false);
+        }
     };
+
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setLoading(true);
-        try { if (item) await api.updateCampaign(item.id, formData); else await api.createCampaign(formData); onSuccess(); onClose(); } catch (e: any) { alert(e.message); } finally { setLoading(false); }
+        e.preventDefault();
+        setLoading(true);
+        try {
+            if (item) await api.updateCampaign(item.id, formData);
+            else await api.createCampaign(formData);
+            onSuccess();
+            onClose();
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setLoading(false);
+        }
     };
+
     return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"><div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in slide-in-from-top-4 overflow-y-auto max-h-[90vh]"><div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold flex items-center gap-2 dark:text-white uppercase"><Heart className="text-red-500 fill-current"/> {item ? 'Править сбор' : 'Новый сбор'}</h2><button onClick={onClose}><X className="text-gray-400"/></button></div><form onSubmit={handleSubmit} className="space-y-4"><input className="w-full border rounded-xl p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Название" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required /><input className="w-full border rounded-xl p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Организатор" value={formData.organizerName} onChange={e => setFormData({...formData, organizerName: e.target.value})} required /><input type="number" className="w-full border rounded-xl p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Цель (₽)" value={formData.targetAmount} onChange={e => setFormData({...formData, targetAmount: e.target.value})} required /><textarea className="w-full border rounded-xl p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none" placeholder="Описание" rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required /><div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 text-center relative hover:bg-gray-50 dark:hover:bg-gray-700">{formData.image ? <img src={formData.image} className="h-20 mx-auto rounded object-cover" /> : <div className="text-gray-400 text-sm">Обложка сбора</div>}<input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleUpload} /></div><Button className="w-full py-3" disabled={loading || uploading}>{loading ? <Loader2 className="animate-spin" /> : 'Сохранить'}</Button></form></div></div>
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg p-8 shadow-2xl animate-in slide-in-from-top-4 overflow-y-auto max-h-[90vh]">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold flex items-center gap-2 dark:text-white uppercase">
+                        <Heart className="text-red-500 fill-current"/> {item ? 'Править сбор' : 'Новый сбор'}
+                    </h2>
+                    <button onClick={onClose}><X className="text-gray-400"/></button>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block ml-1">Название сбора</label>
+                        <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-bold" placeholder="Напр: Помощь приюту" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block ml-1">Организатор</label>
+                        <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-bold" placeholder="Фонд или имя" value={formData.organizerName} onChange={e => setFormData({...formData, organizerName: e.target.value})} required />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block ml-1 text-blue-500">Внешняя ссылка (кнопка)</label>
+                        <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-medium" placeholder="https://vk.com/..." value={formData.linkUrl} onChange={e => setFormData({...formData, linkUrl: e.target.value})} />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block ml-1">Цель сбора (₽)</label>
+                        <input type="number" className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-bold" placeholder="Сумма" value={formData.targetAmount} onChange={e => setFormData({...formData, targetAmount: e.target.value})} required />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block ml-1">Описание ситуации</label>
+                        <textarea className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none font-medium" placeholder="Подробности сбора..." rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block tracking-widest text-center">Обложка</label>
+                            <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl p-4 text-center relative hover:bg-gray-50 cursor-pointer overflow-hidden aspect-square flex items-center justify-center">
+                                {formData.image ? (
+                                    <img src={formData.image} className="w-full h-full object-cover rounded-xl" />
+                                ) : (
+                                    <div className="flex flex-col items-center text-gray-300">
+                                        <ImageIcon className="w-6 h-6 mb-1" />
+                                        <span className="text-[8px] font-black uppercase">ФОТО</span>
+                                    </div>
+                                )}
+                                {uploadingImage && <div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center"><Loader2 className="animate-spin w-4 h-4 text-blue-500" /></div>}
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={e => handleUpload(e, 'image')} />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block tracking-widest text-center">QR-КОД ОПЛАТЫ</label>
+                            <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl p-4 text-center relative hover:bg-gray-50 cursor-pointer overflow-hidden aspect-square flex items-center justify-center">
+                                {formData.qrCode ? (
+                                    <img src={formData.qrCode} className="w-full h-full object-contain rounded-xl" />
+                                ) : (
+                                    <div className="flex flex-col items-center text-gray-300">
+                                        <QrCode className="w-6 h-6 mb-1" />
+                                        <span className="text-[8px] font-black uppercase">QR-КОД</span>
+                                    </div>
+                                )}
+                                {uploadingQr && <div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center"><Loader2 className="animate-spin w-4 h-4 text-blue-500" /></div>}
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={e => handleUpload(e, 'qrCode')} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <Button className="w-full py-4 font-black uppercase tracking-widest shadow-xl shadow-red-500/20" disabled={loading || uploadingImage || uploadingQr}>
+                        {loading ? <Loader2 className="animate-spin" /> : 'Сохранить сбор'}
+                    </Button>
+                </form>
+            </div>
+        </div>
     );
 };

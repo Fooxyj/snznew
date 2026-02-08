@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Star, MapPin, Circle, Shield, Zap, Crown, CheckCircle2 } from 'lucide-react';
+import { Star, MapPin, Circle, Shield, Zap, Crown, CheckCircle2, MessageSquare, ShoppingBag, Heart, Target, UserCheck } from 'lucide-react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
@@ -30,6 +30,7 @@ export const Button: React.FC<ButtonProps> = ({
     lg: "px-8 py-4 text-base"
   };
 
+  // Comment above fix: Fixed invalid prop spreading syntax by wrapping 'props' in curly braces
   return (
     <button 
       className={`${baseStyle} ${variants[variant]} ${sizes[size]} ${className}`} 
@@ -92,6 +93,47 @@ export const LocationBadge: React.FC<{ location: string }> = ({ location }) => (
     {location}
   </div>
 );
+
+export const BadgeIcon: React.FC<{ name: string; size?: 'sm' | 'md' | 'lg'; isLocked?: boolean }> = ({ name, size = 'sm', isLocked = false }) => {
+    const sizeClasses = {
+        sm: "p-1.5",
+        md: "p-3",
+        lg: "p-4"
+    };
+    
+    const iconClasses = {
+        sm: "w-3.5 h-3.5",
+        md: "w-6 h-6",
+        lg: "w-10 h-10"
+    };
+
+    const getIconData = () => {
+        switch(name) {
+            case 'verified': return { icon: Star, color: 'text-blue-500 bg-blue-50', label: 'Проверенный' };
+            case 'admin': return { icon: Shield, color: 'text-red-500 bg-red-50', label: 'Администратор' };
+            case 'moderator': return { icon: Zap, color: 'text-purple-500 bg-purple-50', label: 'Модератор' };
+            case 'quest_master': return { icon: Target, color: 'text-orange-500 bg-orange-50', label: 'Мастер квестов' };
+            case 'early_adopter': return { icon: Crown, color: 'text-yellow-600 bg-yellow-50', label: 'Старожил' };
+            case 'active_citizen': return { icon: MessageSquare, color: 'text-green-600 bg-green-50', label: 'Активный житель' };
+            case 'generous_heart': return { icon: Heart, color: 'text-pink-600 bg-pink-50', label: 'Доброе сердце' };
+            case 'pro_seller': return { icon: ShoppingBag, color: 'text-indigo-600 bg-indigo-50', label: 'Топ продавец' };
+            case 'social_star': return { icon: UserCheck, color: 'text-cyan-600 bg-cyan-50', label: 'Душа компании' };
+            default: return { icon: Star, color: 'text-gray-400 bg-gray-50', label: 'Награда' };
+        }
+    };
+
+    const data = getIconData();
+    const Icon = data.icon;
+
+    return (
+        <div 
+            className={`${sizeClasses[size]} rounded-2xl shadow-sm border dark:border-gray-700 flex items-center justify-center transition-all ${isLocked ? 'grayscale opacity-30 bg-gray-100 dark:bg-gray-800' : data.color}`} 
+            title={data.label}
+        >
+            <Icon className={`${iconClasses[size]} ${!isLocked ? 'fill-current' : ''}`} />
+        </div>
+    );
+};
 
 export const UserStatus: React.FC<{ lastSeen?: string; showText?: boolean; className?: string }> = ({ lastSeen, showText = true, className = "" }) => {
     if (!lastSeen) return showText ? <span className="text-gray-400 uppercase text-[9px] font-black italic">не в сети</span> : null;

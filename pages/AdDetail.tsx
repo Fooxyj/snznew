@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -54,7 +53,6 @@ export const AdDetail: React.FC = () => {
     };
 
     const handleBack = () => {
-        // Если история переходов пуста (открыли по ссылке), идем на доску объявлений
         if (window.history.length <= 1) {
             navigate('/classifieds');
         } else {
@@ -80,7 +78,6 @@ export const AdDetail: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Responsive Image Section */}
                 <div className="lg:col-span-7 flex flex-col gap-4">
                     <div className="rounded-3xl overflow-hidden bg-white dark:bg-gray-950 border dark:border-gray-700 relative group cursor-zoom-in shadow-xl" onClick={() => setIsViewerOpen(true)}>
                         <img 
@@ -96,7 +93,6 @@ export const AdDetail: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    {/* Gallery Thumbs */}
                     {images.length > 1 && (
                         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                             {images.map((img, idx) => (
@@ -108,7 +104,6 @@ export const AdDetail: React.FC = () => {
                     )}
                 </div>
 
-                {/* Info Section */}
                 <div className="lg:col-span-5 flex flex-col gap-6">
                     <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 lg:p-8 border dark:border-gray-700 shadow-sm">
                         <div className="flex justify-between items-start mb-4">
@@ -136,7 +131,6 @@ export const AdDetail: React.FC = () => {
                         </Button>
                     </div>
 
-                    {/* Seller Card */}
                     <Link 
                         to={`/user/${ad.authorId}`} 
                         className="bg-white dark:bg-gray-800 rounded-3xl p-5 border dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4 group"

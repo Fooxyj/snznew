@@ -18,8 +18,12 @@ const formatRelativeDate = (dateStr: string | null | undefined): string => {
     return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+// Исправленный маппинг для новостей
 const mapNewsItem = (n: any): NewsItem => ({
     ...n,
+    // Мапим змеиный_регистр из БД в верблюжийРегистр приложения
+    views: parseInt(String(n.views || 0)),
+    commentsCount: parseInt(String(n.comments_count || 0)),
     date: n.date || n.created_at || new Date().toISOString()
 });
 
@@ -42,10 +46,6 @@ export const cityService = {
           if (data) return data.map(mapNewsItem).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           return mockStore.news;
       } catch (e: any) {
-          const errMsg = e?.message || String(e);
-          if (!errMsg.includes('fetch') && !errMsg.includes('network')) {
-              console.error("Supabase news fetch error:", errMsg);
-          }
           return mockStore.news;
       }
     },
@@ -53,16 +53,25 @@ export const cityService = {
     async getNewsById(id: string): Promise<NewsItem | null> {
         if (isSupabaseConfigured() && supabase) {
             try {
-                const { data, error = null } = await supabase.from('news').select('*').eq('id', id).maybeSingle();
+                const { data, error } = await supabase.from('news').select('*').eq('id', id).maybeSingle();
                 if (error) throw error;
                 return data ? mapNewsItem(data) : null;
             } catch (e: any) {
-                const errMsg = e?.message || String(e);
-                if (!errMsg.includes('fetch')) console.error("Get news by id failed:", errMsg);
                 return mockStore.news.find(n => n.id === id) || null;
             }
         }
         return mockStore.news.find(n => n.id === id) || null;
+    },
+
+    async viewNews(id: string): Promise<void> {
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                // Вызов RPC функции инкремента
+                await supabase.rpc('increment_news_views', { news_id: id });
+            } catch (e) {
+                console.error("View increment failed", e);
+            }
+        }
     },
 
     async updateNews(id: string, data: any) {
@@ -99,22 +108,17 @@ export const cityService = {
             if (error) throw error;
             return (data || []).map(mapEventItem);
         }
-      } catch (e: any) {
-          const errMsg = e?.message || String(e);
-          if (!errMsg.includes('fetch')) console.error("Get events failed:", errMsg);
-      }
+      } catch (e: any) { }
       return mockStore.events;
     },
 
     async getEventById(id: string): Promise<Event | null> {
         if (isSupabaseConfigured() && supabase) {
             try {
-                const { data, error = null } = await supabase.from('events').select('*').eq('id', id).maybeSingle();
+                const { data, error } = await supabase.from('events').select('*').eq('id', id).maybeSingle();
                 if (error) throw error;
                 return data ? mapEventItem(data) : null;
             } catch (e: any) {
-                const errMsg = e?.message || String(e);
-                if (!errMsg.includes('fetch')) console.error("Get event by id failed:", errMsg);
                 return mockStore.events.find(e => e.id === id) || null;
             }
         }
@@ -150,15 +154,38 @@ export const cityService = {
         }
     },
 
+    async getBookedSeats(eventId: string): Promise<{row: number, col: number}[]> {
+        if (isSupabaseConfigured() && supabase) {
+            const { data, error } = await supabase.from('tickets').select('row, col').eq('event_id', eventId);
+            if (error) return [];
+            return data || [];
+        }
+        return [];
+    },
+
+    async buyTicket(eventId: string, row: number, col: number, price: number): Promise<void> {
+        const user = await authService.getCurrentUser();
+        if (!user) throw new Error("Unauthorized");
+        if (isSupabaseConfigured() && supabase) {
+            const { error } = await supabase.from('tickets').insert({
+                event_id: eventId,
+                user_id: user.id,
+                row,
+                col,
+                price,
+                qr_code: Math.random().toString(36).substring(7).toUpperCase()
+            });
+            if (error) throw error;
+        }
+    },
+
     async getTransportSchedules(): Promise<TransportSchedule[]> {
         if (isSupabaseConfigured() && supabase) {
             try {
-                const { data, error = null } = await supabase.from('transport_schedules').select('*');
+                const { data, error } = await supabase.from('transport_schedules').select('*');
                 if (error) throw error;
                 return data || [];
             } catch (e: any) {
-                const errMsg = e?.message || String(e);
-                if (!errMsg.includes('fetch')) console.error("Transport schedules fetch error:", errMsg);
                 return [];
             }
         }
@@ -194,8 +221,6 @@ export const cityService = {
                 }
                 return quests || [];
             } catch (e: any) {
-                const errMsg = e?.message || String(e);
-                if (!errMsg.includes('fetch')) console.error("Get quests failed:", errMsg);
                 return mockStore.quests;
             }
         }
@@ -234,12 +259,18 @@ export const cityService = {
     async getCampaigns(): Promise<Campaign[]> {
         if (isSupabaseConfigured() && supabase) {
             try {
-                const { data, error } = await supabase.from('campaigns').select('*');
+                const { data, error } = await supabase.from('campaigns').select('*').order('created_at', { ascending: false });
                 if (error) throw error;
-                return data?.map((c: any) => ({ ...c, targetAmount: c.target_amount, collectedAmount: c.collected_amount, organizerName: c.organizer_name })) || [];
+                return data?.map((c: any) => ({ 
+                    ...c, 
+                    targetAmount: parseInt(c.target_amount || '0'), 
+                    collectedAmount: parseInt(c.collected_amount || '0'), 
+                    organizerName: c.organizer_name,
+                    qrCode: c.qr_code,
+                    linkUrl: c.link_url,
+                    image: c.image
+                })) || [];
             } catch (e: any) {
-                const errMsg = e?.message || String(e);
-                if (!errMsg.includes('fetch')) console.error("Get campaigns failed:", errMsg);
                 return mockStore.campaigns;
             }
         }
@@ -249,28 +280,48 @@ export const cityService = {
     async updateCampaign(id: string, data: any) {
         if (isSupabaseConfigured() && supabase) {
             try {
-                const dbData = { ...data, target_amount: data.targetAmount, collected_amount: data.collectedAmount, organizer_name: data.organizerName };
-                delete dbData.targetAmount; delete dbData.collectedAmount; delete dbData.organizerName;
+                const dbData = { 
+                    title: data.title,
+                    description: data.description,
+                    target_amount: data.targetAmount, 
+                    organizer_name: data.organizerName,
+                    image: data.image,
+                    qr_code: data.qrCode,
+                    link_url: data.linkUrl
+                };
                 await supabase.from('campaigns').update(dbData).eq('id', id);
-            } catch (e) {}
+            } catch (e: any) {
+                throw e;
+            }
         }
     },
 
     async createCampaign(data: any) {
         if (isSupabaseConfigured() && supabase) {
             try {
-                const dbData = { ...data, target_amount: data.targetAmount, collected_amount: 0, organizer_name: data.organizerName };
-                delete dbData.targetAmount; delete dbData.organizerName;
+                const dbData = { 
+                    title: data.title,
+                    description: data.description,
+                    target_amount: data.targetAmount, 
+                    collected_amount: 0, 
+                    organizer_name: data.organizerName,
+                    image: data.image,
+                    qr_code: data.qrCode,
+                    link_url: data.linkUrl,
+                    is_active: true
+                };
                 await supabase.from('campaigns').insert(dbData);
-            } catch (e) {}
+            } catch (e: any) {
+                throw e;
+            }
         }
     },
 
     async donateToCampaign(id: string, amount: number) {
         if (isSupabaseConfigured() && supabase) {
             try {
-                const { data: camp } = await supabase.from('campaigns').select('collected_amount').eq('id', id).single();
-                await supabase.from('campaigns').update({ collected_amount: (camp?.collected_amount || 0) + amount }).eq('id', id);
+                const { data: camp } = await supabase!.from('campaigns').select('collected_amount').eq('id', id).single();
+                await supabase!.from('campaigns').update({ collected_amount: (parseInt(camp?.collected_amount || '0') + amount).toString() }).eq('id', id);
             } catch (e) {}
         }
     },
@@ -284,8 +335,6 @@ export const cityService = {
                 if (error) throw error;
                 return data?.map((it: any) => ({ ...it, authorId: it.author_id, contactName: it.contact_name, contactPhone: it.contact_phone, isResolved: it.is_resolved })) || [];
             } catch (e: any) {
-                const errMsg = e?.message || String(e);
-                if (!errMsg.includes('fetch')) console.error("Get lost found items failed:", errMsg);
                 return mockStore.lostFound;
             }
         }
@@ -317,8 +366,6 @@ export const cityService = {
                 if (error) throw error;
                 return data?.map((a: any) => ({ ...a, authorId: a.author_id, resultImage: a.result_image })) || [];
             } catch (e: any) {
-                const errMsg = e?.message || String(e);
-                if (!errMsg.includes('fetch')) console.error("Get appeals failed:", errMsg);
                 return mockStore.appeals;
             }
         }
@@ -348,8 +395,6 @@ export const cityService = {
                 if (error) throw error;
                 return data?.map((r: any) => ({ ...r, fromCity: r.from_city, toCity: r.to_city, carModel: r.car_model, driverId: r.driver_id, driverName: r.profiles?.name, driverAvatar: r.profiles?.avatar })) || [];
             } catch (e: any) {
-                const errMsg = e?.message || String(e);
-                if (!errMsg.includes('fetch')) console.error("Get rides failed:", errMsg);
                 return mockStore.rides;
             }
         }
@@ -398,8 +443,6 @@ export const cityService = {
                 passengerDetails: r.passenger_details 
             })) || [];
         } catch (e: any) {
-            const errMsg = e?.message || String(e);
-            if (!errMsg.includes('fetch')) console.error("Get my rides failed:", errMsg);
             return [];
         }
     },
@@ -419,8 +462,6 @@ export const cityService = {
                 if (error) throw error;
                 return data?.map((v: any) => ({ ...v, authorId: v.author_id, companyName: v.company_name, salaryMin: v.salary_min, salaryMax: v.salary_max, contactPhone: v.contact_phone })) || [];
             } catch (e: any) {
-                const errMsg = e?.message || String(e);
-                if (!errMsg.includes('fetch')) console.error("Get vacancies failed:", errMsg);
                 return mockStore.vacancies;
             }
         }
@@ -444,8 +485,6 @@ export const cityService = {
                 if (error) throw error;
                 return data?.map((r: any) => ({ ...r, authorId: r.author_id, salaryExpectation: r.salary_expectation })) || [];
             } catch (e: any) {
-                const errMsg = e?.message || String(e);
-                if (!errMsg.includes('fetch')) console.error("Get resumes failed:", errMsg);
                 return mockStore.resumes;
             }
         }
@@ -610,8 +649,7 @@ export const cityService = {
                     };
                 }
             } catch (e: any) { 
-                const errMsg = e?.message || String(e);
-                if (!errMsg.includes('fetch')) console.error("Get ad by id failed:", errMsg); 
+                return mockStore.ads.find(a => a.id === id) || null;
             }
         }
         return mockStore.ads.find(a => a.id === id) || null;

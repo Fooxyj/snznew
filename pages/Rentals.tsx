@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -16,7 +17,11 @@ export const RentalsPage: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
-    const { data: rentals = [], isLoading: rLoading } = useQuery({ queryKey: ['rentals'], queryFn: api.getRentals });
+    const { data: rentals = [], isLoading: rLoading } = useQuery({ 
+        queryKey: ['rentals'], 
+        queryFn: api.getRentals,
+        staleTime: 5000 // Небольшое время жизни кэша для свежести списка
+    });
     const { data: myBookings = [], isLoading: bLoading } = useQuery({ queryKey: ['myRentalBookings'], queryFn: api.getMyRentals });
     const { data: currentUser } = useQuery({ queryKey: ['user'], queryFn: api.getCurrentUser });
 
@@ -65,7 +70,13 @@ export const RentalsPage: React.FC = () => {
 
     return (
         <div className="max-w-6xl mx-auto p-4 lg:p-8 pb-32">
-            <CreateRentalModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['rentals'] })} />
+            <CreateRentalModal 
+                isOpen={isCreateOpen} 
+                onClose={() => setIsCreateOpen(false)} 
+                onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ['rentals'] });
+                }} 
+            />
 
             <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-[3rem] p-10 lg:p-14 text-white mb-12 shadow-2xl relative overflow-hidden">
                 <div className="relative z-10">

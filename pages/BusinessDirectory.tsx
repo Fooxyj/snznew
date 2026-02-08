@@ -1,9 +1,8 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CATEGORIES } from '../constants';
-import { Button, Rating, formatAddress, formatPhone } from '../components/ui/Common';
+import { Button, formatAddress, formatPhone } from '../components/ui/Common';
 import { MapPin, Phone, Clock, Map as MapIcon, List, Loader2, ArrowRight, Star, User } from 'lucide-react';
 import { api } from '../services/api';
 import { YandexMap } from '../components/YandexMap';
@@ -89,7 +88,7 @@ export const BusinessDirectory: React.FC = () => {
                     const cleanPhone = formatPhone(biz.phone);
                     const cleanAddress = formatAddress(biz.address);
                     const isMaster = !!biz.isMaster;
-                    const hasRating = (biz.reviewsCount || 0) > 0;
+                    // Рейтинг и количество отзывов скрыты из UI
 
                     return (
                         <div 
@@ -104,15 +103,7 @@ export const BusinessDirectory: React.FC = () => {
                                     alt={biz.name} 
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                                 />
-                                {hasRating ? (
-                                    <div className="absolute top-3 right-3 bg-white/90 dark:bg-black/70 backdrop-blur px-2 py-1 rounded-lg shadow-sm">
-                                        <Rating value={biz.rating} count={biz.reviewsCount} />
-                                    </div>
-                                ) : (
-                                    <div className="absolute top-3 right-3 bg-blue-600 text-white text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest shadow-sm">
-                                        Новый
-                                    </div>
-                                )}
+                                {/* Плашка рейтинга убрана */}
                                 <div className={`absolute bottom-3 left-3 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-lg flex items-center gap-1.5 ${isMaster ? 'bg-orange-600' : 'bg-blue-600'}`}>
                                     {isMaster ? (
                                         <>

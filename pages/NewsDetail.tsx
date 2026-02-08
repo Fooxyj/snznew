@@ -27,15 +27,25 @@ export const NewsDetail: React.FC = () => {
       if (!id) return;
       try {
           const [n, u] = await Promise.all([api.getNewsById(id), api.getCurrentUser()]);
-          setNews(n);
-          setCurrentUser(u);
-          if (n && u) {
-              try {
-                  const c = await api.getComments(id);
-                  setComments(c);
-              } catch(e) {
-                  console.error("Failed to load comments", e);
+          
+          if (n) {
+              // Инкрементируем локально для немедленного отображения +1
+              setNews({ ...n, views: (n.views || 0) + 1 });
+              setCurrentUser(u);
+              
+              // Отправляем запрос в БД
+              await api.viewNews(id);
+              
+              if (u) {
+                  try {
+                      const c = await api.getComments(id);
+                      setComments(c);
+                  } catch(e) {
+                      console.error("Failed to load comments", e);
+                  }
               }
+          } else {
+              setNews(null);
           }
       } catch (e) {
           console.error("Failed to load news detail", e);

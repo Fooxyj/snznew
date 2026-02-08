@@ -1,10 +1,9 @@
-
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { YandexMap } from '../components/YandexMap';
 import { Drawer } from '../components/ui/Drawer';
-import { Button, Rating } from '../components/ui/Common';
+import { Button } from '../components/ui/Common';
 import { Loader2, ShoppingBag, Map, AlertCircle, ArrowRight, Filter, Navigation } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -95,9 +94,6 @@ export const ExploreMap: React.FC = () => {
                                 <h2 className="text-xl font-bold dark:text-white leading-tight mb-1">{selectedItem.title}</h2>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{selectedItem.subtitle}</p>
                                 
-                                {selectedItem.type === 'business' && (
-                                    <Rating value={selectedItem.data.rating} count={selectedItem.data.reviewsCount} />
-                                )}
                                 {selectedItem.type === 'quest' && (
                                     <span className="inline-block px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-bold">
                                         Награда: {selectedItem.data.xpReward} XP

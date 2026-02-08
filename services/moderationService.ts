@@ -1,20 +1,15 @@
-
 import { supabase } from '../lib/supabase';
 import { isSupabaseConfigured } from '../config';
 import { authService } from './authService';
 import { ModerationLog } from '../types';
 
-// Базовый список стоп-слов (паттерны для мата и запрещенки)
+// Базовый список стоп-слов
 const BANNED_PATTERNS = [
     /х[уу]й/i, /п[ии]зд/i, /еб[аа]т/i, /бл[яя]д/i, /с[уу]к[аа]/i, /г[оо]нд[оо]н/i, /п[ии]д[оо]р/i,
     /нарк[оо]т/i, /терр[оо]р/i, /взрыв/i, /оружие/i, /пр[оо]дам дурь/i
 ];
 
 export const moderationService = {
-    /**
-     * Проверяет текст на наличие запрещенных слов
-     * @returns { isValid: boolean, error?: string, cleanedText: string }
-     */
     validateContent(text: string): { isValid: boolean; error?: string; cleanedText: string } {
         if (!text) return { isValid: true, cleanedText: '' };
 
@@ -30,14 +25,11 @@ export const moderationService = {
 
         return {
             isValid: isClean,
-            error: isClean ? undefined : "Обнаружена ненормативная лексика или подозрительный контент. Текст был автоматически скорректирован.",
+            error: isClean ? undefined : "Текст был автоматически скорректирован из-за нарушений правил.",
             cleanedText: cleaned
         };
     },
 
-    /**
-     * Записывает действие модератора в БД
-     */
     async logModerationAction(params: {
         targetId: string,
         targetType: string,
@@ -66,29 +58,33 @@ export const moderationService = {
         }
     },
 
-    /**
-     * Получает список логов для админ-панели
-     */
     async getModerationLogs(): Promise<ModerationLog[]> {
         if (!isSupabaseConfigured() || !supabase) return [];
 
         try {
-            const { data, error } = await supabase
+            // Получаем логи без JOIN, чтобы избежать ошибки схемы
+            const { data: logs, error } = await supabase
                 .from('moderation_logs')
-                .select('*, profiles:moderator_id(name)')
+                .select('*')
                 .order('created_at', { ascending: false })
                 .limit(100);
 
-            if (error) {
-                // Если таблицы нет или ошибка доступа, просто возвращаем пустой массив без падения приложения
-                console.warn("Moderation logs query failed:", error.message);
-                return [];
-            }
+            if (error) throw error;
+            if (!logs || logs.length === 0) return [];
 
-            return (data || []).map((l: any) => ({
+            // Собираем ID модераторов для получения их имен
+            const moderatorIds = [...new Set(logs.map(l => l.moderator_id))];
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, name')
+                .in('id', moderatorIds);
+
+            const profileMap = new Map(profiles?.map(p => [p.id, p.name]));
+
+            return logs.map((l: any) => ({
                 id: l.id,
                 moderatorId: l.moderator_id,
-                moderatorName: l.profiles?.name || 'Система',
+                moderatorName: profileMap.get(l.moderator_id) || 'Система',
                 targetId: l.target_id,
                 targetType: l.target_type,
                 action: l.action,

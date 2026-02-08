@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Download, Share } from 'lucide-react';
+import { X, Download, Share, Waves } from 'lucide-react';
 import { Button } from './ui/Common';
 
 export const PWAInstallPrompt: React.FC = () => {
@@ -38,7 +38,7 @@ export const PWAInstallPrompt: React.FC = () => {
     if (isIOS) {
         alert("Нажмите кнопку 'Поделиться' в браузере и выберите 'На экран «Домой»'");
     } else {
-        alert("Чтобы установить, нажмите настройки браузера (три точки) -> 'Установить приложение'");
+        alert("Чтобы установить Простор, нажмите настройки браузера (три точки) -> 'Установить приложение'");
     }
     handleDismiss();
   };
@@ -56,18 +56,19 @@ export const PWAInstallPrompt: React.FC = () => {
         </button>
         
         <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
-                <span className="text-white font-black text-sm">S</span>
+            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20 relative">
+                <span className="text-white font-black text-sm italic">П</span>
+                <Waves className="absolute -bottom-1 -right-1 w-3 h-3 text-white" />
             </div>
             <div className="min-w-0">
-                <h3 className="font-bold text-gray-900 dark:text-white text-[10px] truncate leading-none mb-0.5">Снежинск Лайф</h3>
-                <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none">Быстрый доступ</p>
+                <h3 className="font-bold text-gray-900 dark:text-white text-[11px] truncate leading-none mb-1">Простор — Твой город</h3>
+                <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-none">Установи для быстрого доступа</p>
             </div>
         </div>
 
         <Button 
             onClick={handleInstall} 
-            className="shrink-0 py-1.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-8"
+            className="shrink-0 py-1.5 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-9"
         >
             {isIOS ? <Share className="w-3 h-3 mr-1" /> : <Download className="w-3 h-3 mr-1" />}
             {isIOS ? 'ИНФО' : 'УСТАНОВИТЬ'}

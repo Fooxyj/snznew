@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import { Ad } from '../types';
 import { useQuery } from '@tanstack/react-query';
 import { AD_CATEGORIES } from '../constants';
+import { SuccessModal } from './SuccessModal';
 
 interface CreateAdModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface CreateAdModalProps {
 export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   
   const [tier, setTier] = useState<'regular' | 'premium' | 'vip'>('regular');
 
@@ -28,7 +30,7 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
   });
   const [images, setImages] = useState<string[]>([]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !showSuccess) return null;
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,7 +61,8 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
         isPremium: tier === 'premium'
       });
       onSuccess(newAd);
-      onClose();
+      setShowSuccess(true);
+      // Сброс формы
       setFormData({ title: '', price: '', category: 'Личные вещи', description: '', location: '' });
       setImages([]);
     } catch (error: any) {
@@ -68,6 +71,15 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
       setIsLoading(false);
     }
   };
+
+  if (showSuccess) {
+      return (
+          <SuccessModal 
+              isOpen={showSuccess} 
+              onClose={() => { setShowSuccess(false); onClose(); }} 
+          />
+      );
+  }
 
   return (
     <div className="fixed inset-0 z-[130] flex items-start justify-center pt-10 md:pt-20 p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">

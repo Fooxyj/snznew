@@ -1,17 +1,27 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
     Loader2, MapPin, ChevronLeft, ChevronRight, 
     Crown, ShoppingBag, Activity, Newspaper, Wand2, 
-    ArrowRight, Star, Sparkles, Building2, Info, Eye, Heart
+    ArrowRight, Star, Sparkles, Building2, Info, Eye, Heart, Calendar
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { CreateNewsModal } from '../components/CreateNewsModal';
 import { StoriesRail } from '../components/StoriesRail';
 import { BannerSlot } from '../components/BannerSlot';
 import { Button, Badge } from '../components/ui/Common';
-import { PageBlock, NewsItem, Ad } from '../types';
+import { PageBlock, NewsItem, Ad, Event } from '../types';
+
+// Вспомогательная функция для перемешивания массива
+const shuffleArray = <T,>(array: T[]): T[] => {
+    const newArr = [...array];
+    for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+    }
+    return newArr;
+};
 
 const BlockRenderer: React.FC<{ block: PageBlock }> = ({ block }) => {
     switch (block.type) {
@@ -78,55 +88,79 @@ export const Home: React.FC = () => {
   
   const { data: ads = [], isLoading: adsLoading } = useQuery({ queryKey: ['ads'], queryFn: () => api.getAds() });
   const { data: news = [], isLoading: newsLoading } = useQuery({ queryKey: ['news'], queryFn: () => api.getNews() });
+  const { data: events = [], isLoading: eventsLoading } = useQuery({ queryKey: ['events'], queryFn: () => api.getEvents() });
   const { data: user } = useQuery({ queryKey: ['user'], queryFn: api.getCurrentUser });
 
-  const totalPages = 3 + (exclusivePages.length || 1);
+  const exclusiveCount = Math.max(1, exclusivePages.length);
+  const proPageStart = 2 + exclusiveCount;
+  const privatePageStart = 3 + exclusiveCount;
+  const totalPages = privatePageStart;
 
   const pageContent = useMemo(() => {
     const adsPerPage = 8;
+    
+    // 1. VIP Страница
     if (currentPage === 1) {
         return {
+            type: 'standard',
             title: 'VIP Город',
             subtitle: 'НОВОСТИ ГОРОДА',
             icon: <Crown className="w-6 h-6 text-orange-500" />,
             news: news.slice(0, 4),
-            ads: ads.filter(a => a.isVip).slice(0, adsPerPage),
+            ads: shuffleArray(ads.filter(a => a.isVip)).slice(0, adsPerPage),
             adLabel: 'VIP Объявления'
         };
     }
-    if (currentPage === 2) {
+    
+    // 2. ИНФО (Exclusive Pages)
+    if (currentPage >= 2 && currentPage < proPageStart) {
+        return { type: 'exclusive' };
+    }
+
+    // 3. PRO Страница (Теперь События + PRO Объявления)
+    if (currentPage === proPageStart) {
         return {
+            type: 'standard',
             title: 'PRO Снежинск',
-            subtitle: 'АКТУАЛЬНЫЕ УСЛУГИ И СВЕЖИЙ ПОТОК',
+            subtitle: 'АКТУАЛЬНАЯ АФИША И УСЛУГИ',
             icon: <Wand2 className="w-6 h-6 text-indigo-500" />,
-            news: news.slice(4, 8),
-            ads: ads.filter(a => a.isPremium && !a.isVip).slice(0, adsPerPage),
+            events: events.slice(0, 4),
+            ads: shuffleArray(ads.filter(a => a.isPremium && !a.isVip)).slice(0, adsPerPage),
             adLabel: 'PRO Предложения'
         };
     }
-    if (currentPage === 3) {
+
+    // 4. Маркет (Новости + Частные объявления)
+    if (currentPage === privatePageStart) {
         return {
-            title: 'Общий Маркет',
-            subtitle: 'ОБЪЯВЛЕНИЯ ЖИТЕЛЕЙ И ЛЕНТА СОБЫТИЙ',
+            type: 'standard',
+            title: 'Маркет',
+            subtitle: 'ЧАСТНЫЕ ОБЪЯВЛЕНИЯ И ЛЕНТА',
             icon: <ShoppingBag className="w-6 h-6 text-blue-600" />,
-            news: news.slice(8, 12),
-            ads: ads.filter(a => !a.isVip && !a.isPremium).slice(0, adsPerPage),
+            news: news.slice(4, 8),
+            ads: shuffleArray(ads.filter(a => !a.isVip && !a.isPremium)).slice(0, adsPerPage),
             adLabel: 'Частные объявления'
         };
     }
+    
     return null;
-  }, [currentPage, news, ads]);
+  }, [currentPage, news, ads, events, proPageStart, privatePageStart]);
 
   const activeExclusivePage = useMemo(() => {
-    if (currentPage < 4) return null;
-    return exclusivePages[currentPage - 4] || exclusivePages[0];
-  }, [exclusivePages, currentPage]);
+    if (currentPage >= 2 && currentPage < proPageStart) {
+        return exclusivePages[currentPage - 2] || exclusivePages[0];
+    }
+    return null;
+  }, [exclusivePages, currentPage, proPageStart]);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const scrollContainer = document.querySelector('main');
+    if (scrollContainer) {
+        scrollContainer.scrollTo({ top: 0, behavior: 'instant' });
+    }
   }, [currentPage]);
 
-  if (adsLoading || newsLoading || exclusiveLoading) return (
+  if (adsLoading || newsLoading || exclusiveLoading || eventsLoading) return (
     <div className="flex h-screen items-center justify-center dark:bg-gray-900">
       <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
     </div>
@@ -134,9 +168,9 @@ export const Home: React.FC = () => {
 
   const navigationTabs = [
       { id: 1, label: 'VIP', icon: <Crown className="w-3.5 h-3.5"/> },
-      { id: 2, label: 'PRO', icon: <Wand2 className="w-3.5 h-3.5"/> },
-      { id: 3, label: 'Маркет', icon: <ShoppingBag className="w-3.5 h-3.5"/> },
-      { id: 4, label: 'Инфо', icon: <Building2 className="w-3.5 h-3.5"/> }
+      { id: 2, label: 'Инфо', icon: <Building2 className="w-3.5 h-3.5"/> },
+      { id: proPageStart, label: 'PRO', icon: <Wand2 className="w-3.5 h-3.5"/> },
+      { id: privatePageStart, label: 'Частные', icon: <ShoppingBag className="w-3.5 h-3.5"/> }
   ];
 
   const handleToggleFavorite = async (e: React.MouseEvent, id: string) => {
@@ -148,30 +182,34 @@ export const Home: React.FC = () => {
   };
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 md:px-8 py-6 space-y-16 pb-40">
+    <div className="max-w-full mx-auto px-4 md:px-8 py-6 space-y-16 pb-40 overflow-x-hidden w-full relative">
       
-      {currentPage < 4 && pageContent ? (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-16">
+      {pageContent?.type === 'standard' ? (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-16 max-w-[1440px] mx-auto overflow-x-hidden">
               <StoriesRail />
               
               <BannerSlot position={`home_top_p${currentPage}`} />
 
-              {/* НОВОСТИ СТРАНИЦЫ */}
+              {/* СЕКЦИЯ КОНТЕНТА (НОВОСТИ ИЛИ СОБЫТИЯ) */}
               <section className="space-y-8">
                   <div className="flex items-center justify-between px-1">
                       <div className="flex items-center gap-4">
                           <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-blue-600 shadow-sm border border-blue-100 dark:border-blue-800">
-                             <Newspaper className="w-6 h-6" />
+                             {pageContent.events ? <Calendar className="w-6 h-6" /> : <Newspaper className="w-6 h-6" />}
                           </div>
                           <div>
-                              <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter leading-none">Новости</h2>
-                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Новости города</p>
+                              <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter leading-none">
+                                  {pageContent.events ? 'Афиша' : 'Новости'}
+                              </h2>
+                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">
+                                  {pageContent.events ? 'События города' : 'Лента новостей'}
+                              </p>
                           </div>
                       </div>
                   </div>
                   
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-10">
-                      {pageContent.news.map(item => (
+                      {pageContent.news?.map(item => (
                           <Link key={item.id} to={`/news/${item.id}`} className="group block h-full flex flex-col">
                               <div className="aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 mb-4 shadow-sm border dark:border-gray-700 shrink-0">
                                   <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
@@ -186,11 +224,21 @@ export const Home: React.FC = () => {
                               </div>
                           </Link>
                       ))}
-                      {pageContent.news.length === 0 && (
-                          [1,2,3,4].map(i => (
-                            <div key={i} className="aspect-video rounded-xl bg-gray-50 dark:bg-gray-800/50 animate-pulse border dark:border-gray-700"></div>
-                          ))
-                      )}
+                      {pageContent.events?.map(item => (
+                          <Link key={item.id} to={`/event/${item.id}`} className="group block h-full flex flex-col">
+                              <div className="aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 mb-4 shadow-sm border dark:border-gray-700 shrink-0">
+                                  <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
+                              </div>
+                              <div className="px-1 flex flex-col flex-1">
+                                  <h4 className="text-[12px] font-black dark:text-white line-clamp-2 leading-4 uppercase group-hover:text-blue-600 transition-colors tracking-tight mb-3 h-8 overflow-hidden">{item.title}</h4>
+                                  <div className="mt-auto flex items-center gap-3 text-[9px] text-gray-400 font-black uppercase tracking-widest">
+                                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-blue-500" /> {item.date}</span>
+                                      <span className="w-1 h-1 bg-gray-300 dark:bg-gray-700 rounded-full"></span>
+                                      <span className="truncate">{item.location}</span>
+                                  </div>
+                              </div>
+                          </Link>
+                      ))}
                   </div>
               </section>
 
@@ -205,7 +253,7 @@ export const Home: React.FC = () => {
                           </div>
                           <div>
                             <h2 className="text-3xl font-black dark:text-white uppercase tracking-tighter leading-none">{pageContent.adLabel}</h2>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Рекламные объявления</p>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Рекламные предложения</p>
                           </div>
                       </div>
                   </div>
@@ -216,9 +264,8 @@ export const Home: React.FC = () => {
                           return (
                           <Link key={ad.id} to={`/ad/${ad.id}`} className="group block flex flex-col h-full relative">
                               <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 mb-5 shadow-sm shrink-0">
-                                  <img src={ad.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
+                                  <img src={ad.image} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="" />
                                   
-                                  {/* Избранное (сердечко) - теперь в верхнем правом углу */}
                                   <button 
                                     onClick={(e) => handleToggleFavorite(e, ad.id)}
                                     className={`absolute top-3 right-3 p-2 rounded-xl backdrop-blur-md border transition-all z-10 ${isFav ? 'bg-red-500 border-red-400 text-white shadow-xl' : 'bg-black/20 border-white/10 text-white hover:bg-black/40'}`}
@@ -237,40 +284,33 @@ export const Home: React.FC = () => {
                               </div>
                           </Link>
                       )})}
-                      {pageContent.ads.length === 0 && (
-                        <div className="col-span-full py-24 text-center bg-gray-50 dark:bg-gray-800/50 rounded-3xl border-2 border-dashed dark:border-gray-700">
-                            <ShoppingBag className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                            <p className="text-gray-400 font-black uppercase text-xs tracking-widest italic">На этой странице пока пусто</p>
-                        </div>
-                      )}
                   </div>
               </section>
           </div>
       ) : (
-          /* СТРАНИЦА 4+: ЭКСКЛЮЗИВНЫЕ ЛЕНДИНГИ */
-          <div className="animate-in fade-in duration-1000">
+          <div className="animate-in fade-in duration-1000 max-w-[1440px] mx-auto overflow-x-hidden">
               {activeExclusivePage ? (
                   <div className="space-y-20">
                       <div className="flex items-center gap-3 px-1">
                          <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
-                         <h3 className="font-black text-sm uppercase tracking-widest text-gray-400">Эксклюзив</h3>
+                         <h3 className="font-black text-sm uppercase tracking-widest text-gray-400">Эксклюзив • Инфо</h3>
                       </div>
                       {activeExclusivePage.blocks_config?.map((block) => (
                           <BlockRenderer key={block.id} block={block} />
                       ))}
                   </div>
               ) : (
-                  <div className="py-40 text-center space-y-6 bg-gray-50 dark:bg-gray-800 rounded-3xl border-2 border-dashed">
-                      <ShoppingBag className="w-20 h-20 mx-auto text-gray-200 animate-bounce" />
-                      <h3 className="text-2xl font-black uppercase dark:text-white">Раздел наполняется</h3>
-                      <p className="text-gray-500 uppercase font-bold text-xs tracking-widest">Здесь скоро будет что-то очень крутое!</p>
+                  <div className="py-40 text-center space-y-6 bg-gray-50 dark:bg-gray-800 rounded-3xl border-2 border-dashed mx-4">
+                      <Building2 className="w-20 h-20 mx-auto text-gray-200 animate-bounce" />
+                      <h3 className="text-2xl font-black uppercase dark:text-white">Информационный раздел</h3>
+                      <p className="text-gray-500 uppercase font-bold text-xs tracking-widest">Здесь скоро появятся важные городские данные</p>
                   </div>
               )}
           </div>
       )}
 
-      {/* НИЖНЯЯ ПАГИНАЦИЯ (УМНАЯ НУМЕРАЦИЯ) */}
-      <div className="pt-20 border-t dark:border-gray-800 flex flex-col items-center gap-8">
+      {/* НИЖНЯЯ ПАГИНАЦИЯ */}
+      <div className="pt-20 border-t dark:border-gray-800 flex flex-col items-center gap-8 max-w-[1440px] mx-auto overflow-x-hidden">
           <div className="flex items-center gap-2">
               <button 
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -287,7 +327,7 @@ export const Home: React.FC = () => {
                         onClick={() => setCurrentPage(tab.id)}
                         className={`flex flex-col items-center gap-1.5 px-6 py-4 rounded-[2rem] transition-all ${currentPage === tab.id ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-xl scale-110' : 'text-gray-400 hover:text-gray-600'}`}
                       >
-                          <div className="text-lg font-black leading-none">{tab.id}</div>
+                          <div className="text-lg font-black leading-none">{tab.label === 'Инфо' ? '2' : tab.label === 'PRO' ? '3' : tab.label === 'Частные' ? '4' : '1'}</div>
                           <div className="flex items-center gap-1 font-black uppercase text-[8px] tracking-widest">
                              {tab.icon} {tab.label}
                           </div>
@@ -302,11 +342,6 @@ export const Home: React.FC = () => {
               >
                   <ChevronRight className="w-6 h-6" />
               </button>
-          </div>
-          
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.4em] text-gray-300">
-             <span>Листайте страницы города</span>
-             <ArrowRight className="w-3 h-3" />
           </div>
       </div>
     </div>

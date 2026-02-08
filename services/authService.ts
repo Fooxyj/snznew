@@ -12,7 +12,6 @@ const parseDBDate = (dateStr: string | null | undefined): string | undefined => 
     return dateStr.includes(' ') && !dateStr.includes('T') ? dateStr.replace(' ', 'T') : dateStr;
 };
 
-// Внутренняя функция маппинга для единообразия данных
 const mapBusinessFromDB = (b: any): Business => {
     return {
         ...b,
@@ -28,6 +27,26 @@ const mapBusinessFromDB = (b: any): Business => {
         lat: parseFloat(String(b.lat || 0)),
         lng: parseFloat(String(b.lng || 0))
     };
+};
+
+// Хелпер для формирования списка доступных значков на основе прогресса
+const calculateBadges = (profile: any): string[] => {
+    const badges: string[] = profile?.badges || [];
+    const role = (profile?.role as UserRole) || UserRole.USER;
+    const xp = profile?.xp || 0;
+    
+    // Автоматические значки по условию
+    if (role === UserRole.ADMIN && !badges.includes('admin')) badges.push('admin');
+    if (role === UserRole.MODERATOR && !badges.includes('moderator')) badges.push('moderator');
+    if (xp >= 100 && !badges.includes('verified')) badges.push('verified');
+    if (xp >= 500 && !badges.includes('quest_master')) badges.push('quest_master');
+    
+    const createdAt = parseDBDate(profile?.created_at);
+    if (createdAt && new Date(createdAt).getFullYear() <= 2025) {
+        if (!badges.includes('early_adopter')) badges.push('early_adopter');
+    }
+
+    return Array.from(new Set(badges)); // Убираем дубликаты
 };
 
 export const authService = {
@@ -153,29 +172,26 @@ export const authService = {
 
             const profile = profileRes.data;
             const dbFavs = favsRes.data?.map(f => f.item_id) || [];
-            const role = (profile?.role as UserRole) || UserRole.USER;
-            const xp = profile?.xp || 0;
-
-            const badges: string[] = [];
-            if (role === UserRole.ADMIN) badges.push('admin');
-            if (xp >= 100) badges.push('verified');
-            if (xp >= 500) badges.push('quest_master');
             
-            const createdAt = parseDBDate(profile?.created_at);
-            if (createdAt && new Date(createdAt).getFullYear() <= 2025) badges.push('early_adopter');
+            const badges = calculateBadges(profile);
 
             const user: User = { 
                 ...CURRENT_USER, 
                 id: data.user.id, 
                 email: data.user.email || '',
-                xp: xp,
-                role: role,
+                xp: profile?.xp || 0,
+                role: (profile?.role as UserRole) || UserRole.USER,
                 name: profile?.name || 'Пользователь',
                 avatar: profile?.avatar || '',
+                bio: profile?.about || '', 
+                birthDate: profile?.birth_date || '',
+                gender: profile?.gender || 'none',
+                occupation: profile?.occupation || '',
                 favorites: Array.from(new Set(dbFavs)),
                 badges: badges,
+                showcasedBadges: profile?.showcased_badges || [],
                 phone: profile?.phone || '',
-                createdAt: createdAt,
+                createdAt: parseDBDate(profile?.created_at),
                 lastSeen: parseDBDate(profile?.last_seen)
             };
             return user;
@@ -255,7 +271,6 @@ export const authService = {
                 status: a.status || 'approved'
             }));
 
-            // Исправлено: используем маппинг с рейтингом из БД
             const businesses = (bizRes.data || []).map(mapBusinessFromDB);
 
             return { ads, businesses };
@@ -295,8 +310,18 @@ export const authService = {
       try {
         const user = await authService.getCurrentUser();
         if (!user) throw new Error("No user");
+        
+        const dbUpdate: any = {};
+        if (data.name !== undefined) dbUpdate.name = data.name;
+        if (data.avatar !== undefined) dbUpdate.avatar = data.avatar;
+        if (data.bio !== undefined) dbUpdate.about = data.bio; 
+        if (data.phone !== undefined) dbUpdate.phone = data.phone;
+        if (data.birthDate !== undefined) dbUpdate.birth_date = data.birthDate; 
+        if (data.gender !== undefined) dbUpdate.gender = data.gender;
+        if (data.occupation !== undefined) dbUpdate.occupation = data.occupation;
+
         if (isSupabaseConfigured() && supabase) {
-            const { error } = await supabase.from('profiles').update(data).eq('id', user.id);
+            const { error } = await supabase.from('profiles').update(dbUpdate).eq('id', user.id);
             if (error) throw error;
         }
         return { ...user, ...data };
@@ -313,17 +338,14 @@ export const authService = {
             const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
             if (error) throw error;
             if (data) {
-                const role = data.role as UserRole;
-                const xp = data.xp || 0;
-                const badges: string[] = [];
-                if (role === UserRole.ADMIN) badges.push('admin');
-                if (xp >= 100) badges.push('verified');
-                if (xp >= 500) badges.push('quest_master');
                 return { 
                     ...data, 
-                    role, 
-                    badges, 
+                    role: data.role as UserRole, 
+                    badges: calculateBadges(data), 
+                    showcasedBadges: data.showcased_badges || [],
                     favorites: [], 
+                    bio: data.about,
+                    birthDate: data.birth_date,
                     createdAt: parseDBDate(data.created_at), 
                     lastSeen: parseDBDate(data.last_seen) 
                 };
@@ -340,15 +362,14 @@ export const authService = {
         if (isSupabaseConfigured() && supabase) {
             const { data, error } = await supabase.from('profiles').select('*').order('xp', { ascending: false }).limit(20);
             if (error) throw error;
-            return data?.map((p: any) => {
-                const role = p.role as UserRole;
-                const xp = p.xp || 0;
-                const badges: string[] = [];
-                if (role === UserRole.ADMIN) badges.push('admin');
-                if (xp >= 100) badges.push('verified');
-                if (xp >= 500) badges.push('quest_master');
-                return { ...p, role, badges, favorites: [], lastSeen: parseDBDate(p.last_seen) };
-            }) || [];
+            return (data || []).map((p: any) => ({
+                ...p,
+                role: p.role as UserRole,
+                badges: calculateBadges(p),
+                showcasedBadges: p.showcased_badges || [],
+                favorites: [],
+                lastSeen: parseDBDate(p.last_seen)
+            }));
         }
       } catch (e: any) {
           console.error("Get leaderboard failed:", e?.message || e);

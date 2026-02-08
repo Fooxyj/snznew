@@ -41,11 +41,11 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt, isOpen, onCl
 
   return (
     <div 
-      className={`fixed inset-0 z-[150] flex items-center justify-center bg-black/95 transition-opacity duration-300 ${isClosing ? 'opacity-0 pointer-events-none cursor-default' : 'opacity-100'}`}
+      className={`fixed inset-0 z-[1000] flex items-center justify-center bg-black/95 transition-opacity duration-300 ${isClosing ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       onClick={handleClose}
     >
       {/* Toolbar */}
-      <div className={`absolute top-4 right-4 flex gap-4 z-[160] ${isClosing ? 'pointer-events-none' : ''}`}>
+      <div className={`absolute top-4 right-4 flex gap-4 z-[1010] ${isClosing ? 'pointer-events-none' : ''}`}>
         <button 
           onClick={toggleZoom}
           className="p-2 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors cursor-pointer"

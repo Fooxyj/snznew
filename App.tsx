@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -17,7 +18,6 @@ import { UserRole } from './types';
 
 // Lazy Load Pages
 const Home = lazy(() => import('./pages/Home').then(m => ({ default: m.Home })));
-// Comment above fix: Map named export NewsFeed from NewsFeed.tsx for lazy loading as EventsPage since it handles the generic feed logic for both news and events
 const EventsPage = lazy(() => import('./pages/NewsFeed').then(m => ({ default: m.NewsFeed })));
 const Classifieds = lazy(() => import('./pages/Classifieds').then(m => ({ default: m.Classifieds })));
 const BusinessDirectory = lazy(() => import('./pages/BusinessDirectory').then(m => ({ default: m.BusinessDirectory })));
@@ -55,6 +55,7 @@ const DeliveryPage = lazy(() => import('./pages/Delivery').then(m => ({ default:
 const HousingPage = lazy(() => import('./pages/Housing').then(m => ({ default: m.HousingPage })));
 const SmartCity = lazy(() => import('./pages/SmartCity').then(m => ({ default: m.SmartCity })));
 const LegalPage = lazy(() => import('./pages/Legal').then(m => ({ default: m.LegalPage })));
+const NotificationsPage = lazy(() => import('./pages/Notifications').then(m => ({ default: m.NotificationsPage })));
 
 const App: React.FC = () => {
   const [appReady, setAppReady] = useState(false);
@@ -77,7 +78,6 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-      // Обновляем статус каждые 20 секунд для максимально высокой точности
       const interval = setInterval(() => {
           api.updateLastSeen();
       }, 1000 * 20); 
@@ -135,6 +135,7 @@ const App: React.FC = () => {
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/chat" element={<ChatPage />} />
+                      <Route path="/notifications" element={<NotificationsPage />} />
                       <Route path="/business-connect" element={<ConnectBusiness />} />
                     </Route>
 

@@ -10,6 +10,16 @@ import { CardSkeleton } from '../components/ui/Skeleton';
 import { AD_CATEGORIES } from '../constants';
 import { BannerSlot } from '../components/BannerSlot';
 
+// Вспомогательная функция для перемешивания массива
+const shuffleArray = <T,>(array: T[]): T[] => {
+    const newArr = [...array];
+    for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+    }
+    return newArr;
+};
+
 export const Classifieds: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'partners' | 'residents'>('residents');
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,10 +40,11 @@ export const Classifieds: React.FC = () => {
   }, [ads, selectedCategory, searchTerm]);
 
   const { vipAds, proAds, regularAds } = useMemo(() => {
+      // Рандомизируем каждую группу при каждом изменении фильтров или обновлении данных
       return { 
-          vipAds: filteredAds.filter(ad => ad.isVip), 
-          proAds: filteredAds.filter(ad => ad.isPremium && !ad.isVip),
-          regularAds: filteredAds.filter(ad => !ad.isVip && !ad.isPremium) 
+          vipAds: shuffleArray(filteredAds.filter(ad => ad.isVip)), 
+          proAds: shuffleArray(filteredAds.filter(ad => ad.isPremium && !ad.isVip)),
+          regularAds: shuffleArray(filteredAds.filter(ad => !ad.isVip && !ad.isPremium)) 
       };
   }, [filteredAds]);
 
@@ -140,9 +151,9 @@ export const Classifieds: React.FC = () => {
                           </div>
                       )}
 
-                      {/* Regular Section */}
+                      {/* Private Section (formerly Fresh) */}
                       <div className="space-y-4 px-1">
-                          <h2 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">Все свежее</h2>
+                          <h2 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">Частные объявления</h2>
                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
                               {regularAds.length === 0 && vipAds.length === 0 && proAds.length === 0 ? (
                                   <p className="col-span-full text-center py-10 text-gray-400 font-bold uppercase text-xs">Нет объявлений</p>

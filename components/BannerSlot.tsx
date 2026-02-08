@@ -3,7 +3,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Badge } from './ui/Common';
-import { Info } from 'lucide-react';
+import { Info, ShieldCheck } from 'lucide-react';
 
 interface BannerSlotProps {
     position: string;
@@ -18,7 +18,16 @@ export const BannerSlot: React.FC<BannerSlotProps> = ({ position, className = ""
 
     if (isLoading) return <div className="w-full aspect-[3/1] bg-gray-100 dark:bg-gray-800 animate-pulse rounded-xl" />;
 
-    const validBanners = allBanners.filter(b => b.position === position && b.is_active);
+    // Исправленная логика: ищем точное совпадение ИЛИ если запрашивается конкретная страница (home_top_p1), 
+    // но в базе есть только общий баннер (home_top), показываем его.
+    const validBanners = allBanners.filter(b => {
+        if (!b.is_active) return false;
+        if (b.position === position) return true;
+        if (position.startsWith('home_top') && b.position === 'home_top') return true;
+        if (position.startsWith('home_mid') && b.position === 'home_mid') return true;
+        return false;
+    });
+
     if (validBanners.length === 0) return null;
 
     const banner = validBanners[0];
@@ -50,17 +59,25 @@ export const BannerSlot: React.FC<BannerSlotProps> = ({ position, className = ""
                 </div>
             </a>
             
-            {/* Юридическая маркировка (Floating) */}
-            <div className="absolute top-2 right-2 z-10 opacity-60 hover:opacity-100 transition-opacity">
-                <div className="bg-black/40 backdrop-blur-md px-2 py-1 rounded text-[7px] text-white/80 font-bold uppercase tracking-widest flex items-center gap-1.5 border border-white/10 group/legal">
-                    <span>Реклама</span>
-                    <Info className="w-2 h-2" />
+            {/* Юридическая маркировка */}
+            <div className="absolute top-4 right-4 z-20">
+                <div className="relative group/legal">
+                    <div className="bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-[7px] text-white/80 font-bold uppercase tracking-widest flex items-center gap-1.5 border border-white/10 hover:bg-black/60 transition-colors cursor-help">
+                        <span>Реклама</span>
+                        <Info className="w-2 h-2" />
+                    </div>
                     
-                    {/* Tooltip с данными рекламодателя */}
-                    <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-xl border dark:border-gray-700 hidden group-hover/legal:block text-gray-900 dark:text-gray-100 normal-case tracking-normal">
-                        <p className="font-bold border-b dark:border-gray-700 pb-1 mb-1">Информация о рекламе</p>
-                        <p className="mb-1 leading-tight">{banner.advertiser_info || 'Владелец портала'}</p>
-                        <p className="text-blue-500 font-mono text-[9px] break-all">erid: {banner.erid || 'not_required_internal'}</p>
+                    {/* Tooltip с данными рекламодателя (erid и инфо) */}
+                    <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-gray-800 p-3 rounded-xl shadow-2xl border dark:border-gray-700 opacity-0 invisible group-hover/legal:opacity-100 group-hover/legal:visible transition-all z-50 text-gray-900 dark:text-gray-100 normal-case tracking-normal">
+                        <p className="text-[9px] font-black uppercase text-gray-400 mb-1.5 border-b dark:border-gray-700 pb-1.5 flex items-center gap-1.5">
+                            <ShieldCheck className="w-3 h-3 text-blue-500" /> Рекламодатель
+                        </p>
+                        <p className="text-[11px] font-bold leading-tight mb-2">
+                            {banner.advertiser_info || 'Администрация платформы ПРОСТОР'}
+                        </p>
+                        <p className="text-blue-500 dark:text-blue-400 font-mono text-[8px] break-all bg-gray-50 dark:bg-gray-900 p-1.5 rounded uppercase">
+                            erid: {banner.erid || 'not_required_internal'}
+                        </p>
                     </div>
                 </div>
             </div>

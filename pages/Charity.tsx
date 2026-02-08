@@ -1,171 +1,19 @@
 
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
-import { Campaign, User, UserRole } from '../types';
+import { Campaign } from '../types';
 import { Button } from '../components/ui/Common';
-import { Heart, Loader2, Share2, Users, Coins, Plus, X, Upload } from 'lucide-react';
-import { Link } from 'react-router-dom';
-
-const CreateCampaignModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({ title: '', description: '', targetAmount: '', organizerName: '', image: '' });
-    const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState(false);
-
-    if (!isOpen) return null;
-
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setUploading(true);
-        try {
-            const url = await api.uploadImage(file);
-            setFormData(prev => ({ ...prev, image: url }));
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            await api.createCampaign({
-                ...formData,
-                targetAmount: Number(formData.targetAmount)
-            });
-            onSuccess();
-            onClose();
-            setFormData({ title: '', description: '', targetAmount: '', organizerName: '', image: '' });
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold dark:text-white">Создать сбор</h2>
-                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-gray-500">Название сбора</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-500">Организатор</label>
-                        <input className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.organizerName} onChange={e => setFormData({...formData, organizerName: e.target.value})} required placeholder="Фонд или Имя" />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-500">Цель (₽)</label>
-                        <input type="number" className="w-full border rounded-lg p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.targetAmount} onChange={e => setFormData({...formData, targetAmount: e.target.value})} required />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-500">Описание</label>
-                        <textarea rows={4} className="w-full border rounded-lg p-2 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required />
-                    </div>
-                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
-                        {formData.image ? (
-                            <img src={formData.image} alt="" className="h-24 mx-auto rounded object-cover" />
-                        ) : (
-                            <div className="relative cursor-pointer">
-                                <Upload className="w-6 h-6 text-gray-400 mx-auto mb-1" />
-                                <span className="text-xs text-gray-500">{uploading ? "..." : "Фото"}</span>
-                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageUpload} />
-                            </div>
-                        )}
-                    </div>
-                    <Button className="w-full" disabled={loading || uploading}>{loading ? <Loader2 className="animate-spin" /> : 'Создать'}</Button>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-const DonateModal: React.FC<{ campaign: Campaign; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ campaign, isOpen, onClose, onSuccess }) => {
-    const [amount, setAmount] = useState('');
-    const [loading, setLoading] = useState(false);
-
-    if (!isOpen) return null;
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            await api.donateToCampaign(campaign.id, Number(amount));
-            alert("Спасибо за вашу доброту! ❤️");
-            onSuccess();
-            onClose();
-            setAmount('');
-        } catch (e: any) {
-            alert(e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl">
-                <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
-                        <Heart className="w-8 h-8 fill-current" />
-                    </div>
-                    <h3 className="font-bold text-xl dark:text-white">Помочь проекту</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{campaign.title}</p>
-                </div>
-                
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Сумма пожертвования</label>
-                        <div className="grid grid-cols-3 gap-2 mb-3">
-                            {['100', '500', '1000'].map(val => (
-                                <button 
-                                    type="button" 
-                                    key={val}
-                                    onClick={() => setAmount(val)}
-                                    className={`py-2 rounded-lg border text-sm font-medium transition-colors ${amount === val ? 'bg-red-50 border-red-500 text-red-700 dark:bg-red-900/30 dark:border-red-500 dark:text-red-300' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'}`}
-                                >
-                                    {val} ₽
-                                </button>
-                            ))}
-                        </div>
-                        <input 
-                            type="number" 
-                            placeholder="Другая сумма" 
-                            className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg p-3"
-                            value={amount}
-                            onChange={e => setAmount(e.target.value)}
-                            required
-                            min="10"
-                        />
-                    </div>
-                    <Button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 shadow-lg shadow-red-200 dark:shadow-none" disabled={loading}>
-                        {loading ? <Loader2 className="animate-spin" /> : 'Пожертвовать'}
-                    </Button>
-                </form>
-            </div>
-        </div>
-    );
-};
+import { Heart, Loader2, Info, ExternalLink, QrCode, ChevronLeft, Target, User as UserIcon, ArrowRight, ShieldCheck, AlertTriangle, Shield, Waves } from 'lucide-react';
 
 export const CharityPage: React.FC = () => {
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState<User | null>(null);
-    const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [selectedCamp, setSelectedCamp] = useState<Campaign | null>(null);
 
     const loadData = async () => {
         try {
-            const [c, u] = await Promise.all([api.getCampaigns(), api.getCurrentUser()]);
+            const c = await api.getCampaigns();
             setCampaigns(c);
-            setUser(u);
         } catch (e) {
             console.error(e);
         } finally {
@@ -173,111 +21,139 @@ export const CharityPage: React.FC = () => {
         }
     };
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const handleDonateClick = (campaign: Campaign) => {
-        if (!user) {
-            alert("Пожалуйста, войдите в систему, чтобы сделать пожертвование.");
-            return;
-        }
-        setSelectedCampaign(campaign);
-    };
-
-    const isAdmin = user?.role === UserRole.ADMIN;
+    useEffect(() => { loadData(); }, []);
 
     if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
-    return (
-        <div className="max-w-5xl mx-auto p-4 lg:p-8 pb-24">
-            <CreateCampaignModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSuccess={loadData} />
-            {selectedCampaign && (
-                <DonateModal 
-                    campaign={selectedCampaign} 
-                    isOpen={!!selectedCampaign} 
-                    onClose={() => setSelectedCampaign(null)} 
-                    onSuccess={loadData} 
-                />
-            )}
+    if (selectedCamp) {
+        return (
+            <div className="min-h-screen bg-white dark:bg-gray-900 animate-in fade-in duration-300 pb-32">
+                <div className="relative h-[40vh] md:h-[50vh] w-full">
+                    <img src={selectedCamp.image} className="w-full h-full object-cover" alt="" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                    
+                    <button 
+                        onClick={() => setSelectedCamp(null)}
+                        className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-2xl border border-white/10 transition-all active:scale-95 font-black uppercase text-[10px] tracking-widest"
+                    >
+                        <ChevronLeft className="w-5 h-5" /> Вернуться в Простор
+                    </button>
 
-            <div className="bg-red-600 rounded-3xl p-8 text-white mb-10 shadow-xl relative overflow-hidden">
-                <div className="relative z-10 max-w-2xl">
-                    <h1 className="text-3xl font-bold mb-4 flex items-center gap-3">
-                        <Heart className="w-8 h-8 fill-white" /> Добро Снежинска
-                    </h1>
-                    <p className="text-lg opacity-90 mb-6">
-                        Маленькая помощь лучше большого сочувствия. Поддержите городские инициативы, приюты и тех, кто попал в беду.
-                    </p>
-                    <div className="flex gap-4 items-center">
-                        <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg">
-                            <span className="block text-2xl font-bold">{campaigns.length}</span>
-                            <span className="text-xs opacity-80">Активных сборов</span>
+                    <div className="absolute bottom-10 left-6 right-6 max-w-4xl mx-auto">
+                        <div className="inline-flex items-center gap-2 bg-red-600 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-4 shadow-lg">
+                            <ShieldCheck className="w-3 h-3" /> Проверено платформой Простор
                         </div>
-                        <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-lg">
-                            <span className="block text-2xl font-bold">{Math.floor(campaigns.reduce((acc, c) => acc + c.collectedAmount, 0) / 1000)}k+</span>
-                            <span className="text-xs opacity-80">Рублей собрано</span>
-                        </div>
-                        {isAdmin && (
-                            <Button 
-                                onClick={() => setIsCreateOpen(true)}
-                                className="bg-white text-red-600 hover:bg-red-50 border-none ml-4 shadow-lg"
-                            >
-                                <Plus className="w-4 h-4 mr-2" /> Создать сбор
-                            </Button>
-                        )}
+                        <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter leading-none drop-shadow-2xl">
+                            {selectedCamp.title}
+                        </h1>
                     </div>
                 </div>
-                <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-white/10 to-transparent"></div>
-                <Heart className="absolute -bottom-10 -right-10 w-64 h-64 text-red-500 fill-current opacity-50 rotate-12" />
+
+                <div className="max-w-4xl mx-auto px-6 py-12 space-y-12">
+                    <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border-2 border-dashed border-amber-200 dark:border-amber-800 rounded-[2rem] flex items-start gap-4">
+                        <div className="w-10 h-10 bg-amber-100 dark:bg-amber-800 rounded-full flex items-center justify-center shrink-0">
+                            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-amber-900 dark:text-amber-200 uppercase tracking-tight mb-1">Прозрачность и безопасность</h4>
+                            <p className="text-xs text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
+                                Платформа «Простор» является информационным витриной и не аккумулирует денежные средства на своих счетах. Все пожертвования направляются напрямую организаторам. Помогайте ответственно.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-3xl border dark:border-gray-700">
+                            <div className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2 flex items-center gap-2">
+                                <Target className="w-4 h-4 text-red-500"/> Цель сбора
+                            </div>
+                            <div className="text-3xl font-black dark:text-white tracking-tighter">{selectedCamp.targetAmount.toLocaleString()} ₽</div>
+                        </div>
+                        <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-3xl border border-blue-100 dark:border-blue-900/30">
+                            <div className="text-[10px] font-black uppercase text-blue-600 tracking-widest mb-2 flex items-center gap-2">
+                                <UserIcon className="w-4 h-4"/> Организатор
+                            </div>
+                            <div className="text-lg font-bold text-blue-900 dark:text-blue-300 truncate">{selectedCamp.organizerName}</div>
+                        </div>
+                    </div>
+
+                    <div className="prose prose-lg dark:prose-invert max-w-none">
+                        <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.3em] flex items-center gap-3 mb-6">
+                            <div className="w-8 h-[2px] bg-red-500"></div> Описание проекта
+                        </h4>
+                        <p className="text-xl text-gray-700 dark:text-gray-200 leading-relaxed font-medium italic whitespace-pre-wrap">
+                            "{selectedCamp.description}"
+                        </p>
+                    </div>
+
+                    {selectedCamp.qrCode && (
+                        <div className="bg-white dark:bg-gray-800 rounded-[3rem] p-10 flex flex-col items-center gap-8 text-center border dark:border-gray-700 shadow-xl border-t-8 border-t-blue-600">
+                            <div className="p-6 bg-white rounded-[2.5rem] shadow-2xl border-4 border-gray-50">
+                                <img src={selectedCamp.qrCode} className="w-64 h-64 object-contain" alt="QR Code" />
+                            </div>
+                            <div className="max-w-xs">
+                                <h5 className="font-black uppercase text-sm text-gray-900 dark:text-white tracking-widest mb-3">QR-код для перевода</h5>
+                                <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed">
+                                    Отсканируйте через мобильный банк для прямой помощи проекту
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-6xl mx-auto p-4 lg:p-8 pb-32">
+            <div className="bg-red-600 rounded-[3rem] p-10 lg:p-16 text-white mb-8 shadow-2xl relative overflow-hidden">
+                <div className="relative z-10 max-w-2xl">
+                    <h1 className="text-4xl lg:text-7xl font-black mb-6 uppercase italic tracking-tighter leading-none">
+                        Простор <br/> Добра
+                    </h1>
+                    <p className="text-xl opacity-90 font-medium leading-relaxed max-w-lg">
+                        Центр благотворительных инициатив Снежинска. Создаем простор для добрых дел вместе.
+                    </p>
+                </div>
+                <Heart className="absolute -bottom-10 -right-10 w-80 h-80 text-white/10 fill-current rotate-12" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {campaigns.length === 0 ? (
-                    <div className="col-span-full text-center py-20 text-gray-400">
-                        Активных сборов пока нет.
-                    </div>
-                ) : (
-                    campaigns.map(camp => {
-                        const percent = Math.min(100, Math.round((camp.collectedAmount / camp.targetAmount) * 100));
-                        return (
-                            <div key={camp.id} className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
-                                <div className="h-48 relative">
-                                    <img src={camp.image} className="w-full h-full object-cover" alt="" />
-                                    <div className="absolute top-3 left-3 bg-black/50 backdrop-blur text-white text-xs px-2 py-1 rounded-md">
-                                        {camp.organizerName}
-                                    </div>
-                                </div>
-                                
-                                <div className="p-6 flex-1 flex flex-col">
-                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 line-clamp-1">{camp.title}</h3>
-                                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 line-clamp-3 flex-1">{camp.description}</p>
-                                    
-                                    <div className="mb-6">
-                                        <div className="flex justify-between text-sm font-medium mb-2 dark:text-gray-300">
-                                            <span>Собрано {camp.collectedAmount.toLocaleString()} ₽</span>
-                                            <span className="text-gray-400">из {camp.targetAmount.toLocaleString()}</span>
-                                        </div>
-                                        <div className="h-2 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                                            <div 
-                                                className="h-full bg-gradient-to-r from-red-500 to-pink-500 rounded-full transition-all duration-1000"
-                                                style={{ width: `${percent}%` }}
-                                            ></div>
-                                        </div>
-                                        <div className="text-right text-xs text-red-500 font-bold mt-1">{percent}%</div>
-                                    </div>
+            <div className="bg-gray-50 dark:bg-gray-800/50 p-6 md:p-8 rounded-[2.5rem] border-2 border-dashed border-gray-200 dark:border-gray-700 mb-12 flex flex-col md:flex-row items-center gap-6">
+                <div className="w-14 h-14 bg-white dark:bg-gray-700 rounded-2xl flex items-center justify-center text-blue-600 shadow-sm shrink-0">
+                    <Shield className="w-7 h-7" />
+                </div>
+                <div className="text-center md:text-left">
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-1">Статус витрины</h4>
+                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 font-medium leading-relaxed">
+                        Платформа «Простор» выступает исключительно как <span className="text-blue-600 font-bold">информационный посредник</span>. Мы не являемся получателями пожертвований и не берем комиссий. Ваша помощь идет напрямую тем, кто в ней нуждается.
+                    </p>
+                </div>
+            </div>
 
-                                    <Button 
-                                        className="w-full bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30 border-none"
-                                        onClick={() => handleDonateClick(camp)}
-                                    >
-                                        Помочь сейчас
-                                    </Button>
-                                </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8">
+                {campaigns.map(camp => (
+                    <div 
+                        key={camp.id} 
+                        onClick={() => setSelectedCamp(camp)}
+                        className="group bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer"
+                    >
+                        <div className="aspect-square relative overflow-hidden bg-gray-100 dark:bg-gray-900 shrink-0">
+                            <img src={camp.image} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                            <div className="absolute bottom-4 left-4 right-4">
+                                <h3 className="text-[13px] md:text-sm font-black text-white uppercase leading-tight line-clamp-2 drop-shadow-md">
+                                    {camp.title}
+                                </h3>
                             </div>
-                        );
-                    })
-                )}
+                        </div>
+                        <div className="p-5 flex-1 flex flex-col justify-between">
+                            <div className="flex items-center justify-between text-[8px] md:text-[9px] font-black uppercase text-gray-400 tracking-[0.1em]">
+                                <span>{camp.organizerName}</span>
+                                <ArrowRight className="w-3 h-3 text-red-500 transform group-hover:translate-x-1 transition-transform" />
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     );

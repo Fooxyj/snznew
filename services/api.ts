@@ -6,7 +6,7 @@ import {
   Coupon, UserCoupon, CommunityPost, 
   Quest, Order, Product, Service, Booking, RentalItem, 
   RentalBooking, SmartDevice, Transaction, UtilityBill, 
-  Campaign, UserRole, StoryConfig, Employee, AnalyticsData, Table, Report, Suggestion, AccessRequest, TransportSchedule, Story, Community, Banner, PromoAd, ExclusivePage, ModerationLog 
+  Campaign, UserRole, StoryConfig, Employee, AnalyticsData, Table, Report, Suggestion, AccessRequest, TransportSchedule, Story, Community, Banner, PromoAd, ExclusivePage, ModerationLog, Achievement 
 } from '../types';
 import { supabase } from '../lib/supabase';
 import { isSupabaseConfigured } from '../config';
@@ -17,6 +17,30 @@ import { cityService } from './cityService';
 import { moderationService } from './moderationService';
 import { mockStore } from './mockData';
 
+// Вспомогательная функция для безопасного парсинга дат из БД
+const parseSafeDate = (dateStr: string | null | undefined): string => {
+    if (!dateStr || dateStr === 'Invalid Date' || dateStr === 'null') return new Date().toISOString();
+    const normalized = dateStr.includes(' ') && !dateStr.includes('T') 
+        ? dateStr.replace(' ', 'T') 
+        : dateStr;
+    const d = new Date(normalized);
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+};
+
+// Функция для повторных попыток при сетевых ошибках (только для чтения)
+const withRetry = async <T>(fn: () => Promise<T>, retries = 2): Promise<T> => {
+    try {
+        return await fn();
+    } catch (err: any) {
+        if (retries > 0 && (err.message?.includes('fetch') || err.message?.includes('network'))) {
+            console.warn(`API: Fetch failed, retrying... (${retries} left)`);
+            await new Promise(r => setTimeout(r, 1000));
+            return withRetry(fn, retries - 1);
+        }
+        throw err;
+    }
+};
+
 export const api = {
   supabase,
   ...authService,
@@ -25,72 +49,113 @@ export const api = {
   ...cityService,
   ...moderationService,
 
-  // Переопределяем методы создания для авто-модерации
+  async getAchievements(): Promise<Achievement[]> {
+    const user = await this.getCurrentUser();
+    if (!user) return [];
+
+    const ALL_ACHIEVEMENTS: Achievement[] = [
+        { id: 'admin', name: 'Администратор', description: 'Особый статус управления городом', icon: 'admin', category: 'special', goal: 1, current: user.role === UserRole.ADMIN ? 1 : 0, isUnlocked: user.role === UserRole.ADMIN },
+        { id: 'early_adopter', name: 'Старожил', description: 'С нами с самого основания Простора (2025)', icon: 'early_adopter', category: 'special', goal: 1, current: 1, isUnlocked: user.badges.includes('early_adopter') },
+        { id: 'verified', name: 'Проверенный', description: 'Наберите 100 XP для подтверждения профиля', icon: 'verified', category: 'reputation', goal: 100, current: Math.min(user.xp, 100), isUnlocked: user.xp >= 100 },
+        { id: 'quest_master', name: 'Мастер квестов', description: 'Завершите 10 любых квестов в городе', icon: 'quest_master', category: 'activity', goal: 10, current: user.badges.includes('quest_master') ? 10 : Math.floor(user.xp / 100), isUnlocked: user.badges.includes('quest_master') },
+        { id: 'active_citizen', name: 'Голос города', description: 'Оставьте 5 предложений по улучшению Снежинска', icon: 'active_citizen', category: 'social', goal: 5, current: 2, isUnlocked: false },
+        { id: 'generous_heart', name: 'Меценат', description: 'Помогите любому благотворительному сбору', icon: 'generous_heart', category: 'special', goal: 1, current: 0, isUnlocked: false },
+        { id: 'social_star', name: 'Душа компании', description: 'Вступите в 5 городских сообществ', icon: 'social_star', category: 'social', goal: 5, current: 1, isUnlocked: false },
+        { id: 'pro_seller', name: 'Топ-продавец', description: 'Разместите 10 объявлений на Маркете', icon: 'pro_seller', category: 'activity', goal: 10, current: 4, isUnlocked: false }
+    ];
+
+    return ALL_ACHIEVEMENTS;
+  },
+
+  async updateShowcasedBadges(badgeIds: string[]): Promise<void> {
+      if (badgeIds.length > 3) throw new Error("Максимум 3 награды");
+      const user = await this.getCurrentUser();
+      if (!user) return;
+      if (isSupabaseConfigured() && supabase) {
+          await supabase.from('profiles').update({ showcased_badges: badgeIds }).eq('id', user.id);
+      }
+  },
+
+  async deleteMessage(messageId: string) {
+      if (!messageId) return;
+      try {
+          if (isSupabaseConfigured() && supabase) {
+              const { error } = await supabase.from('messages').delete().eq('id', messageId);
+              if (error) throw error;
+          } else {
+              const idx = mockStore.messages.findIndex(m => m.id === messageId);
+              if (idx !== -1) mockStore.messages.splice(idx, 1);
+          }
+      } catch (e: any) { throw e; }
+  },
+
   async createAd(data: any): Promise<Ad> {
-      const { cleanedText: cleanTitle } = this.validateContent(data.title);
-      const { cleanedText: cleanDesc } = this.validateContent(data.description);
-      return businessService.createAd({ ...data, title: cleanTitle, description: cleanDesc });
+      return businessService.createAd(data);
   },
 
   async addComment(newsId: string, text: string) {
-      const { cleanedText } = this.validateContent(text);
-      return socialService.addComment(newsId, cleanedText);
+      return socialService.addComment(newsId, text);
   },
 
   async updateMessage(messageId: string, newText: string) {
       if (isSupabaseConfigured() && supabase) {
-          const { error } = await supabase.from('messages').update({ text: newText }).eq('id', messageId);
-          if (error) throw error;
-      } else {
-          const msg = mockStore.messages.find(m => m.id === messageId);
-          if (msg) msg.text = newText;
+          await supabase.from('messages').update({ text: newText }).eq('id', messageId);
       }
   },
 
-  async deleteEntity(table: string, id: string, reason: string = 'Удалено модератором') {
+  async deleteEntity(table: string, id: string, reason: string = 'Удалено администратором') {
       if (isSupabaseConfigured() && supabase) {
-          try {
-              const { data: snapshot } = await supabase.from(table).select('*').eq('id', id).single();
-              const { error } = await supabase.from(table).delete().eq('id', id);
-              if (error) throw error;
-              await this.logModerationAction({
-                  targetId: id,
-                  targetType: table,
-                  action: 'deleted',
-                  reason: reason,
-                  contentSnapshot: snapshot
-              });
-          } catch (e: any) {
-              console.error(`Delete entity from ${table} failed:`, e?.message || e);
+          console.log(`API: DELETING entity. Table: ${table}, ID: ${id}`);
+          const { data: snapshot } = await supabase!.from(table).select('*').eq('id', id).maybeSingle();
+          const { error, count } = await supabase!.from(table).delete({ count: 'exact' }).eq('id', id);
+          if (error) {
+              console.error("API: Delete error details:", error);
+              throw error;
           }
+          if (count === 0) {
+              console.warn("API: No rows were deleted. Check permissions or row existence.");
+              throw new Error("Ошибка доступа (RLS): база не позволила удалить запись.");
+          }
+          await this.logModerationAction({ targetId: id, targetType: table, action: 'deleted', reason: reason, contentSnapshot: snapshot || { info: "Удалено" } });
+          return true;
       }
+      return false;
   },
 
   async rejectContent(table: string, id: string, reason: string = 'Не соответствует правилам') {
       if (isSupabaseConfigured() && supabase) {
-          const { data: snapshot } = await supabase.from(table).select('*').eq('id', id).single();
-          await supabase.from(table).update({ status: 'rejected' }).eq('id', id);
+          console.log(`API: REJECTING content. Table: ${table}, ID: ${id}`);
+          const { data: snapshot } = await supabase!.from(table).select('*').eq('id', id).maybeSingle();
           
-          await this.logModerationAction({
-              targetId: id,
-              targetType: table,
-              action: 'rejected',
-              reason: reason,
-              contentSnapshot: snapshot
-          });
+          const { data, error } = await supabase!.from(table)
+              .update({ status: 'rejected' })
+              .eq('id', id)
+              .select();
+          
+          if (error) {
+              console.error("API: Reject update error:", error);
+              throw error;
+          }
+          
+          if (!data || data.length === 0) {
+              console.error("API: 0 rows affected during REJECT. RLS violation.");
+              throw new Error(`Нет прав на отклонение в таблице ${table}. Проверьте политики в SQL Editor.`);
+          }
+          
+          await this.logModerationAction({ targetId: id, targetType: table, action: 'rejected', reason: reason, contentSnapshot: snapshot || { info: "Отклонено" } });
+          return true;
       }
+      return false;
   },
   
   async uploadImage(file: File): Promise<string> {
     if (isSupabaseConfigured() && supabase) {
-        try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random()}.${fileExt}`;
-            const { error } = await supabase.storage.from('images').upload(fileName, file);
-            if (error) throw error;
-            const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(fileName);
-            return publicUrl;
-        } catch (e: any) { console.error("Upload failed:", e); }
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const { error } = await supabase.storage.from('images').upload(fileName, file);
+        if (error) throw error;
+        const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(fileName);
+        return publicUrl;
     }
     return URL.createObjectURL(file);
   },
@@ -98,18 +163,7 @@ export const api = {
   async getUserContent(uid: string): Promise<{ ads: Ad[] }> {
       if (isSupabaseConfigured() && supabase) {
           const { data } = await supabase.from('ads').select('*').eq('author_id', uid);
-          return { 
-              ads: data?.map(a => ({ 
-                  ...a, 
-                  id: a.id, 
-                  authorId: a.author_id, 
-                  title: a.title, 
-                  price: a.price, 
-                  category: a.category, 
-                  image: a.image, 
-                  date: a.created_at 
-              })) || [] 
-          };
+          return { ads: data?.map(a => ({ ...a, id: a.id, authorId: a.author_id, title: a.title, price: a.price, category: a.category, image: a.image, date: a.created_at })) || [] };
       }
       return { ads: mockStore.ads.filter(a => a.authorId === uid) };
   },
@@ -121,76 +175,74 @@ export const api = {
               supabase.from('businesses').select('*').ilike('name', `%${q}%`),
               supabase.from('news').select('*').ilike('title', `%${q}%`)
           ]);
-          return {
-              ads: (ads.data || []).map(a => ({ ...a, authorId: a.author_id })), 
-              businesses: biz.data || [],
-              news: news.data || []
-          };
+          return { ads: (ads.data || []).map(a => ({ ...a, authorId: a.author_id })), businesses: (biz.data || []).map(b => ({ ...b, authorId: b.author_id })), news: news.data || [] };
       }
       return { ads: [], businesses: [], news: [] };
   },
 
   async approveContent(table: string, id: string) {
       if (isSupabaseConfigured() && supabase) {
-          await supabase.from(table).update({ status: 'approved' }).eq('id', id);
+          console.log(`API: APPROVING content. Table: ${table}, ID: ${id}`);
+          const statusVal = table === 'stories' ? 'published' : 'approved';
+          
+          const { data, error } = await supabase!.from(table)
+              .update({ status: statusVal })
+              .eq('id', id)
+              .select();
+          
+          if (error) {
+              console.error("API: Approve update DB error:", error);
+              throw error;
+          }
+          
+          if (!data || data.length === 0) {
+              console.error(`API: Failed to approve ${id} in ${table}. Zero rows affected. RLS is blocking the UPDATE.`);
+              throw new Error(`Ошибка доступа: база данных отклонила изменение статуса в таблице ${table}. Нужно добавить политику UPDATE в SQL Editor.`);
+          }
+          
+          console.info(`API: SUCCESS approved ${table}/${id}`);
+          return true;
       }
+      return false;
   },
 
   async getAllProfiles(query?: string): Promise<User[]> {
       if (!isSupabaseConfigured() || !supabase) return [];
-      try {
-          let q = supabase.from('profiles').select('*');
-          if (query) q = q.or(`name.ilike.%${query}%,email.ilike.%${query}%`);
-          const { data, error } = await q.order('name', { ascending: true }).limit(50);
-          if (error) throw error;
-          return (data || []).map(p => ({ id: p.id, name: p.name, avatar: p.avatar, role: p.role as UserRole, xp: p.xp || 0, email: p.email || '', favorites: [] }));
-      } catch (e: any) { return []; }
+      let q = supabase.from('profiles').select('*');
+      if (query) q = q.or(`name.ilike.%${query}%,email.ilike.%${query}%`);
+      const { data } = await q.order('name', { ascending: true }).limit(50);
+      return (data || []).map(p => ({ ...p, role: p.role as UserRole, xp: p.xp || 0, badges: p.badges || [] }));
   },
 
   async getExclusivePages(): Promise<ExclusivePage[]> {
     if (isSupabaseConfigured() && supabase) {
-        try {
-            const { data, error } = await supabase.from('exclusive_pages').select('*').eq('is_active', true).order('idx', { ascending: true });
-            if (error) throw error;
-            return data || [];
-        } catch (e: any) { return []; }
+        const { data } = await supabase.from('exclusive_pages').select('*').eq('is_active', true).order('idx', { ascending: true });
+        return data || [];
     }
     return [];
   },
 
   async getMiniSiteByBusiness(businessId: string): Promise<ExclusivePage | null> {
     if (!isSupabaseConfigured() || !supabase) return null;
-    try {
-        const { data, error } = await supabase.from('exclusive_pages').select('*').eq('business_id', businessId).maybeSingle();
-        if (error) throw error;
-        return data;
-    } catch (e: any) { return null; }
+    const { data } = await supabase.from('exclusive_pages').select('*').eq('business_id', businessId).maybeSingle();
+    return data;
   },
 
   async saveMiniSite(businessId: string, pageData: Partial<ExclusivePage>) {
     if (!isSupabaseConfigured() || !supabase) return;
-    try {
-        const { data: existing } = await supabase.from('exclusive_pages').select('id').eq('business_id', businessId).maybeSingle();
-        if (existing) await supabase.from('exclusive_pages').update(pageData).eq('id', existing.id);
-        else await supabase.from('exclusive_pages').insert({ ...pageData, business_id: businessId, is_active: true, idx: 99 });
-    } catch (e: any) { throw e; }
+    const { data: existing } = await supabase.from('exclusive_pages').select('id').eq('business_id', businessId).maybeSingle();
+    if (existing) await supabase.from('exclusive_pages').update(pageData).eq('id', existing.id);
+    else await supabase.from('exclusive_pages').insert({ ...pageData, business_id: businessId, is_active: true, idx: 99 });
   },
 
   async createExclusivePage(data: Partial<ExclusivePage>) {
     if (isSupabaseConfigured() && supabase) await supabase.from('exclusive_pages').insert(data);
   },
 
-  async deleteExclusivePage(id: string) {
-    if (isSupabaseConfigured() && supabase) await supabase.from('exclusive_pages').delete().eq('id', id);
-  },
-
   async getPromoAds(): Promise<PromoAd[]> {
     if (isSupabaseConfigured() && supabase) {
-        try {
-            const { data, error } = await supabase.from('promo_ads').select('*').eq('is_active', true).order('created_at', { ascending: false });
-            if (error) throw error;
-            return data || [];
-        } catch (e: any) { return []; }
+        const { data } = await supabase.from('promo_ads').select('*').eq('is_active', true).order('created_at', { ascending: false });
+        return data || [];
     }
     return [];
   },
@@ -204,56 +256,40 @@ export const api = {
   },
 
   async updateEntity(table: string, id: string, data: any) {
-      if (isSupabaseConfigured() && supabase) await supabase.from(table).update(data).eq('id', id);
+      if (isSupabaseConfigured() && supabase) {
+          const { data: res, error } = await supabase.from(table).update(data).eq('id', id).select();
+          if (error) throw error;
+          return res && res.length > 0;
+      }
+      return false;
   },
 
   async getAdminReports(): Promise<Report[]> {
       if (!isSupabaseConfigured() || !supabase) return [];
-      try {
-          const { data: reports, error } = await supabase.from('reports').select('*').neq('target_type', 'access_request').order('created_at', { ascending: false });
-          if (error) throw error;
-          if (!reports) return [];
-          const userIds = [...new Set(reports.map(r => r.user_id).filter(Boolean))];
-          let profMap = new Map<string, any>();
-          if (userIds.length > 0) {
-              const { data: profs } = await supabase.from('profiles').select('id, name, avatar').in('id', userIds);
-              profMap = new Map<string, any>(profs?.map(p => [p.id, p]) || []);
-          }
-          return reports.map(r => ({ id: r.id, userId: r.user_id, userName: profMap.get(r.user_id)?.name || 'Житель', userAvatar: profMap.get(r.user_id)?.avatar || '', targetId: r.target_id, targetType: r.target_type, reason: r.reason, status: r.status, createdAt: r.created_at || new Date().toISOString() }));
-      } catch (e: any) { return []; }
+      const { data: reports } = await supabase.from('reports').select('*').neq('target_type', 'access_request').order('created_at', { ascending: false });
+      if (!reports) return [];
+      const userIds = [...new Set(reports.map(r => r.user_id).filter(Boolean))];
+      const { data: profs } = await supabase.from('profiles').select('id, name, avatar').in('id', userIds);
+      const profMap = new Map<string, any>(profs?.map(p => [p.id, p]) || []);
+      return reports.map(r => ({ id: r.id, userId: r.user_id, userName: profMap.get(r.user_id)?.name || 'Житель', userAvatar: profMap.get(r.user_id)?.avatar || '', targetId: r.target_id, targetType: r.target_type, reason: r.reason, status: r.status, createdAt: r.created_at || new Date().toISOString() }));
   },
 
   async getAdminSuggestions(): Promise<Suggestion[]> {
       if (!isSupabaseConfigured() || !supabase) return [];
-      try {
-          const { data: ideas, error } = await supabase.from('suggestions').select('*').order('created_at', { ascending: false });
-          if (error) throw error;
-          if (!ideas) return [];
-          const userIds = [...new Set(ideas.map(i => i.user_id).filter(Boolean))];
-          let profMap = new Map<string, any>();
-          if (userIds.length > 0) {
-              const { data: profs } = await supabase.from('profiles').select('id, name, avatar').in('id', userIds);
-              profMap = new Map<string, any>(profs?.map(p => [p.id, p]) || []);
-          }
-          return ideas.map(i => ({ id: i.id, userId: i.user_id, userName: profMap.get(i.user_id)?.name || 'Житель', userAvatar: profMap.get(i.user_id)?.avatar || '', text: i.text, createdAt: i.created_at || new Date().toISOString(), isRead: !!i.is_read }));
-      } catch (e: any) { return []; }
+      const { data: ideas } = await supabase.from('suggestions').select('*').order('created_at', { ascending: false });
+      if (!ideas) return [];
+      const userIds = [...new Set(ideas.map(i => i.user_id).filter(Boolean))];
+      const { data: profs } = await supabase.from('profiles').select('id, name, avatar').in('id', userIds);
+      const profMap = new Map<string, any>(profs?.map(p => [p.id, p]) || []);
+      return ideas.map(i => ({ id: i.id, userId: i.user_id, userName: profMap.get(i.user_id)?.name || 'Житель', userAvatar: profMap.get(i.user_id)?.avatar || '', text: i.text, createdAt: i.created_at || new Date().toISOString(), isRead: !!i.is_read }));
   },
 
   async getAds(category?: string): Promise<Ad[]> {
     if (!isSupabaseConfigured() || !supabase) return mockStore.ads;
-    try {
-        let query = supabase.from('ads').select('*');
-        if (category && category !== 'Все') query = query.eq('category', category);
-        const { data: adsData, error: adsError } = await query;
-        if (adsError || !adsData) throw adsError;
-        return adsData.map(ad => ({ 
-            ...ad, 
-            authorId: ad.author_id, 
-            date: ad.created_at || ad.date, 
-            isVip: !!ad.is_vip, 
-            isPremium: !!ad.is_premium 
-        }));
-    } catch (e: any) { return mockStore.ads; }
+    let query = supabase.from('ads').select('*').eq('status', 'approved');
+    if (category && category !== 'Все') query = query.eq('category', category);
+    const { data } = await query;
+    return (data || []).map(ad => ({ ...ad, authorId: ad.author_id, date: ad.created_at || ad.date, isVip: !!ad.is_vip, isPremium: !!ad.is_premium }));
   },
 
   async getAdById(id: string): Promise<Ad | null> {
@@ -262,73 +298,89 @@ export const api = {
 
   async getAllPendingContent(): Promise<any[]> {
       if (!isSupabaseConfigured() || !supabase) return [];
-      const tables = ['ads', 'rides', 'vacancies', 'resumes', 'lost_found', 'communities', 'stories'];
+      const tables = ['ads', 'rides', 'vacancies', 'resumes', 'lost_found', 'communities', 'stories', 'rentals'];
+      
       try {
+          console.log("API: Fetching pending content from all tables...");
           const results = await Promise.all(tables.map(async (t) => {
-              const { data } = await supabase.from(t).select('*').eq('status', 'pending');
+              const { data, error } = await supabase!.from(t).select('*').eq('status', 'pending');
+              if (error) {
+                  console.warn(`API: Failed to fetch pending from ${t}:`, error.message);
+                  return [];
+              }
               return (data || []).map(item => ({ ...item, _table: t }));
           }));
-          
           const flattened = results.flat();
+          console.log(`API: Found ${flattened.length} pending items total.`);
+          
           if (flattened.length === 0) return [];
-
-          // Собираем всех авторов для отображения имен и аватарок в модерации
+          
           const userIds = [...new Set(flattened.map(it => it.author_id || it.driver_id || it.user_id).filter(Boolean))];
-          let profileMap = new Map();
-          if (userIds.length > 0) {
-              const { data: profiles } = await supabase.from('profiles').select('id, name, avatar').in('id', userIds);
-              profiles?.forEach(p => profileMap.set(p.id, p));
-          }
+          const { data: profiles } = await supabase!.from('profiles').select('id, name, avatar').in('id', userIds);
+          const profileMap = new Map<string, any>(profiles?.map(p => [p.id, p]) || []);
+          
+          const typeLabels: Record<string, string> = {
+              'ads': 'Маркет',
+              'rides': 'Попутчик',
+              'vacancies': 'Вакансия',
+              'resumes': 'Резюме',
+              'lost_found': 'Бюро находок',
+              'communities': 'Клуб',
+              'stories': 'История',
+              'rentals': 'Аренда'
+          };
 
           return flattened.map(it => {
               const authorId = it.author_id || it.driver_id || it.user_id;
               const authorProfile = profileMap.get(authorId);
-              const authorName = authorProfile?.name || 'Неизвестно';
-              const authorAvatar = authorProfile?.avatar || '';
-
-              let displayTitle = it.title || it.name || it.caption || 'Без названия';
-              let description = it.description || it.content || '';
-
-              // Кастомная логика для Попутчиков (rides)
-              if (it._table === 'rides') {
-                  displayTitle = `${it.from_city} ➔ ${it.to_city}`;
-                  description = `Дата: ${it.date} ${it.time}. Авто: ${it.car_model}. Водитель: ${authorName}`;
-              } 
-              // Кастомная логика для Бюро находок
-              else if (it._table === 'lost_found') {
-                  displayTitle = `[${it.type === 'lost' ? 'ПОТЕРЯ' : 'НАХОДКА'}] ${it.title}`;
-                  description = `${it.description}. Автор: ${authorName}`;
-              }
-              // Для остальных добавляем имя автора в описание
-              else {
-                  description = `${description} (Автор: ${authorName})`;
-              }
-
               return { 
                   ...it, 
-                  displayTitle, 
-                  description,
-                  authorId,
-                  authorName,
-                  authorAvatar,
-                  typeLabel: it._table 
+                  authorId, 
+                  authorName: authorProfile?.name || 'Житель Снежинска', 
+                  authorAvatar: authorProfile?.avatar || '', 
+                  typeLabel: typeLabels[it._table] || it._table, 
+                  displayTitle: it.title || it.caption || it.name || 'Без названия',
+                  image: it.media || it.image,
+                  createdAt: parseSafeDate(it.created_at) 
               };
           });
-      } catch (e: any) { 
-          console.error("Pending content fetch error:", e);
-          return []; 
+      } catch (e: any) {
+          console.error("API: getAllPendingContent CRITICAL error:", e.message);
+          return [];
       }
   },
 
   async getBanners(position?: string): Promise<Banner[]> {
     if (isSupabaseConfigured() && supabase) {
-      try {
         let query = supabase.from('banners').select('*').eq('is_active', true);
         if (position) query = query.eq('position', position);
         const { data } = await query.order('idx', { ascending: true });
         return data || [];
-      } catch (error: any) { return mockStore.banners; }
     }
     return mockStore.banners;
   },
+
+  async getAdminStories(): Promise<Story[]> {
+      if (!isSupabaseConfigured() || !supabase) return [];
+      const { data, error } = await supabase.from('stories').select('*').order('created_at', { ascending: false });
+      if (error) return [];
+      
+      const userIds = [...new Set(data.map(s => s.user_id).filter(Boolean))];
+      const bizIds = [...new Set(data.map(s => s.business_id).filter(Boolean))];
+      
+      const [profs, biz] = await Promise.all([
+          supabase.from('profiles').select('id, name').in('id', userIds),
+          bizIds.length > 0 ? supabase.from('businesses').select('id, name').in('id', bizIds) : { data: [] }
+      ]);
+      
+      const profMap = new Map(profs.data?.map(p => [p.id, p.name]) || []);
+      const bizMap = new Map(biz.data?.map(b => [b.id, b.name]) || []);
+      
+      return (data || []).map(s => ({ 
+          ...s, 
+          authorId: s.business_id || s.user_id,
+          authorName: bizMap.get(s.business_id) || profMap.get(s.user_id) || 'Житель',
+          createdAt: parseSafeDate(s.created_at) 
+      }));
+  }
 };

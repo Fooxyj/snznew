@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -6,9 +7,11 @@ import { Button } from '../components/ui/Common';
 import { Search, MapPin, Phone, Calendar, Loader2, Plus, CheckCircle, Upload, X, MessageCircle, HelpCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PhoneInput } from '../components/ui/PhoneInput';
+import { SuccessModal } from '../components/SuccessModal';
 
 const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
     const [type, setType] = useState<'lost' | 'found'>('lost');
+    const [showSuccess, setShowSuccess] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -23,13 +26,22 @@ const CreateLostFoundModal: React.FC<{ isOpen: boolean; onClose: () => void; onS
         mutationFn: api.createLostFoundItem,
         onSuccess: () => {
             onSuccess();
-            onClose();
+            setShowSuccess(true);
             setFormData({ title: '', description: '', location: '', contactName: '', contactPhone: '', image: '' });
         },
         onError: (err: any) => alert(err.message)
     });
 
-    if (!isOpen) return null;
+    if (!isOpen && !showSuccess) return null;
+
+    if (showSuccess) {
+        return (
+            <SuccessModal 
+                isOpen={showSuccess} 
+                onClose={() => { setShowSuccess(false); onClose(); }} 
+            />
+        );
+    }
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -131,9 +143,13 @@ export const LostFound: React.FC = () => {
         queryFn: () => api.getLostFoundItems(filter)
     });
 
+    // Фильтруем решенные объявления — теперь они мгновенно исчезают из списка
+    const activeItems = items.filter(item => !item.isResolved);
+
     const resolveMutation = useMutation({
         mutationFn: api.resolveLostFoundItem,
         onSuccess: () => {
+            // Принудительное обновление списка
             queryClient.invalidateQueries({ queryKey: ['lostFound'] });
         }
     });
@@ -190,27 +206,20 @@ export const LostFound: React.FC = () => {
 
             {isLoading ? (
                 <div className="flex justify-center py-20"><Loader2 className="w-12 h-12 text-blue-600 animate-spin" /></div>
-            ) : items.length === 0 ? (
+            ) : activeItems.length === 0 ? (
                 <div className="text-center py-32 bg-white dark:bg-gray-800 rounded-[3rem] border-2 border-dashed dark:border-gray-700">
                     <Search className="w-20 h-20 mx-auto mb-6 opacity-10 text-gray-400" />
-                    <p className="font-black text-gray-400 uppercase tracking-[0.2em] text-sm">Объявлений пока нет</p>
+                    <p className="font-black text-gray-400 uppercase tracking-[0.2em] text-sm">Активных объявлений пока нет</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {items.map(item => (
-                        <div key={item.id} className={`bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-2xl group ${item.isResolved ? 'opacity-60 grayscale-[0.8]' : ''}`}>
+                    {activeItems.map(item => (
+                        <div key={item.id} className="bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-2xl group animate-in fade-in zoom-in-95">
                             <div className="h-60 bg-gray-100 dark:bg-gray-900 relative overflow-hidden">
                                 <img src={item.image || 'https://via.placeholder.com/600x400?text=Снежинск+Онлайн'} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
                                 <div className={`absolute top-5 left-5 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white shadow-2xl ${item.type === 'lost' ? 'bg-red-500' : 'bg-green-600'}`}>
                                     {item.type === 'lost' ? 'Потеряно' : 'Найдено'}
                                 </div>
-                                {item.isResolved && (
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[3px]">
-                                        <div className="bg-white text-black px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 shadow-2xl">
-                                            <CheckCircle className="w-4 h-4 text-green-600" /> РЕШЕНО
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                             <div className="p-7 flex-1 flex flex-col">
                                 <h3 className="font-extrabold text-xl mb-2 dark:text-white leading-tight uppercase tracking-tight line-clamp-2">{item.title}</h3>
@@ -227,24 +236,22 @@ export const LostFound: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {!item.isResolved && (
-                                    <div className="flex gap-3">
-                                        {currentUser?.id === item.authorId ? (
-                                            <Button variant="outline" className="w-full rounded-2xl py-4 border-green-200 text-green-600 dark:border-green-900/50 hover:bg-green-50 font-black uppercase text-[10px] tracking-[0.2em]" onClick={() => resolveMutation.mutate(item.id)}>
-                                                Отметить решенным
-                                            </Button>
-                                        ) : (
-                                            <>
-                                                <a href={`tel:${item.contactPhone}`} className="w-14 h-14 bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-200 flex items-center justify-center rounded-2xl hover:bg-blue-50 hover:text-blue-600 transition-all border dark:border-gray-700 shadow-sm active:scale-90">
-                                                    <Phone className="w-5 h-5" />
-                                                </a>
-                                                <button onClick={() => handleContact(item)} className="flex-1 bg-blue-600 text-white py-4 rounded-2xl hover:bg-blue-700 font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2 shadow-xl shadow-blue-500/10 active:scale-95 transition-all">
-                                                    <MessageCircle className="w-4 h-4" /> Написать
-                                                </button>
-                                            </>
-                                        )}
-                                    </div>
-                                )}
+                                <div className="flex gap-3">
+                                    {currentUser?.id === item.authorId ? (
+                                        <Button variant="outline" className="w-full rounded-2xl py-4 border-green-200 text-green-600 dark:border-green-900/50 hover:bg-green-50 font-black uppercase text-[10px] tracking-[0.2em]" onClick={() => resolveMutation.mutate(item.id)}>
+                                            Отметить решенным
+                                        </Button>
+                                    ) : (
+                                        <>
+                                            <a href={`tel:${item.contactPhone}`} className="w-14 h-14 bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-200 flex items-center justify-center rounded-2xl hover:bg-blue-50 hover:text-blue-600 transition-all border dark:border-gray-700 shadow-sm active:scale-90">
+                                                <Phone className="w-5 h-5" />
+                                            </a>
+                                            <button onClick={() => handleContact(item)} className="flex-1 bg-blue-600 text-white py-4 rounded-2xl hover:bg-blue-700 font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2 shadow-xl shadow-blue-500/10 active:scale-95 transition-all">
+                                                <MessageCircle className="w-4 h-4" /> Написать
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))}

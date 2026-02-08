@@ -284,6 +284,7 @@ const StoryViewer: React.FC<{
 export const StoriesRail: React.FC = () => {
     const queryClient = useQueryClient();
     const { success, error: showError } = useToast();
+    const navigate = useNavigate();
     const [viewAuthorId, setViewAuthorId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [selectedBusinessId, setSelectedBusinessId] = useState<string | undefined>(undefined);
@@ -308,21 +309,18 @@ export const StoriesRail: React.FC = () => {
         
         stories.forEach(s => {
             const authorData = authors.get(s.authorId) || { ...s, isAllViewed: true };
-            
-            // Если текущий пользователь НЕ смотрел хотя бы одну историю этого автора,
-            // то помечаем автора как "есть непросмотренное"
             const hasViewedThis = user && s.viewers?.some(v => v.id === user.id);
             if (!hasViewedThis) {
                 authorData.isAllViewed = false;
             }
-
             authors.set(s.authorId, authorData);
         });
         return Array.from(authors.values());
     }, [stories, user]);
 
     const handleCreateClick = () => {
-        if (!user || user.role !== UserRole.ADMIN) return;
+        if (!user) return navigate('/auth');
+        
         if (myBusinesses.length > 0) {
             setShowAuthorPicker(true);
         } else {
@@ -340,7 +338,13 @@ export const StoriesRail: React.FC = () => {
     const onSaveStory = async (media: string, caption: string, config: any) => {
         try {
             await api.createStory(media, caption, selectedBusinessId, config);
-            success("История отправлена!");
+            
+            if (user?.role === UserRole.ADMIN) {
+                success("История опубликована!");
+            } else {
+                success("История отправлена на модерацию!");
+            }
+            
             setIsCreating(false);
             queryClient.invalidateQueries({ queryKey: ['stories'] });
         } catch (err: any) {
@@ -358,7 +362,6 @@ export const StoriesRail: React.FC = () => {
                     currentUser={user || null}
                     onClose={() => {
                         setViewAuthorId(null);
-                        // Инвалидируем кэш, чтобы рамка истории обновилась сразу после просмотра
                         queryClient.invalidateQueries({ queryKey: ['stories'] });
                     }} 
                 />
@@ -400,7 +403,7 @@ export const StoriesRail: React.FC = () => {
                                     <img src={biz.image} className="w-12 h-12 rounded-full object-cover border-2 border-blue-100" alt="" />
                                     <div className="text-left">
                                         <div className="font-bold text-gray-900 dark:text-white">{biz.name}</div>
-                                        <div className="text-[10px] text-blue-500 font-black uppercase tracking-tighter">Бизнес-аккаунт</div>
+                                        <div className="text-[10px] text-blue-50 font-black uppercase tracking-tighter">Бизнес-аккаунт</div>
                                     </div>
                                 </button>
                             ))}
@@ -415,11 +418,10 @@ export const StoriesRail: React.FC = () => {
             )}
 
             <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide px-1">
-                {/* Кнопка создания видна только админам */}
-                {user?.role === UserRole.ADMIN && (
+                {user && (
                     <div className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0 group" onClick={handleCreateClick}>
                         <div className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center group-hover:border-blue-500 transition-colors bg-white dark:bg-gray-800 shadow-sm">
-                            <Plus className="w-6 h-6 text-gray-400 group-hover:text-blue-50" />
+                            <Plus className="w-6 h-6 text-gray-400 group-hover:text-blue-500 transition-all" />
                         </div>
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Создать</span>
                     </div>
@@ -450,7 +452,7 @@ export const StoriesRail: React.FC = () => {
                     ))
                 )}
                 
-                {stories.length === 0 && !isLoading && !user && (
+                {stories.length === 0 && !isLoading && (
                     <div className="py-4 px-2 text-xs text-gray-400 font-medium italic">Историй пока нет</div>
                 )}
             </div>

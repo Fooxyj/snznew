@@ -23,6 +23,36 @@ export const AD_CATEGORIES = [
   'Домашняя еда' 
 ];
 
+// Категории для полноценных компаний (Бизнес)
+export const BUSINESS_CATEGORIES = [
+    'Магазины',
+    'Продукты и Еда',
+    'Дом и Сад',
+    'Строительные',
+    'Техника и Электроника',
+    'Кафе и рестораны',
+    'Аренда и Отдых',
+    'Кино',
+    'Красота и Уход',
+    'Спортзалы и секции',
+    'Медицина',
+    'Транспорт',
+    'Автосервисы и Мойки'
+];
+
+// Категории для частных мастеров (Специалисты)
+export const MASTER_CATEGORIES = [
+    'Еда и Хендмейд',
+    'Ремонт и Быт',
+    'Обучение и Репетиторы',
+    'Красота и Здоровье',
+    'IT и Фриланс',
+    'Фото и Креатив',
+    'Праздники и Шоу',
+    'Уборка и Клининг',
+    'Зооуслуги'
+];
+
 export const WORK_SCHEDULES = [
   "08:00 - 17:00",
   "08:00 - 20:00",
@@ -45,6 +75,7 @@ export const WORK_SCHEDULES = [
   "По договоренности"
 ];
 
+// Comment above fix: Added missing required 'badges' property to CURRENT_USER to satisfy the User interface
 export const CURRENT_USER: User = {
   id: 'u1',
   name: 'Алексей С.',
@@ -52,7 +83,8 @@ export const CURRENT_USER: User = {
   role: UserRole.USER,
   xp: 1450, // Level 2
   email: 'alex@snz.ru',
-  favorites: ['b1', 'a2']
+  favorites: ['b1', 'a2'],
+  badges: []
 };
 
 export const NEWS_DATA: NewsItem[] = [
@@ -193,18 +225,6 @@ export const CATALOG_MENU = [
         { title: 'Клининг', path: '/category/cleaning' },
         { title: 'Зооуслуги', path: '/category/pets_service' },
     ]
-  },
-  {
-    id: 'transport_section',
-    title: 'Транспорт',
-    icon: 'Bus',
-    path: '/category/transport'
-  },
-  {
-    id: 'med_section',
-    title: 'Медицина',
-    icon: 'Stethoscope',
-    path: '/category/med'
   }
 ];
 
@@ -216,8 +236,10 @@ export const SERVICES_MENU = [
     submenu: [
       { title: 'Доска объявлений', path: '/classifieds', icon: 'ShoppingBag' },
       { title: 'Работа', path: '/jobs', icon: 'Briefcase' },
+      { title: 'Транспорт', path: '/category/transport', icon: 'Bus' },
       { title: 'Прокат вещей', path: '/rentals', icon: 'Repeat' },
       { title: 'Бюро находок', path: '/lost-found', icon: 'HelpCircle' },
+      { title: 'Экстренные службы', path: '/category/emergency', icon: 'Siren' },
     ]
   },
   {

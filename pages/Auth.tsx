@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
@@ -25,7 +26,7 @@ export const AuthPage: React.FC = () => {
     name: ''
   });
 
-  const platformName = "Снежинск Лайф";
+  const platformName = "Простор";
 
   const validate = () => {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -133,7 +134,7 @@ export const AuthPage: React.FC = () => {
             {isLogin ? 'Вход' : 'Регистрация'}
           </h1>
           <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-3">
-            {platformName} • Единый портал
+            {platformName} • Простор твоего города
           </p>
         </div>
 
@@ -218,7 +219,7 @@ export const AuthPage: React.FC = () => {
             className={`w-full py-5 text-lg mt-4 shadow-2xl transition-all font-black uppercase tracking-widest rounded-2xl ${(!isLogin && (!isAgreed || !isCaptchaVerified)) ? 'opacity-50 grayscale cursor-not-allowed' : 'shadow-blue-500/20 hover:scale-[1.02] active:scale-95'}`} 
             disabled={loading || (!isLogin && (!isAgreed || !isCaptchaVerified))}
           >
-            {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : (isLogin ? 'Войти в город' : 'Создать аккаунт')}
+            {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : (isLogin ? 'Войти в Простор' : 'Создать аккаунт')}
           </Button>
         </form>
 
@@ -232,7 +233,7 @@ export const AuthPage: React.FC = () => {
             }}
             className="text-xs text-blue-600 dark:text-blue-400 font-black uppercase tracking-widest hover:text-blue-800 transition-colors"
           >
-            {isLogin ? 'Нет аккаунта? Стать жителем' : 'Уже есть аккаунт? Войти'}
+            {isLogin ? 'Нет аккаунта? Присоединиться' : 'Уже в Просторе? Войти'}
           </button>
         </div>
 

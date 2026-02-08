@@ -1,5 +1,4 @@
 
-// Comment above fix: Added React import to provide access to React namespace types (FC, FormEvent)
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -7,8 +6,10 @@ import { Ride } from '../types';
 import { Button, Badge } from '../components/ui/Common';
 import { Car, MapPin, Calendar, Loader2, Plus, Users, Search, ArrowRight, X, MessageSquare, ChevronDown, Info, ShieldCheck, Clock, RotateCcw, Scale } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { SuccessModal } from '../components/SuccessModal';
 
 const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
+    const [showSuccess, setShowSuccess] = useState(false);
     const [formData, setFormData] = useState({
         fromCity: 'Снежинск',
         toCity: 'Екатеринбург',
@@ -23,12 +24,21 @@ const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucces
         mutationFn: (data: any) => api.createRide({ ...data, price: Number(data.price), seats: Number(data.seats) }),
         onSuccess: () => {
             onSuccess();
-            onClose();
+            setShowSuccess(true);
         },
         onError: (err: any) => alert(err.message)
     });
 
-    if (!isOpen) return null;
+    if (!isOpen && !showSuccess) return null;
+
+    if (showSuccess) {
+        return (
+            <SuccessModal 
+                isOpen={showSuccess} 
+                onClose={() => { setShowSuccess(false); onClose(); }} 
+            />
+        );
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,7 +46,7 @@ const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucces
     };
 
     return (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
             <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold dark:text-white">Предложить поездку</h2>
@@ -74,11 +84,11 @@ const CreateRideModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucces
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">Цена (₽)</label>
-                            <input type="number" className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
+                            <input type="number" className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
                         </div>
                         <div>
                             <label className="text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">Мест</label>
-                            <input type="number" className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.seats} onChange={e => setFormData({...formData, seats: e.target.value})} required />
+                            <input type="number" className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold" value={formData.seats} onChange={e => setFormData({...formData, seats: e.target.value})} required />
                         </div>
                     </div>
                     <Button className="w-full py-4 rounded-xl font-black uppercase tracking-widest mt-2 shadow-lg" disabled={createMutation.isPending}>
@@ -111,7 +121,6 @@ export const RidesPage: React.FC = () => {
         if (!currentUser) return navigate('/auth');
         if (ride.driverId === currentUser.id) return alert("Вы не можете забронировать место у себя");
         
-        // Проверка: а не забронировал ли я уже здесь место?
         const isAlreadyPassenger = ride.passengerDetails?.some(p => p.id === currentUser.id);
         if (isAlreadyPassenger) {
             alert("Вы уже забронировали место в этой поездке. Проверьте чат с водителем.");
@@ -153,8 +162,8 @@ export const RidesPage: React.FC = () => {
         const rideDate = new Date(`${r.date}T${r.time || '00:00'}`);
         const now = new Date();
         const diffMs = now.getTime() - rideDate.getTime();
-        const diffHours = diffMs / (1000 * 60 * 60);
-        if (diffHours > 24) return false;
+        const diffHours = diffMs / (1000 * 60 * 60 * 24);
+        if (diffHours > 1) return false;
         const matchesFrom = search.from === '' || r.fromCity.toLowerCase().includes(search.from.toLowerCase());
         const matchesTo = search.to === '' || r.toCity.toLowerCase().includes(search.to.toLowerCase());
         return matchesFrom && matchesTo;
@@ -169,7 +178,6 @@ export const RidesPage: React.FC = () => {
                 onClose={() => setIsModalOpen(false)} 
                 onSuccess={() => {
                     queryClient.invalidateQueries({ queryKey: ['rides'] });
-                    alert("Поездка отправлена на модерацию. Она появится в общем списке после проверки администратором.");
                 }} 
             />
             
@@ -240,8 +248,6 @@ export const RidesPage: React.FC = () => {
                         const isAlreadyPassenger = currentUser && ride.passengerDetails?.some(p => p.id === currentUser.id);
                         return (
                             <div key={ride.id} className={`bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 p-6 md:p-8 hover:shadow-2xl transition-all group flex flex-col gap-5 ${isAlreadyPassenger ? 'ring-2 ring-green-500/20' : ''}`}>
-                                
-                                {/* Верхняя строка: Время, Дата и Цена */}
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-4">
                                         <div className="text-3xl font-black text-gray-900 dark:text-white leading-none tracking-tighter">
@@ -257,7 +263,6 @@ export const RidesPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* Основной блок: Маршрут и Инфо */}
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-3">
@@ -269,14 +274,13 @@ export const RidesPage: React.FC = () => {
                                             <span className="bg-gray-50 dark:bg-gray-700 px-3 py-1.5 rounded-xl text-[10px] font-black text-gray-400 uppercase flex items-center gap-2">
                                                 <Car className="w-3.5 h-3.5 text-blue-400" /> {ride.carModel || 'Автомобиль'}
                                             </span>
-                                            <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 ${isAlreadyPassenger ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                                            <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 ${isAlreadyPassenger ? 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-green-400'}`}>
                                                 <Users className="w-3.5 h-3.5" /> {isAlreadyPassenger ? 'Вы едете!' : `Свободно: ${ride.seats}`}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Нижняя строка: Водитель и Кнопка бронирования */}
                                 <div className="pt-5 border-t dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-5">
                                     <div 
                                         className="flex items-center gap-3 cursor-pointer group/user bg-gray-50/50 dark:bg-gray-900/50 p-2 pr-4 rounded-2xl border dark:border-gray-700 hover:border-blue-200 transition-all w-full sm:w-auto" 

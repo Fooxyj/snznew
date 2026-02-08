@@ -1,10 +1,8 @@
-
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { UserRole } from '../types';
-/* Comment above fix: Added Badge to Common imports and AlignLeft to lucide-react imports */
 import { Button, Badge } from '../components/ui/Common';
 import { Calendar, MapPin, ChevronLeft, Loader2, CreditCard, Edit, Trash2, Info, Share2, Ticket, AlignLeft } from 'lucide-react';
 import { EditEventModal } from '../components/EditEventModal';
@@ -20,7 +18,6 @@ export const EventDetail: React.FC = () => {
     const [showSeats, setShowSeats] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
 
-    // Queries
     const { data: event, isLoading: eventLoading } = useQuery({
         queryKey: ['event', id],
         queryFn: () => api.getEventById(id!),
@@ -38,7 +35,6 @@ export const EventDetail: React.FC = () => {
         queryFn: api.getCurrentUser
     });
 
-    // Mutations
     const buyTicketMutation = useMutation({
         mutationFn: async () => {
             if (!event || !selectedSeat) return;
@@ -171,12 +167,10 @@ export const EventDetail: React.FC = () => {
                                 {isFree ? 'Бесплатно' : `${event.price} ₽`}
                             </p>
                         </div>
-                        {isFree ? (
+                        {isFree && (
                              <div className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-3 rounded-2xl font-bold text-xs uppercase tracking-tighter flex items-center gap-2">
-                                 <CheckCircle2 className="w-4 h-4" /> Свободный вход
+                                 <CheckCircle2Icon className="w-4 h-4" /> Свободный вход
                              </div>
-                        ) : (
-                             <Ticket className="w-8 h-8 text-blue-200 dark:text-blue-800" />
                         )}
                     </div>
 
@@ -192,7 +186,6 @@ export const EventDetail: React.FC = () => {
                 </div>
             </div>
 
-            {/* Description Section */}
             <div className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
@@ -207,7 +200,6 @@ export const EventDetail: React.FC = () => {
                 </div>
             </div>
 
-            {/* Seat Selection Area */}
             {showSeats && !isFree && (
                 <div className="mt-12 bg-gray-50 dark:bg-gray-800/50 rounded-[3rem] p-8 lg:p-16 border-2 border-dashed border-blue-200 dark:border-blue-900/50 animate-in slide-in-from-bottom-8 duration-500">
                     <div className="text-center mb-12">
@@ -243,7 +235,7 @@ export const EventDetail: React.FC = () => {
     );
 };
 
-const CheckCircle2: React.FC<any> = (props) => (
+const CheckCircle2Icon: React.FC<any> = (props) => (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
       width="24" 
