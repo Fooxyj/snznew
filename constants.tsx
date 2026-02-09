@@ -40,7 +40,7 @@ export const BUSINESS_CATEGORIES = [
     'Автосервисы и Мойки'
 ];
 
-// Категории для частных мастеров (Специалисты)
+// Категории для частных мастеров (Частные мастера)
 export const MASTER_CATEGORIES = [
     'Еда и Хендмейд',
     'Ремонт и Быт',
@@ -75,7 +75,6 @@ export const WORK_SCHEDULES = [
   "По договоренности"
 ];
 
-// Comment above fix: Added missing required 'badges' property to CURRENT_USER to satisfy the User interface
 export const CURRENT_USER: User = {
   id: 'u1',
   name: 'Алексей С.',
@@ -242,12 +241,12 @@ export const SERVICES_MENU = [
     title: 'Городская среда',
     icon: 'Building2',
     submenu: [
+      { title: 'Карта города', path: '/map', icon: 'Map' },
       { title: 'Доска объявлений', path: '/classifieds', icon: 'ShoppingBag' },
       { title: 'Работа', path: '/jobs', icon: 'Briefcase' },
       { title: 'Транспорт', path: '/category/transport', icon: 'Bus' },
       { title: 'Прокат вещей', path: '/rentals', icon: 'Repeat' },
       { title: 'Бюро находок', path: '/lost-found', icon: 'HelpCircle' },
-      { title: 'Экстренные службы', path: '/category/emergency', icon: 'Siren' },
     ]
   },
   {
@@ -261,5 +260,11 @@ export const SERVICES_MENU = [
       { title: 'Доска Почета', path: '/leaderboard', icon: 'Trophy' },
       { title: 'Магазин бонусов', path: '/bonus-shop', icon: 'Gift' },
     ]
+  },
+  {
+    id: 'emergency_direct',
+    title: 'Экстренная помощь',
+    icon: 'Siren',
+    path: '/emergency'
   }
 ];

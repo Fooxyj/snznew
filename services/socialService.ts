@@ -35,6 +35,25 @@ const formatRelativeDate = (dateStr: string | null | undefined): string => {
     }
 };
 
+const formatMessagePreview = (text: string): string => {
+    if (!text) return 'Нет сообщений';
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+            const data = JSON.parse(trimmed);
+            if (data.type === 'ad_inquiry') return `Запрос: ${data.title || 'Товар'}`;
+            if (data.type === 'vacancy_apply') return `Отклик: ${data.title || 'Вакансия'}`;
+            if (data.type === 'ride_booking') return `Бронь: ${data.fromCity} - ${data.toCity}`;
+            if (data.type === 'lost_found_inquiry') return `Бюро: ${data.title || 'Вещь'}`;
+            if (data.type === 'rental_inquiry') return `Аренда: ${data.title || 'Вещь'}`;
+            return data.text || 'Системное уведомление';
+        } catch (e) {
+            return text.length > 50 ? text.substring(0, 50) + '...' : text;
+        }
+    }
+    return text;
+};
+
 export const socialService = {
   async getUnreadChatsCount(): Promise<number> {
       try {
@@ -236,7 +255,7 @@ export const socialService = {
                         businessOwnerId: bizData?.author_id,
                         lastMessageDate: lastMsg ? formatRelativeDate(rawDate) : '—',
                         lastMessageDateRaw: rawDate,
-                        lastMessageText: lastMsg ? lastMsg.text : 'Нет сообщений',
+                        lastMessageText: lastMsg ? formatMessagePreview(lastMsg.text) : 'Нет сообщений',
                         unreadCount: unreadMap.get(c.id) || 0
                     };
                 })

@@ -230,7 +230,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
         <nav className="flex-1 overflow-y-auto py-2 px-4 space-y-0.5 custom-scrollbar">
           <NavItem to="/" icon={Home} label="Главная" active={location.pathname === '/'} onClick={resetMenus} />
-          <NavItem to="/map" icon={Map} label="Карта" active={isActive('/map')} onClick={resetMenus} />
           
           {renderMenuSection(CATALOG_MENU)}
           {renderMenuSection(SERVICES_MENU)}

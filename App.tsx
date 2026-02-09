@@ -110,7 +110,7 @@ const App: React.FC = () => {
                     <Route path="/event/:id" element={<EventDetail />} />
                     <Route path="/weather" element={<Weather />} />
                     <Route path="/category/transport" element={<TransportPage />} />
-                    <Route path="/category/emergency" element={<EmergencyPage />} />
+                    <Route path="/emergency" element={<EmergencyPage />} />
                     <Route path="/category/:id" element={<BusinessDirectory />} />
                     <Route path="/business/:id" element={<BusinessDetail />} />
                     <Route path="/search" element={<SearchResults />} />

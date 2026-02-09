@@ -7,7 +7,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
     Send, Loader2, MessageCircle, ChevronLeft, Trash2, 
     Check, CheckCheck, Briefcase, Star, User, 
-    Image as ImageIcon, Mic, X, Play, Pause, Square,
+    Image as ImageIcon, X,
     CheckCircle2, Circle, MoreVertical, Copy, Reply, Share, Forward, 
     ExternalLink, ShoppingBag, Car, Info
 } from 'lucide-react';
@@ -20,9 +20,10 @@ const MessageContent: React.FC<{ text: string; isSelf: boolean }> = ({ text, isS
     const navigate = useNavigate();
 
     const parsedData = useMemo(() => {
-        if (typeof text !== 'string' || !text.trim().startsWith('{')) return null;
+        const trimmed = text?.trim() || "";
+        if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null;
         try {
-            return JSON.parse(text);
+            return JSON.parse(trimmed);
         } catch (e) {
             return null;
         }
@@ -105,38 +106,6 @@ const MessageContent: React.FC<{ text: string; isSelf: boolean }> = ({ text, isS
     return <p className="text-sm font-medium opacity-50 italic">[Системное сообщение]</p>;
 };
 
-// --- Sub-component for Audio Messages ---
-const AudioPlayer: React.FC<{ url: string; isSelf: boolean }> = ({ url, isSelf }) => {
-    const audioRef = useRef<HTMLAudioElement>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [progress, setProgress] = useState(0);
-
-    const togglePlay = () => {
-        if (!audioRef.current) return;
-        if (isPlaying) audioRef.current.pause();
-        else audioRef.current.play();
-    };
-
-    return (
-        <div className={`flex items-center gap-3 p-2 rounded-xl ${isSelf ? 'bg-white/10' : 'bg-gray-200 dark:bg-gray-700'} min-w-[180px]`}>
-            <audio 
-                ref={audioRef} 
-                src={url} 
-                onPlay={() => setIsPlaying(true)} 
-                onPause={() => setIsPlaying(false)} 
-                onTimeUpdate={() => setProgress(audioRef.current ? (audioRef.current.currentTime / audioRef.current.duration) * 100 : 0)}
-            />
-            <button onClick={togglePlay} className={`p-2 rounded-full ${isSelf ? 'bg-white text-blue-600' : 'bg-blue-600 text-white shadow-sm'}`}>
-                {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-            </button>
-            <div className="flex-1 h-1.5 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
-                <div className={`h-full transition-all ${isSelf ? 'bg-white' : 'bg-blue-600'}`} style={{ width: `${progress}%` }}></div>
-            </div>
-            <span className="text-[10px] font-bold opacity-60">VOICE</span>
-        </div>
-    );
-};
-
 export const ChatPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const urlChatId = searchParams.get('id');
@@ -151,14 +120,10 @@ export const ChatPage: React.FC = () => {
     const longPressTimer = useRef<any>(null);
     
     // Media States
-    const [isRecording, setIsRecording] = useState(false);
-    const [recordTime, setRecordTime] = useState(0);
-    const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
     const [isUploadingMedia, setIsUploadingMedia] = useState(false);
     const [viewerImage, setViewerImage] = useState<string | null>(null);
     
     const messageContainerRef = useRef<HTMLDivElement>(null);
-    const recordTimerRef = useRef<any>(null);
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
@@ -284,60 +249,6 @@ export const ChatPage: React.FC = () => {
         alert("Функция пересылки будет доступна в следующем обновлении Простора!");
         setIsSelectMode(false);
         setSelectedIds([]);
-    };
-
-    // --- Audio Recording Logic ---
-    const startRecording = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const recorder = new MediaRecorder(stream);
-            const chunks: Blob[] = [];
-
-            recorder.ondataavailable = (e) => chunks.push(e.data);
-            recorder.onstop = async () => {
-                const blob = new Blob(chunks, { type: 'audio/webm' });
-                setIsUploadingMedia(true);
-                try {
-                    const audioUrl = await api.uploadChatFile(blob, 'webm');
-                    await api.sendMessage(activeChat!, '', undefined, audioUrl);
-                    queryClient.invalidateQueries({ queryKey: ['messages', activeChat] });
-                } catch (e: any) { alert(e.message); }
-                finally { setIsUploadingMedia(false); }
-                stream.getTracks().forEach(track => track.stop());
-            };
-
-            recorder.start();
-            setMediaRecorder(recorder);
-            setIsRecording(true);
-            setRecordTime(0);
-            recordTimerRef.current = setInterval(() => setRecordTime(prev => prev + 1), 1000);
-        } catch (e) {
-            alert("Разрешите доступ к микрофону для записи голосовых сообщений.");
-        }
-    };
-
-    const stopRecording = () => {
-        if (mediaRecorder) {
-            mediaRecorder.stop();
-            setIsRecording(false);
-            clearInterval(recordTimerRef.current);
-        }
-    };
-
-    const cancelRecording = () => {
-        if (mediaRecorder) {
-            mediaRecorder.onstop = () => {}; 
-            mediaRecorder.stop();
-            setIsRecording(false);
-            clearInterval(recordTimerRef.current);
-            setMediaRecorder(null);
-        }
-    };
-
-    const formatTime = (sec: number) => {
-        const m = Math.floor(sec / 60);
-        const s = sec % 60;
-        return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -508,12 +419,6 @@ export const ChatPage: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            {m.audioUrl && (
-                                                <div className="mb-2" onClick={e => e.stopPropagation()}>
-                                                    <AudioPlayer url={m.audioUrl} isSelf={isSelf} />
-                                                </div>
-                                            )}
-
                                             <MessageContent text={m.text} isSelf={isSelf} />
                                             
                                             <div className="flex items-center justify-end gap-1 mt-1.5">
@@ -558,52 +463,30 @@ export const ChatPage: React.FC = () => {
                             </div>
                         ) : (
                             <div className="p-4 border-t dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0 pb-safe">
-                                {isRecording ? (
-                                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center justify-between animate-in slide-in-from-bottom-2">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_red]"></div>
-                                            <span className="text-sm font-black text-red-600 dark:text-red-400 uppercase tracking-widest">{formatTime(recordTime)}</span>
-                                        </div>
-                                        <div className="flex gap-4">
-                                            <button onClick={cancelRecording} className="text-gray-400 hover:text-gray-600 uppercase font-black text-[10px] tracking-widest">Отмена</button>
-                                            <button onClick={stopRecording} className="bg-red-600 text-white p-3 rounded-xl shadow-lg"><Square className="w-4 h-4 fill-current"/></button>
-                                        </div>
+                                <form onSubmit={handleSend} className="flex items-end gap-2">
+                                    <div className="relative shrink-0 mb-1">
+                                        <button type="button" className="p-3 text-gray-400 hover:text-blue-600 transition-colors"><ImageIcon className="w-6 h-6"/></button>
+                                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleImageUpload} />
                                     </div>
-                                ) : (
-                                    <form onSubmit={handleSend} className="flex items-end gap-2">
-                                        <div className="relative shrink-0 mb-1">
-                                            <button type="button" className="p-3 text-gray-400 hover:text-blue-600 transition-colors"><ImageIcon className="w-6 h-6"/></button>
-                                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleImageUpload} />
-                                        </div>
 
-                                        <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-[1.5rem] px-5 py-3.5 flex items-end">
-                                            <textarea 
-                                                rows={1}
-                                                className="flex-1 bg-transparent border-none outline-none dark:text-white font-medium text-sm py-0.5 resize-none max-h-32 custom-scrollbar" 
-                                                placeholder="Сообщение..." 
-                                                value={newMessage} 
-                                                onChange={e => {
-                                                    setNewMessage(e.target.value);
-                                                    e.target.style.height = 'auto';
-                                                    e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
-                                                }}
-                                            />
-                                        </div>
+                                    <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-[1.5rem] px-5 py-3.5 flex items-end">
+                                        <textarea 
+                                            rows={1}
+                                            className="flex-1 bg-transparent border-none outline-none dark:text-white font-medium text-base md:text-sm py-0.5 resize-none max-h-32 custom-scrollbar" 
+                                            placeholder="Сообщение..." 
+                                            value={newMessage} 
+                                            onChange={e => {
+                                                setNewMessage(e.target.value);
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
+                                            }}
+                                        />
+                                    </div>
 
-                                        {newMessage.trim() ? (
-                                            <button type="submit" className="bg-blue-600 text-white p-4 rounded-2xl shadow-xl shadow-blue-500/30 active:scale-90 transition-all mb-0.5"><Send className="w-6 h-6"/></button>
-                                        ) : (
-                                            <button 
-                                                type="button" 
-                                                onClick={startRecording}
-                                                className={`p-4 rounded-2xl transition-all shadow-lg mb-0.5 ${isUploadingMedia ? 'bg-gray-100 text-gray-300 animate-pulse' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-500/30 active:scale-90'}`}
-                                                disabled={isUploadingMedia}
-                                            >
-                                                {isUploadingMedia ? <Loader2 className="w-6 h-6 animate-spin"/> : <Mic className="w-6 h-6"/>}
-                                            </button>
-                                        )}
-                                    </form>
-                                )}
+                                    <button type="submit" disabled={!newMessage.trim() || isUploadingMedia} className="bg-blue-600 text-white p-4 rounded-2xl shadow-xl shadow-blue-500/30 active:scale-90 transition-all mb-0.5 disabled:opacity-50">
+                                        {isUploadingMedia ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}
+                                    </button>
+                                </form>
                             </div>
                         )}
                     </>

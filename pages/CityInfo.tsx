@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bus, Siren, Phone, Shield, Flame, Activity, Truck, Loader2, PhoneCall, Clock4, Info, Package, ArrowRight, MapPin, List } from 'lucide-react';
+import { Bus, Siren, Phone, Shield, Flame, Activity, Truck, Loader2, PhoneCall, Clock4, Info, Package, ArrowRight, MapPin, List, Wrench, Droplets, Zap, Building2, AlertTriangle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
@@ -94,7 +94,6 @@ export const TransportPage: React.FC = () => {
                                     >
                                         <div className="h-48 overflow-hidden bg-gray-100 dark:bg-gray-700 relative">
                                             <img src={biz.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
-                                            {/* Плашка с рейтингом — в точности как в магазине */}
                                             <div className="absolute top-3 right-3">
                                                 {hasRating ? (
                                                     <div className="bg-white/90 dark:bg-black/70 backdrop-blur px-1 py-0.5 rounded-lg shadow-sm border dark:border-gray-700">
@@ -217,37 +216,78 @@ export const TransportPage: React.FC = () => {
     );
 };
 
-// Comment above fix: Added EmergencyPage component export to fix import error in App.tsx
 export const EmergencyPage: React.FC = () => {
     const emergencyNumbers = [
-        { title: 'Единая служба спасения', phone: '112', icon: Shield, color: 'text-red-600', bg: 'bg-red-50' },
-        { title: 'Полиция', phone: '102', icon: Siren, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { title: 'Скорая помощь', phone: '103', icon: Activity, color: 'text-green-600', bg: 'bg-green-50' },
-        { title: 'Пожарная служба', phone: '101', icon: Flame, color: 'text-orange-600', bg: 'bg-orange-50' },
+        { title: 'Служба спасения (ЕДДС)', phone: '112', cityPhone: '+7 (35146) 3-21-42', icon: Shield, color: 'text-red-600', bg: 'bg-red-50' },
+        { title: 'Полиция (Дежурная часть)', phone: '102', cityPhone: '+7 (35146) 3-22-22', icon: Siren, color: 'text-blue-600', bg: 'bg-blue-50' },
+        { title: 'Скорая помощь', phone: '103', cityPhone: '+7 (35146) 9-22-03', icon: Activity, color: 'text-green-600', bg: 'bg-green-50' },
+        { title: 'Пожарная служба', phone: '101', cityPhone: '+7 (35146) 9-11-01', icon: Flame, color: 'text-orange-600', bg: 'bg-orange-50' },
+        { title: 'Газовая служба (Аварийная)', phone: '104', cityPhone: '+7 (35146) 3-34-44', icon: Droplets, color: 'text-yellow-600', bg: 'bg-yellow-50' },
+        { title: 'Трансэнерго (Аварийная)', phone: '', cityPhone: '+7 (35146) 3-22-11', icon: Zap, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { title: 'Лифтовое хозяйство', phone: '', cityPhone: '+7 (35146) 3-23-22', icon: Wrench, color: 'text-teal-600', bg: 'bg-teal-50' },
+        { title: 'Диспетчер ЖКХ (Сервис-Десна)', phone: '', cityPhone: '+7 (35146) 2-15-55', icon: Building2, color: 'text-gray-600', bg: 'bg-gray-50' },
     ];
 
+    const handleCall = (phone: string) => {
+        window.location.href = `tel:${phone.replace(/\s+/g, '')}`;
+    };
+
     return (
-        <div className="max-w-4xl mx-auto p-4 lg:p-8">
-            <h1 className="text-2xl font-bold mb-8 flex items-center gap-3 dark:text-white uppercase tracking-tighter">
-                <Siren className="w-8 h-8 text-red-600" /> Экстренные службы
-            </h1>
+        <div className="max-w-4xl mx-auto p-4 lg:p-8 pb-32">
+            <div className="mb-10 text-center md:text-left">
+                <h1 className="text-3xl font-black mb-2 flex items-center justify-center md:justify-start gap-3 dark:text-white uppercase tracking-tighter">
+                    <Siren className="w-10 h-10 text-red-600" /> Экстренные службы
+                </h1>
+                <p className="text-gray-500 font-medium">Важные контакты Снежинска, которые должны быть под рукой</p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {emergencyNumbers.map((item, idx) => (
-                    <div key={idx} className="bg-white dark:bg-gray-800 p-6 rounded-3xl border dark:border-gray-700 shadow-sm flex items-center gap-6">
-                        <div className={`w-16 h-16 ${item.bg} rounded-2xl flex items-center justify-center ${item.color}`}>
+                    <div key={idx} className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] border dark:border-gray-700 shadow-sm flex items-center gap-6 group hover:shadow-xl transition-all">
+                        <div className={`w-16 h-16 ${item.bg} dark:opacity-90 rounded-3xl flex items-center justify-center ${item.color} shrink-0 shadow-inner`}>
                             <item.icon className="w-8 h-8" />
                         </div>
-                        <div className="flex-1">
-                            <h3 className="font-bold text-lg dark:text-white">{item.title}</h3>
-                            <a href={`tel:${item.phone}`} className="text-3xl font-black text-gray-900 dark:text-white hover:text-red-600 transition-colors">
-                                {item.phone}
-                            </a>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="font-black text-xs uppercase text-gray-400 tracking-widest mb-1">{item.title}</h3>
+                            <div className="flex flex-col gap-0.5">
+                                {item.phone && (
+                                    <button 
+                                        onClick={() => handleCall(item.phone)}
+                                        className="text-2xl font-black text-gray-900 dark:text-white hover:text-red-600 transition-colors text-left"
+                                    >
+                                        {item.phone}
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={() => handleCall(item.cityPhone)}
+                                    className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline text-left truncate"
+                                >
+                                    {item.cityPhone}
+                                </button>
+                            </div>
                         </div>
-                        <a href={`tel:${item.phone}`} className="p-4 bg-red-600 text-white rounded-full shadow-lg shadow-red-500/20 active:scale-95 transition-all">
+                        <button 
+                            onClick={() => handleCall(item.phone || item.cityPhone)}
+                            className="p-4 bg-red-600 text-white rounded-2xl shadow-lg shadow-red-500/20 active:scale-90 transition-all"
+                        >
                             <PhoneCall className="w-6 h-6" />
-                        </a>
+                        </button>
                     </div>
                 ))}
+            </div>
+
+            <div className="mt-12 p-6 bg-red-50 dark:bg-red-900/10 rounded-[2.5rem] border border-red-100 dark:border-red-900/30 flex items-start gap-5">
+                <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
+                    <Info className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="text-sm text-red-800 dark:text-red-300 leading-relaxed font-medium">
+                    <p className="font-bold mb-1">Советы по безопасности:</p>
+                    <ul className="list-disc pl-4 space-y-1 opacity-80">
+                        <li>Заранее сохраните эти номера в контактах вашего телефона.</li>
+                        <li>При звонке в ЕДДС (112) четко называйте адрес и характер происшествия.</li>
+                        <li>Будьте бдительны и помогайте тем, кто оказался в трудной ситуации.</li>
+                    </ul>
+                </div>
             </div>
         </div>
     );
