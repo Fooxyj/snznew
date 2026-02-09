@@ -3,16 +3,107 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Message, Conversation } from '../types';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { 
     Send, Loader2, MessageCircle, ChevronLeft, Trash2, 
     Check, CheckCheck, Briefcase, Star, User, 
     Image as ImageIcon, Mic, X, Play, Pause, Square,
-    CheckCircle2, Circle, MoreVertical, Copy, Reply, Share, Forward
+    CheckCircle2, Circle, MoreVertical, Copy, Reply, Share, Forward, 
+    ExternalLink, ShoppingBag, Car, Info
 } from 'lucide-react';
 import { Img } from '../components/ui/Image';
 import { ImageViewer } from '../components/ImageViewer';
 import { Button } from '../components/ui/Common';
+
+// --- Компонент для парсинга и отображения карточек в сообщениях ---
+const MessageContent: React.FC<{ text: string; isSelf: boolean }> = ({ text, isSelf }) => {
+    const navigate = useNavigate();
+
+    const parsedData = useMemo(() => {
+        if (typeof text !== 'string' || !text.trim().startsWith('{')) return null;
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            return null;
+        }
+    }, [text]);
+
+    if (!parsedData) {
+        return <p className="text-sm leading-relaxed font-medium whitespace-pre-wrap break-words">{text}</p>;
+    }
+
+    // Рендеринг карточки объявления
+    if (parsedData.type === 'ad_inquiry') {
+        return (
+            <div className={`flex flex-col gap-3 rounded-xl overflow-hidden border ${isSelf ? 'bg-white/10 border-white/20' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'} p-3 max-w-[280px]`}>
+                <div className="flex gap-3 items-start">
+                    <img src={parsedData.image} className="w-16 h-16 rounded-lg object-cover bg-gray-200 shrink-0" alt="" />
+                    <div className="min-w-0">
+                        <div className="text-[10px] font-black uppercase text-blue-500 mb-0.5 tracking-widest">Объявление</div>
+                        <div className={`text-xs font-bold truncate ${isSelf ? 'text-white' : 'dark:text-white'}`}>{parsedData.title}</div>
+                        <div className="text-sm font-black text-blue-600 mt-1">{parsedData.price}</div>
+                    </div>
+                </div>
+                <div className={`text-xs p-2 rounded-lg italic ${isSelf ? 'bg-black/20' : 'bg-white dark:bg-gray-800'}`}>
+                    "{parsedData.text}"
+                </div>
+                <button 
+                    onClick={() => navigate(`/ad/${parsedData.adId}`)}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-1.5"
+                >
+                    <ExternalLink className="w-3 h-3" /> Посмотреть на маркете
+                </button>
+            </div>
+        );
+    }
+
+    // Рендеринг карточки вакансии
+    if (parsedData.type === 'vacancy_apply') {
+        return (
+            <div className={`flex flex-col gap-3 rounded-xl overflow-hidden border ${isSelf ? 'bg-white/10 border-white/20' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'} p-3 max-w-[280px]`}>
+                <div className="flex items-center gap-2 mb-1">
+                    <Briefcase className="w-4 h-4 text-blue-500" />
+                    <div className="text-[10px] font-black uppercase text-blue-500 tracking-widest">Отклик на вакансию</div>
+                </div>
+                <div className="min-w-0">
+                    <div className={`text-sm font-bold ${isSelf ? 'text-white' : 'dark:text-white'}`}>{parsedData.title}</div>
+                    <div className="text-[11px] text-gray-400 font-bold uppercase">{parsedData.company}</div>
+                </div>
+                <div className={`text-xs p-2 rounded-lg italic ${isSelf ? 'bg-black/20' : 'bg-white dark:bg-gray-800'}`}>
+                    "{parsedData.text}"
+                </div>
+            </div>
+        );
+    }
+
+    // Рендеринг карточки поездки
+    if (parsedData.type === 'ride_booking') {
+        return (
+            <div className={`flex flex-col gap-3 rounded-xl overflow-hidden border ${isSelf ? 'bg-white/10 border-white/20' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'} p-3 max-w-[280px]`}>
+                <div className="flex items-center gap-2 mb-1">
+                    <Car className="w-4 h-4 text-blue-500" />
+                    <div className="text-[10px] font-black uppercase text-blue-500 tracking-widest">Бронь поездки</div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                    <div className="bg-black/5 dark:bg-white/5 p-1.5 rounded-lg">
+                        <div className="text-[8px] font-black uppercase opacity-50">Дата</div>
+                        <div className="text-[10px] font-bold">{parsedData.date}</div>
+                    </div>
+                    <div className="bg-black/5 dark:bg-white/5 p-1.5 rounded-lg">
+                        <div className="text-[8px] font-black uppercase opacity-50">Места</div>
+                        <div className="text-[10px] font-bold">{parsedData.requestedSeats}</div>
+                    </div>
+                </div>
+                <div className={`text-[11px] font-bold flex items-center justify-between ${isSelf ? 'text-white' : 'dark:text-white'}`}>
+                    <span>{parsedData.fromCity} → {parsedData.toCity}</span>
+                    <span className="text-blue-600">{parsedData.price}</span>
+                </div>
+            </div>
+        );
+    }
+
+    return <p className="text-sm font-medium opacity-50 italic">[Системное сообщение]</p>;
+};
 
 // --- Sub-component for Audio Messages ---
 const AudioPlayer: React.FC<{ url: string; isSelf: boolean }> = ({ url, isSelf }) => {
@@ -147,7 +238,6 @@ export const ChatPage: React.FC = () => {
     const handleDeleteSelected = async (mode: 'forMe' | 'forEveryone') => {
         if (selectedIds.length === 0) return;
         
-        // В режиме "для всех" можем удалять только свои сообщения
         const myMessagesInSelection = mode === 'forEveryone' 
             ? messages.filter(m => selectedIds.includes(m.id) && m.senderId === currentUser?.id)
             : selectedIds;
@@ -292,18 +382,18 @@ export const ChatPage: React.FC = () => {
         if (messageContainerRef.current) {
             messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
         }
-    }, [messages]);
+    }, [messages, activeChat]);
 
     const filteredConversations = useMemo(() => {
         return conversations.filter(c => chatFilter === 'personal' ? !c.businessId : !!c.businessId);
     }, [conversations, chatFilter]);
 
     return (
-        <div className="flex-1 flex bg-white dark:bg-gray-900 overflow-hidden h-full relative">
+        <div className="flex-1 flex bg-white dark:bg-gray-900 overflow-hidden h-[calc(100vh-64px)] lg:h-full relative">
             <ImageViewer isOpen={!!viewerImage} onClose={() => setViewerImage(null)} src={viewerImage || ''} />
 
-            {/* Sidebar */}
-            <div className={`w-full md:w-80 border-r dark:border-gray-800 flex flex-col h-full bg-white dark:bg-gray-900 transition-transform ${activeChat ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
+            {/* Sidebar (List of Chats) */}
+            <div className={`absolute inset-0 md:relative md:flex w-full md:w-80 border-r dark:border-gray-800 flex flex-col h-full bg-white dark:bg-gray-900 transition-transform duration-300 z-20 ${activeChat ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
                 <div className="p-6 border-b dark:border-gray-800 shrink-0">
                     <h2 className="font-black text-2xl dark:text-white tracking-tighter uppercase mb-4">Сообщения</h2>
                     <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl">
@@ -349,17 +439,17 @@ export const ChatPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Chat Area */}
-            <div className={`w-full md:flex-1 flex flex-col h-full bg-white dark:bg-gray-900 transition-transform ${activeChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
+            {/* Chat Area (Active Window) */}
+            <div className={`absolute inset-0 md:relative md:flex w-full md:flex-1 flex flex-col h-full bg-white dark:bg-gray-900 transition-transform duration-300 z-30 ${activeChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
                 {activeChat ? (
                     <>
                         <div className="p-4 border-b dark:border-gray-800 flex items-center justify-between bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shrink-0 z-10">
-                            <div className="flex items-center gap-4">
-                                <button className="md:hidden p-2" onClick={() => { setActiveChat(null); setSearchParams({}); }}><ChevronLeft className="w-6 h-6 text-gray-400"/></button>
+                            <div className="flex items-center gap-3">
+                                <button className="md:hidden p-2 -ml-2" onClick={() => { setActiveChat(null); setSearchParams({}); }}><ChevronLeft className="w-6 h-6 text-gray-400"/></button>
                                 <div className="flex items-center gap-3">
                                     <img src={activeConvo?.partnerAvatar || 'https://ui-avatars.com/api/?name=U'} className="w-10 h-10 rounded-xl object-cover shadow-sm" alt="" />
                                     <div className="flex flex-col">
-                                        <div className="font-black text-sm uppercase dark:text-white leading-none">{activeConvo?.partnerName || 'Загрузка...'}</div>
+                                        <div className="font-black text-sm uppercase dark:text-white leading-none truncate max-w-[150px]">{activeConvo?.partnerName || '...'}</div>
                                         {isActingAsBusiness && <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest mt-1">Клиент компании</div>}
                                     </div>
                                 </div>
@@ -407,14 +497,14 @@ export const ChatPage: React.FC = () => {
                                                 {isSelected ? <CheckCircle2 className="w-5 h-5 text-blue-600" /> : <Circle className="w-5 h-5 text-gray-300" />}
                                             </div>
                                         )}
-                                        <div className={`max-w-[85%] p-4 rounded-2xl relative shadow-sm transition-all ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-950 scale-95 opacity-80' : ''} ${isSelf ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white dark:bg-gray-800 dark:text-white rounded-tl-none border dark:border-gray-700'}`}>
+                                        <div className={`max-w-[90%] md:max-w-[75%] p-3.5 rounded-2xl relative shadow-sm transition-all ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-950 scale-95 opacity-80' : ''} ${isSelf ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white dark:bg-gray-800 dark:text-white rounded-tl-none border dark:border-gray-700'}`}>
                                             
                                             {m.imageUrl && (
                                                 <div 
-                                                    className="mb-3 rounded-xl overflow-hidden border dark:border-gray-700 max-w-[240px] cursor-zoom-in active:scale-95 transition-transform"
+                                                    className="mb-3 rounded-xl overflow-hidden border dark:border-gray-700 max-w-full cursor-zoom-in active:scale-95 transition-transform"
                                                     onClick={(e) => { e.stopPropagation(); !isSelectMode && setViewerImage(m.imageUrl || null); }}
                                                 >
-                                                    <img src={m.imageUrl} className="w-full h-auto object-cover" />
+                                                    <img src={m.imageUrl} className="w-full h-auto object-cover max-h-[300px]" alt="" />
                                                 </div>
                                             )}
 
@@ -424,7 +514,7 @@ export const ChatPage: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            {m.text && <p className="text-sm leading-relaxed font-medium">{m.text}</p>}
+                                            <MessageContent text={m.text} isSelf={isSelf} />
                                             
                                             <div className="flex items-center justify-end gap-1 mt-1.5">
                                                 <div className={`text-[8px] font-black uppercase opacity-40`}>
@@ -452,42 +542,22 @@ export const ChatPage: React.FC = () => {
                         </div>
 
                         {isSelectMode ? (
-                            <div className="p-4 border-t dark:border-gray-800 bg-white dark:bg-gray-900 flex gap-3 animate-in slide-in-from-bottom-4 shadow-2xl relative z-20">
-                                <button 
-                                    onClick={handleCopy}
-                                    className="flex-1 bg-gray-50 dark:bg-gray-800 rounded-2xl py-4 flex flex-col items-center justify-center gap-1 hover:bg-gray-100 transition-all disabled:opacity-30"
-                                    disabled={selectedIds.length === 0}
-                                >
-                                    <Copy className="w-4 h-4 text-gray-500" />
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">Копировать</span>
+                            <div className="p-4 border-t dark:border-gray-800 bg-white dark:bg-gray-900 flex gap-2 animate-in slide-in-from-bottom-4 shadow-2xl relative z-20 overflow-x-auto pb-safe">
+                                <button onClick={handleCopy} className="flex-1 min-w-[70px] bg-gray-50 dark:bg-gray-800 rounded-2xl py-3 flex flex-col items-center justify-center gap-1 disabled:opacity-30" disabled={selectedIds.length === 0}>
+                                    <Copy className="w-4 h-4 text-gray-500" /><span className="text-[8px] font-black uppercase text-gray-400">Копир.</span>
                                 </button>
-                                <button 
-                                    onClick={handleForward}
-                                    className="flex-1 bg-gray-50 dark:bg-gray-800 rounded-2xl py-4 flex flex-col items-center justify-center gap-1 hover:bg-gray-100 transition-all disabled:opacity-30"
-                                    disabled={selectedIds.length === 0}
-                                >
-                                    <Forward className="w-4 h-4 text-gray-500" />
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">Переслать</span>
+                                <button onClick={handleForward} className="flex-1 min-w-[70px] bg-gray-50 dark:bg-gray-800 rounded-2xl py-3 flex flex-col items-center justify-center gap-1 disabled:opacity-30" disabled={selectedIds.length === 0}>
+                                    <Forward className="w-4 h-4 text-gray-500" /><span className="text-[8px] font-black uppercase text-gray-400">Пересл.</span>
                                 </button>
-                                <button 
-                                    onClick={() => handleDeleteSelected('forMe')}
-                                    className="flex-1 bg-orange-50 dark:bg-orange-900/20 rounded-2xl py-4 flex flex-col items-center justify-center gap-1 hover:bg-orange-100 transition-all disabled:opacity-30"
-                                    disabled={selectedIds.length === 0}
-                                >
-                                    <Trash2 className="w-4 h-4 text-orange-600" />
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-orange-600">У себя</span>
+                                <button onClick={() => handleDeleteSelected('forMe')} className="flex-1 min-w-[70px] bg-orange-50 dark:bg-orange-900/20 rounded-2xl py-3 flex flex-col items-center justify-center gap-1 disabled:opacity-30" disabled={selectedIds.length === 0}>
+                                    <Trash2 className="w-4 h-4 text-orange-600" /><span className="text-[8px] font-black uppercase text-orange-600">Скрыть</span>
                                 </button>
-                                <button 
-                                    onClick={() => handleDeleteSelected('forEveryone')}
-                                    className="flex-1 bg-red-600 rounded-2xl py-4 flex flex-col items-center justify-center gap-1 hover:bg-red-700 transition-all shadow-lg shadow-red-500/20 disabled:opacity-30 disabled:shadow-none"
-                                    disabled={selectedIds.length === 0}
-                                >
-                                    <Trash2 className="w-4 h-4 text-white" />
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-white">Для всех</span>
+                                <button onClick={() => handleDeleteSelected('forEveryone')} className="flex-1 min-w-[70px] bg-red-600 rounded-2xl py-3 flex flex-col items-center justify-center gap-1 disabled:opacity-30" disabled={selectedIds.length === 0}>
+                                    <Trash2 className="w-4 h-4 text-white" /><span className="text-[8px] font-black uppercase text-white">Всем</span>
                                 </button>
                             </div>
                         ) : (
-                            <div className="p-4 border-t dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+                            <div className="p-4 border-t dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0 pb-safe">
                                 {isRecording ? (
                                     <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center justify-between animate-in slide-in-from-bottom-2">
                                         <div className="flex items-center gap-3">
@@ -509,13 +579,13 @@ export const ChatPage: React.FC = () => {
                                         <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-[1.5rem] px-5 py-3.5 flex items-end">
                                             <textarea 
                                                 rows={1}
-                                                className="flex-1 bg-transparent border-none outline-none dark:text-white font-medium text-sm py-0.5 resize-none max-h-32" 
+                                                className="flex-1 bg-transparent border-none outline-none dark:text-white font-medium text-sm py-0.5 resize-none max-h-32 custom-scrollbar" 
                                                 placeholder="Сообщение..." 
                                                 value={newMessage} 
                                                 onChange={e => {
                                                     setNewMessage(e.target.value);
                                                     e.target.style.height = 'auto';
-                                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                                    e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
                                                 }}
                                             />
                                         </div>
@@ -538,7 +608,7 @@ export const ChatPage: React.FC = () => {
                         )}
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+                    <div className="hidden md:flex flex-1 flex flex-col items-center justify-center text-gray-400 h-full">
                         <MessageCircle className="w-20 h-20 opacity-10 mb-4"/>
                         <p className="font-black uppercase text-[10px] tracking-widest">Выберите диалог для общения</p>
                     </div>

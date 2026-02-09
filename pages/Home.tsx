@@ -201,9 +201,6 @@ export const Home: React.FC = () => {
                               <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter leading-none">
                                   {pageContent.events ? 'Афиша' : 'Новости'}
                               </h2>
-                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">
-                                  {pageContent.events ? 'События города' : 'Лента новостей'}
-                              </p>
                           </div>
                       </div>
                   </div>
@@ -253,7 +250,6 @@ export const Home: React.FC = () => {
                           </div>
                           <div>
                             <h2 className="text-3xl font-black dark:text-white uppercase tracking-tighter leading-none">{pageContent.adLabel}</h2>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Рекламные предложения</p>
                           </div>
                       </div>
                   </div>
@@ -311,24 +307,24 @@ export const Home: React.FC = () => {
 
       {/* НИЖНЯЯ ПАГИНАЦИЯ */}
       <div className="pt-20 border-t dark:border-gray-800 flex flex-col items-center gap-8 max-w-[1440px] mx-auto overflow-x-hidden">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
               <button 
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="p-5 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-blue-600 disabled:opacity-20 transition-all active:scale-90"
+                className="p-3 sm:p-5 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-blue-600 disabled:opacity-20 transition-all active:scale-90"
               >
-                  <ChevronLeft className="w-6 h-6" />
+                  <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
               
-              <div className="flex gap-2 p-2 bg-gray-50 dark:bg-gray-800/30 rounded-[2.5rem]">
+              <div className="flex gap-1 sm:gap-2 p-1.5 sm:p-2 bg-gray-50 dark:bg-gray-800/30 rounded-[2rem] sm:rounded-[2.5rem]">
                   {navigationTabs.map(tab => (
                       <button
                         key={tab.id}
                         onClick={() => setCurrentPage(tab.id)}
-                        className={`flex flex-col items-center gap-1.5 px-6 py-4 rounded-[2rem] transition-all ${currentPage === tab.id ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-xl scale-110' : 'text-gray-400 hover:text-gray-600'}`}
+                        className={`flex flex-col items-center gap-1 sm:gap-1.5 px-3 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] transition-all ${currentPage === tab.id ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-xl scale-105 sm:scale-110' : 'text-gray-400 hover:text-gray-600'}`}
                       >
-                          <div className="text-lg font-black leading-none">{tab.label === 'Инфо' ? '2' : tab.label === 'PRO' ? '3' : tab.label === 'Частные' ? '4' : '1'}</div>
-                          <div className="flex items-center gap-1 font-black uppercase text-[8px] tracking-widest">
+                          <div className="text-base sm:text-lg font-black leading-none">{tab.label === 'Инфо' ? '2' : tab.label === 'PRO' ? '3' : tab.label === 'Частные' ? '4' : '1'}</div>
+                          <div className="flex items-center gap-1 font-black uppercase text-[7px] sm:text-[8px] tracking-widest">
                              {tab.icon} {tab.label}
                           </div>
                       </button>
@@ -338,9 +334,9 @@ export const Home: React.FC = () => {
               <button 
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className="p-5 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-blue-600 disabled:opacity-20 transition-all active:scale-90"
+                className="p-3 sm:p-5 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-blue-600 disabled:opacity-20 transition-all active:scale-90"
               >
-                  <ChevronRight className="w-6 h-6" />
+                  <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
           </div>
       </div>

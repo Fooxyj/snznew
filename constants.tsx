@@ -199,20 +199,28 @@ export const CATALOG_MENU = [
   },
   {
     id: 'services_section',
-    title: 'Услуги и Досуг',
-    icon: 'LayoutGrid',
+    title: 'Услуги',
+    icon: 'Briefcase',
+    submenu: [
+      { title: 'Красота и Уход', path: '/category/beauty' },
+      { title: 'Автосервисы', path: '/category/car_service' },
+      { title: 'Медицина', path: '/category/med' },
+    ]
+  },
+  {
+    id: 'leisure_section',
+    title: 'Досуг',
+    icon: 'Coffee',
     submenu: [
       { title: 'Кафе и Рестораны', path: '/category/cafe' },
       { title: 'Аренда и Отдых', path: '/category/rent' },
-      { title: 'Красота и Уход', path: '/category/beauty' },
       { title: 'Спортивные залы', path: '/category/sport' },
-      { title: 'Автосервисы', path: '/category/car_service' },
       { title: 'Кино', path: '/category/cinema' },
     ]
   },
   {
     id: 'masters_section',
-    title: 'Специалисты',
+    title: 'Частные мастера',
     icon: 'Star',
     submenu: [
         { title: 'Еда и Хендмейд', path: '/category/handmade' },

@@ -156,7 +156,7 @@ const StoryViewer: React.FC<{
                         <img src={activeStory.authorAvatar} className="w-10 h-10 rounded-full border-2 border-white object-cover shadow-lg" alt="" />
                         <div className="flex flex-col text-left">
                             <span className="text-white font-black text-sm drop-shadow-md">{activeStory.authorName}</span>
-                            <span className="text-white/60 text-[10px] font-bold uppercase tracking-tighter">Снежинск Онлайн</span>
+                            <span className="text-white/60 text-[10px] font-bold uppercase tracking-tighter">Простор</span>
                         </div>
                     </div>
                     <button onClick={onClose} className="text-white p-2 bg-white/10 rounded-full backdrop-blur-md hover:bg-white/20 transition-colors z-50 pointer-events-auto">
@@ -383,7 +383,8 @@ export const StoriesRail: React.FC = () => {
                             <h3 className="text-xl font-black text-gray-900 dark:text-white">Автор истории</h3>
                             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-1">От чьего имени публикация?</p>
                         </div>
-                        <div className="p-4 space-y-2">
+                        {/* Список с прокруткой для большого количества бизнесов */}
+                        <div className="p-4 space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar">
                             <button 
                                 onClick={() => startCreating(undefined)}
                                 className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
@@ -403,7 +404,7 @@ export const StoriesRail: React.FC = () => {
                                     <img src={biz.image} className="w-12 h-12 rounded-full object-cover border-2 border-blue-100" alt="" />
                                     <div className="text-left">
                                         <div className="font-bold text-gray-900 dark:text-white">{biz.name}</div>
-                                        <div className="text-[10px] text-blue-50 font-black uppercase tracking-tighter">Бизнес-аккаунт</div>
+                                        <div className="text-[10px] text-blue-500 font-black uppercase tracking-tighter">Бизнес-аккаунт</div>
                                     </div>
                                 </button>
                             ))}

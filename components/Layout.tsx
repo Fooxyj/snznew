@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
@@ -65,7 +66,7 @@ const NavItem: React.FC<NavItemProps> = ({ to, icon: Icon, label, active, onClic
         : 'text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400'
     }`}
   >
-    <Icon className={`w-5 h-5 mr-3 ${active ? 'text-white' : 'text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 dark:text-gray-500'}`} />
+    <Icon className={`w-5 h-5 mr-3 ${active ? 'text-white' : 'text-gray-400'}`} />
     {label}
   </Link>
 );
@@ -314,7 +315,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   onClick={toggleSidebar}
                   className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/40 active:scale-90 transition-all border-4 border-white dark:border-gray-900"
               >
-                  <LogoIcon className="w-7 h-7" />
+                  <Building2 className="w-7 h-7 text-white" />
               </button>
               <span className="text-[9px] font-black uppercase text-blue-600 mt-1">Простор</span>
           </div>

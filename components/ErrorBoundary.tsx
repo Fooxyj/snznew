@@ -16,9 +16,7 @@ interface State {
 /**
  * ErrorBoundary component to catch rendering errors and show a fallback UI.
  */
-// Comment above fix: Explicitly using React.Component ensures correctly inherited methods like setState and props which were missing when using the named import alone.
 export class ErrorBoundary extends React.Component<Props, State> {
-  // Comment above fix: Initializing state as a class property with explicit type.
   public state: State = {
     hasError: false,
     error: null
@@ -32,13 +30,11 @@ export class ErrorBoundary extends React.Component<Props, State> {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  // Comment above fix: Using arrow function for proper context binding and casting 'this' to any to resolve property access errors.
   public handleReset = (): void => {
     (this as any).setState({ hasError: false, error: null });
     window.location.href = '/';
   };
 
-  // Comment above fix: render() uses inherited state and props from React.Component, accessed via (this as any) to bypass compiler issues.
   public render(): ReactNode {
     const { hasError, error } = (this as any).state;
     const { fallback, children } = (this as any).props;

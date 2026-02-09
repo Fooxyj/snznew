@@ -324,7 +324,7 @@ export const RidesPage: React.FC = () => {
             <div className="mt-12 p-6 bg-blue-50 dark:bg-blue-900/10 rounded-[2.5rem] flex items-start gap-4 border border-blue-100 dark:border-blue-900/30">
                 <Info className="w-6 h-6 text-blue-600 shrink-0 mt-0.5" />
                 <p className="text-[11px] text-blue-800 dark:text-blue-300 leading-relaxed font-medium">
-                    Будьте внимательны при бронировании. Оплата поездки производится водителю лично при встрече. Приложение Снежинск Лайф не берет комиссию и не несет ответственности за действия пользователей. <Link to="/legal" className="text-blue-600 underline">Подробнее в правилах</Link>.
+                    Будьте внимательны при бронировании. Оплата поездки производится водителю лично при встрече. Приложение Простор не берет комиссию и не несет ответственности за действия пользователей. <Link to="/legal" className="text-blue-600 underline">Подробнее в правилах</Link>.
                 </p>
             </div>
         </div>

@@ -500,8 +500,13 @@ export const socialService = {
           if (error) throw error;
           if (!data) return [];
           
-          const profileIds = [...new Set(data.map(s => s.user_id).filter(Boolean))];
-          const bizIds = [...new Set(data.map(s => s.business_id).filter(Boolean))];
+          // Фильтрация по сроку давности (макс 3 дня)
+          const MAX_STORY_AGE = 3 * 24 * 60 * 60 * 1000;
+          const now = Date.now();
+          const filteredData = data.filter(s => (now - new Date(s.created_at).getTime()) < MAX_STORY_AGE);
+
+          const profileIds = [...new Set(filteredData.map(s => s.user_id).filter(Boolean))];
+          const bizIds = [...new Set(filteredData.map(s => s.business_id).filter(Boolean))];
           const [profsRes, bizRes] = await Promise.all([
               supabase.from('profiles').select('id, name, avatar').in('id', profileIds),
               bizIds.length > 0 ? supabase.from('businesses').select('id, name, image').in('id', bizIds) : { data: [] }
@@ -509,7 +514,7 @@ export const socialService = {
           const profMap = new Map<string, any>(profsRes.data?.map(p => [p.id, p]) || []);
           const bizMap = new Map<string, any>(bizRes.data?.map(b => [b.id, b]) || []);
           
-          return data.map((s: any) => {
+          return filteredData.map((s: any) => {
               const business = s.business_id ? bizMap.get(s.business_id) : null;
               const profile = profMap.get(s.user_id);
               const viewers = (s.story_views || []).map((v: any) => {

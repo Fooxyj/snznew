@@ -8,7 +8,7 @@ interface SEOProps {
 
 export const SEO: React.FC<SEOProps> = ({ title, description }) => {
   useEffect(() => {
-    document.title = `${title} | Снежинск Онлайн`;
+    document.title = `${title} | Простор`;
     if (description) {
       let meta = document.querySelector('meta[name="description"]');
       if (!meta) {

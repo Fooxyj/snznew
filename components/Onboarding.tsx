@@ -23,7 +23,7 @@ export const Onboarding: React.FC = () => {
   const steps = [
     {
       title: "Добро пожаловать!",
-      desc: "Снежинск Лайф — это единое приложение для жизни в любимом городе.",
+      desc: "Простор — это единое приложение для жизни в любимом городе.",
       icon: <Map className="w-16 h-16 text-blue-600" />,
       color: "bg-blue-100"
     },
