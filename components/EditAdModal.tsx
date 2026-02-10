@@ -1,9 +1,9 @@
+
 import React, { useState } from 'react';
-import { X, Loader2, Upload, Trash2, Plus, Image as ImageIcon } from 'lucide-react';
+import { X, Loader2, Upload, Trash2, Plus, Image as ImageIcon, ShieldAlert } from 'lucide-react';
 import { Button } from './ui/Common';
 import { api } from '../services/api';
 import { Ad } from '../types';
-// Comment above fix: Imported AD_CATEGORIES to fix the reference error in the category selection dropdown
 import { AD_CATEGORIES } from '../constants';
 
 interface EditAdModalProps {
@@ -24,6 +24,8 @@ export const EditAdModal: React.FC<EditAdModalProps> = ({ ad, isOpen, onClose, o
     category: ad.category,
     description: ad.description,
     location: ad.location,
+    erid: ad.erid || '',
+    advertiser_info: ad.advertiser_info || ''
   });
 
   const [images, setImages] = useState<string[]>(
@@ -59,6 +61,14 @@ export const EditAdModal: React.FC<EditAdModalProps> = ({ ad, isOpen, onClose, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (ad.isVip || ad.isPremium) {
+        if (!formData.erid.trim() || !formData.advertiser_info.trim()) {
+            setErrorMsg("Для VIP/PRO объявлений необходимо заполнить данные маркировки (38-ФЗ)");
+            return;
+        }
+    }
+
     setIsLoading(true);
     setErrorMsg(null);
 
@@ -70,7 +80,9 @@ export const EditAdModal: React.FC<EditAdModalProps> = ({ ad, isOpen, onClose, o
         description: formData.description,
         location: formData.location,
         image: images[0] || '', 
-        images: images 
+        images: images,
+        erid: formData.erid,
+        advertiser_info: formData.advertiser_info
       });
 
       onSuccess();
@@ -124,6 +136,15 @@ export const EditAdModal: React.FC<EditAdModalProps> = ({ ad, isOpen, onClose, o
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Местоположение</label>
                 <input type="text" className="w-full px-3 py-2 border rounded-lg outline-none bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
             </div>
+
+            {(ad.isVip || ad.isPremium) && (
+                <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30 space-y-3">
+                    <p className="text-[9px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest flex items-center gap-1.5"><ShieldAlert className="w-3 h-3"/> Маркировка (38-ФЗ)</p>
+                    <input className="w-full border rounded-lg p-2 text-xs font-mono dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Токен (erid)" value={formData.erid} onChange={e => setFormData({...formData, erid: e.target.value})} />
+                    <input className="w-full border rounded-lg p-2 text-xs dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Рекламодатель" value={formData.advertiser_info} onChange={e => setFormData({...formData, advertiser_info: e.target.value})} />
+                </div>
+            )}
+
             <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Фотографии ({images.length}/5)</label>
                 <div className="grid grid-cols-3 gap-2">

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -6,7 +7,7 @@ import { Ad, User } from '../types';
 import { Button, Badge, UserStatus } from '../components/ui/Common';
 import { Img } from '../components/ui/Image';
 import { ImageViewer } from '../components/ImageViewer';
-import { Loader2, ChevronLeft, Heart, MessageCircle, Share2, MapPin, ChevronRight, User as UserIcon, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Loader2, ChevronLeft, Heart, MessageCircle, Share2, MapPin, ChevronRight, User as UserIcon, AlertTriangle, ShieldCheck, Info } from 'lucide-react';
 import { SEO } from '../components/SEO';
 import { NotFound } from './NotFound';
 import { ReportModal } from '../components/ReportModal';
@@ -64,6 +65,7 @@ export const AdDetail: React.FC = () => {
     if (!ad) return <NotFound />;
 
     const images = ad.images && ad.images.length > 0 ? ad.images : [ad.image];
+    const isPaid = ad.isVip || ad.isPremium;
 
     return (
         <div className="max-w-5xl mx-auto p-4 lg:p-8 pb-24">
@@ -85,6 +87,30 @@ export const AdDetail: React.FC = () => {
                             alt={ad.title} 
                             className="w-full h-auto max-h-[70vh] object-contain block mx-auto" 
                         />
+                        
+                        {/* Маркировка рекламы */}
+                        {isPaid && (
+                            <div className="absolute top-4 right-4 z-20">
+                                <div className="relative group/legal">
+                                    <div className="bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-[7px] text-white/80 font-bold uppercase tracking-widest flex items-center gap-1.5 border border-white/10 hover:bg-black/60 transition-colors cursor-help">
+                                        <span>Реклама</span>
+                                        <Info className="w-2.5 h-2.5" />
+                                    </div>
+                                    <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-gray-800 p-3 rounded-xl shadow-2xl border dark:border-gray-700 opacity-0 invisible group-hover/legal:opacity-100 group-hover/legal:visible transition-all z-50 text-gray-900 dark:text-gray-100 normal-case tracking-normal">
+                                        <p className="text-[9px] font-black uppercase text-gray-400 mb-1.5 border-b dark:border-gray-700 pb-1.5 flex items-center gap-1.5">
+                                            <ShieldCheck className="w-3 h-3 text-blue-500" /> Рекламодатель
+                                        </p>
+                                        <p className="text-[11px] font-bold leading-tight mb-2">
+                                            {ad.advertiser_info || 'Частное лицо'}
+                                        </p>
+                                        <p className="text-blue-500 dark:text-blue-400 font-mono text-[8px] break-all bg-gray-50 dark:bg-gray-900 p-1.5 rounded uppercase">
+                                            erid: {ad.erid || 'not_specified'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {images.length > 1 && (
                             <div className="absolute inset-x-0 bottom-6 flex justify-center gap-2">
                                 {images.map((_, idx) => (

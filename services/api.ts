@@ -27,19 +27,29 @@ const parseSafeDate = (dateStr: string | null | undefined): string => {
     return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
 };
 
-// Функция для повторных попыток при сетевых ошибках (только для чтения)
-const withRetry = async <T>(fn: () => Promise<T>, retries = 2): Promise<T> => {
-    try {
-        return await fn();
-    } catch (err: any) {
-        if (retries > 0 && (err.message?.includes('fetch') || err.message?.includes('network'))) {
-            console.warn(`API: Fetch failed, retrying... (${retries} left)`);
-            await new Promise(r => setTimeout(r, 1000));
-            return withRetry(fn, retries - 1);
-        }
-        throw err;
-    }
+const mapBusinessFromDB = (b: any): Business => {
+    return {
+        ...b,
+        rating: parseFloat(String(b.rating || 0)),
+        reviewsCount: parseInt(String(b.reviews_count || 0)),
+        workHours: b.work_hours || '',
+        website: b.website || '', 
+        authorId: b.author_id,
+        coverImage: b.cover_image,
+        canPostStories: b.can_post_stories,
+        verificationStatus: b.verification_status || 'pending',
+        isMaster: !!b.is_master,
+        lat: parseFloat(String(b.lat || 0)),
+        lng: parseFloat(String(b.lng || 0))
+    };
 };
+
+const mapNewsItem = (n: any): NewsItem => ({
+    ...n,
+    views: parseInt(String(n.views || 0)),
+    commentsCount: parseInt(String(n.comments_count || 0)),
+    date: n.date || n.created_at || new Date().toISOString()
+});
 
 export const api = {
   supabase,
@@ -170,14 +180,37 @@ export const api = {
 
   async globalSearch(q: string): Promise<{ ads: Ad[], businesses: Business[], news: NewsItem[] }> {
       if (isSupabaseConfigured() && supabase) {
-          const [ads, biz, news] = await Promise.all([
-              supabase.from('ads').select('*').ilike('title', `%${q}%`),
-              supabase.from('businesses').select('*').ilike('name', `%${q}%`),
-              supabase.from('news').select('*').ilike('title', `%${q}%`)
+          const searchPattern = `%${q}%`;
+          
+          const [adsRes, bizRes, newsRes] = await Promise.all([
+              supabase.from('ads')
+                .select('*')
+                .or(`title.ilike.${searchPattern},description.ilike.${searchPattern},category.ilike.${searchPattern}`)
+                .eq('status', 'approved')
+                .limit(20),
+              supabase.from('businesses')
+                .select('*')
+                .or(`name.ilike.${searchPattern},description.ilike.${searchPattern},category.ilike.${searchPattern}`)
+                .limit(20),
+              supabase.from('news')
+                .select('*')
+                .or(`title.ilike.${searchPattern},content.ilike.${searchPattern}`)
+                .limit(20)
           ]);
-          return { ads: (ads.data || []).map(a => ({ ...a, authorId: a.author_id })), businesses: (biz.data || []).map(b => ({ ...b, authorId: b.author_id })), news: news.data || [] };
+
+          return { 
+              ads: (adsRes.data || []).map(a => ({ ...a, authorId: a.author_id })), 
+              businesses: (bizRes.data || []).map(mapBusinessFromDB), 
+              news: (newsRes.data || []).map(mapNewsItem) 
+          };
       }
-      return { ads: [], businesses: [], news: [] };
+      
+      const lowerQ = q.toLowerCase();
+      return { 
+          ads: mockStore.ads.filter(a => a.title.toLowerCase().includes(lowerQ) || a.category.toLowerCase().includes(lowerQ)), 
+          businesses: mockStore.businesses.filter(b => b.name.toLowerCase().includes(lowerQ) || b.category.toLowerCase().includes(lowerQ)), 
+          news: mockStore.news.filter(n => n.title.toLowerCase().includes(lowerQ)) 
+      };
   },
 
   async approveContent(table: string, id: string) {

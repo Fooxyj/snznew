@@ -104,7 +104,27 @@ export interface Suggestion {
   isRead: boolean;
 }
 
-export interface Ad { id: string; title: string; price: number; currency: string; category: string; image: string; images?: string[]; date: string; authorId: string; authorName?: string; authorAvatar?: string; description: string; location: string; isVip?: boolean; isPremium?: boolean; status?: 'pending' | 'approved' | 'rejected'; authorLastSeen?: string; }
+export interface Ad { 
+  id: string; 
+  title: string; 
+  price: number; 
+  currency: string; 
+  category: string; 
+  image: string; 
+  images?: string[]; 
+  date: string; 
+  authorId: string; 
+  authorName?: string; 
+  authorAvatar?: string; 
+  description: string; 
+  location: string; 
+  isVip?: boolean; 
+  isPremium?: boolean; 
+  status?: 'pending' | 'approved' | 'rejected'; 
+  authorLastSeen?: string; 
+  erid?: string;
+  advertiser_info?: string;
+}
 
 export interface Vacancy { 
   id: string; 
@@ -126,7 +146,29 @@ export interface Vacancy {
 }
 
 export interface NewsItem { id: string; title: string; category: string; image: string; date: string; views: number; commentsCount: number; content: string; }
-export interface Business { id: string; name: string; category: string; rating: number; reviewsCount: number; address: string; image: string; coverImage?: string; description: string; lat: number; lng: number; phone: string; website?: string; workHours: string; authorId?: string; inn?: string; ogrn?: string; verificationStatus?: 'pending' | 'verified' | 'rejected'; canPostStories?: boolean; isMaster?: boolean; }
+export interface Business { 
+  id: string; 
+  name: string; 
+  category: string; 
+  rating: number; 
+  reviewsCount: number; 
+  address: string; 
+  image: string; 
+  coverImage?: string; 
+  description: string; 
+  lat: number; 
+  lng: number; 
+  phone: string; 
+  website?: string; 
+  workHours: string; 
+  authorId?: string; 
+  inn?: string; 
+  ogrn?: string; 
+  verificationStatus?: 'pending' | 'verified' | 'rejected'; 
+  canPostStories?: boolean; 
+  isMaster?: boolean; 
+  subscription_expires_at?: string;
+}
 export interface Story { id: string; authorId: string; media: string; caption: string; contentConfig?: any; createdAt: string; authorName?: string; authorAvatar?: string; status?: 'published' | 'pending' | 'rejected'; viewers?: { id: string; name: string; avatar: string }[]; userId?: string; }
 export interface AccessRequest { id: string; businessId: string; businessName: string; userId: string; userName: string; message: string; createdAt: string; }
 export interface Ride { id: string; fromCity: string; toCity: string; date: string; time: string; price: number; seats: number; carModel: string; driverId: string; driverName?: string; driverAvatar?: string; passengers?: string; status?: 'pending' | 'approved' | 'rejected'; passengerDetails?: { id: string; name: string; avatar: string }[]; }

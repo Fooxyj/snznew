@@ -173,18 +173,6 @@ export const CATEGORIES = [
 
 export const CATALOG_MENU = [
   {
-    id: 'shops_section',
-    title: 'Магазины',
-    icon: 'ShoppingBag',
-    submenu: [
-      { title: 'Все магазины', path: '/category/shops' },
-      { title: 'Продукты', path: '/category/food_market' },
-      { title: 'Дом и Сад', path: '/category/home_garden' },
-      { title: 'Строительные', path: '/category/construction' },
-      { title: 'Техника', path: '/category/tech_digital' },
-    ]
-  },
-  {
     id: 'news_section',
     title: 'Новости города',
     icon: 'Newspaper',
@@ -194,6 +182,18 @@ export const CATALOG_MENU = [
       { title: 'ВНИИТФ', path: '/news?cat=Новости ВНИИТФ' },
       { title: 'Городские новости', path: '/news?cat=Город' },
       { title: 'ЖКХ', path: '/news?cat=ЖКХ' },
+    ]
+  },
+  {
+    id: 'shops_section',
+    title: 'Магазины',
+    icon: 'ShoppingBag',
+    submenu: [
+      { title: 'Все магазины', path: '/category/shops' },
+      { title: 'Продукты', path: '/category/food_market' },
+      { title: 'Дом и Сад', path: '/category/home_garden' },
+      { title: 'Строительные', path: '/category/construction' },
+      { title: 'Техника', path: '/category/tech_digital' },
     ]
   },
   {

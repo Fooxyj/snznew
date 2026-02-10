@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, Loader2, Upload, Trash2, Plus, Sparkles, CheckCircle2, Wand2 } from 'lucide-react';
+import { X, Loader2, Upload, Trash2, Plus, Sparkles, CheckCircle2, Wand2, ShieldAlert } from 'lucide-react';
 import { Button } from './ui/Common';
 import { api } from '../services/api';
 import { Ad } from '../types';
@@ -27,6 +27,8 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
     category: 'Личные вещи',
     description: '',
     location: '',
+    erid: '',
+    advertiser_info: ''
   });
   const [images, setImages] = useState<string[]>([]);
 
@@ -49,6 +51,14 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (tier !== 'regular') {
+        if (!formData.erid.trim() || !formData.advertiser_info.trim()) {
+            alert("По закону 38-ФЗ для платных объявлений обязательно указание токена (erid) и данных рекламодателя.");
+            return;
+        }
+    }
+
     setIsLoading(true);
     try {
       const newAd = await api.createAd({
@@ -63,7 +73,7 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
       onSuccess(newAd);
       setShowSuccess(true);
       // Сброс формы
-      setFormData({ title: '', price: '', category: 'Личные вещи', description: '', location: '' });
+      setFormData({ title: '', price: '', category: 'Личные вещи', description: '', location: '', erid: '', advertiser_info: '' });
       setImages([]);
     } catch (error: any) {
       alert(error.message);
@@ -140,22 +150,46 @@ export const CreateAdModal: React.FC<CreateAdModalProps> = ({ isOpen, onClose, o
             <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Продвижение</label>
                 <div className="grid grid-cols-3 gap-3">
-                    <div onClick={() => setTier('regular')} className={`p-3 border-2 rounded-xl text-center cursor-pointer ${tier === 'regular' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-100 dark:border-gray-700'}`}>
+                    <div onClick={() => setTier('regular')} className={`p-3 border-2 rounded-xl text-center cursor-pointer transition-all ${tier === 'regular' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-100 dark:border-gray-700'}`}>
                         <div className="font-bold text-xs">Обычное</div>
                         <div className="text-[10px] text-gray-500">0 ₽</div>
                     </div>
-                    <div onClick={() => setTier('premium')} className={`p-3 border-2 rounded-xl text-center cursor-pointer ${tier === 'premium' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-100 dark:border-gray-700'}`}>
+                    <div onClick={() => setTier('premium')} className={`p-3 border-2 rounded-xl text-center cursor-pointer transition-all ${tier === 'premium' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-100 dark:border-gray-700'}`}>
                         <Sparkles className="w-4 h-4 mx-auto mb-1 text-indigo-500" />
                         <div className="font-bold text-xs">PRO</div>
                         <div className="text-[10px] text-indigo-500">50 ₽</div>
                     </div>
-                    <div onClick={() => setTier('vip')} className={`p-3 border-2 rounded-xl text-center cursor-pointer ${tier === 'vip' ? 'border-orange-500 bg-orange-900/20' : 'border-gray-100 dark:border-gray-700'}`}>
+                    <div onClick={() => setTier('vip')} className={`p-3 border-2 rounded-xl text-center cursor-pointer transition-all ${tier === 'vip' ? 'border-orange-500 bg-orange-900/20' : 'border-gray-100 dark:border-gray-700'}`}>
                         <Wand2 className="w-4 h-4 mx-auto mb-1 text-orange-500" />
                         <div className="font-bold text-xs">VIP</div>
                         <div className="text-[10px] text-orange-500">100 ₽</div>
                     </div>
                 </div>
             </div>
+
+            {(tier === 'vip' || tier === 'premium') && (
+                <div className="bg-red-50 dark:bg-red-900/10 p-5 rounded-2xl border border-red-100 dark:border-red-900/30 space-y-4 animate-in slide-in-from-top-2">
+                    <p className="text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest flex items-center gap-1.5"><ShieldAlert className="w-3.5 h-3.5"/> Обязательно по 38-ФЗ</p>
+                    <div>
+                        <input 
+                            required
+                            className="w-full border rounded-lg p-2.5 text-xs font-mono dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                            placeholder="Токен рекламы (erid)" 
+                            value={formData.erid} 
+                            onChange={e => setFormData({...formData, erid: e.target.value})} 
+                        />
+                    </div>
+                    <div>
+                        <input 
+                            required
+                            className="w-full border rounded-lg p-2.5 text-xs dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                            placeholder="Рекламодатель (ООО / ИП + ИНН)" 
+                            value={formData.advertiser_info} 
+                            onChange={e => setFormData({...formData, advertiser_info: e.target.value})} 
+                        />
+                    </div>
+                </div>
+            )}
             </form>
         </div>
 
