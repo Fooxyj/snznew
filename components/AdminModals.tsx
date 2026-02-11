@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Loader2, Upload, Trophy, Heart, ImageIcon, Bus, Clock, MapPin, Megaphone, Link as LinkIcon, Layout as LayoutIcon, Wand2, Sparkles, FileText, Trash2, Plus, ShieldAlert, Globe, QrCode } from 'lucide-react';
 import { Button, Badge } from './ui/Common';
@@ -203,8 +204,8 @@ export const CreatePromoAdModal: React.FC<AdminModalProps> = ({ isOpen, onClose,
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (item && isOpen) setFormData({ title: item.title, description: item.description || '', image_url: item.image_url, link_url: item.link_url || '', price: item.price?.toString() || '', category: item.category || 'Партнеры', is_active: item.is_active, erid: item.erid || '', advertiser_info: item.advertiser_info || '' });
         // Comment above fix: Changed advertiser_info default value from boolean 'true' to an empty string to fix the type assignment error
+        if (item && isOpen) setFormData({ title: item.title, description: item.description || '', image_url: item.image_url, link_url: item.link_url || '', price: item.price?.toString() || '', category: item.category || 'Партнеры', is_active: item.is_active, erid: item.erid || '', advertiser_info: item.advertiser_info || '' });
         else if (!item && isOpen) setFormData({ title: '', description: '', image_url: '', link_url: '', price: '', category: 'Партнеры', is_active: true, erid: '', advertiser_info: '' });
     }, [item, isOpen]);
 
@@ -486,7 +487,7 @@ export const CreateAdminCampaignModal: React.FC<AdminModalProps> = ({ isOpen, on
     };
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg p-8 shadow-2xl animate-in slide-in-from-top-4 overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold flex items-center gap-2 dark:text-white uppercase">

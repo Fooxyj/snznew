@@ -44,6 +44,8 @@ export interface BusinessPost {
   content: string;
   image?: string;
   views: number;
+  likes: number;
+  isLiked?: boolean;
   createdAt: string;
 }
 

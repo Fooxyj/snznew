@@ -81,7 +81,7 @@ export const businessService = {
   async getBusinessById(id: string): Promise<Business | null> {
     if (isSupabaseConfigured() && supabase) {
       try {
-        const { data, error } = await supabase.from('businesses').select('*').eq('id', id).maybeSingle();
+        const { data, error = null } = await supabase.from('businesses').select('*').eq('id', id).maybeSingle();
         if (error) throw error;
         return data ? mapBusinessFromDB(data) : null;
       } catch (e: any) { console.error("getBusinessById failed:", e); }
@@ -94,7 +94,7 @@ export const businessService = {
       const user = await authService.getCurrentUser();
       if (!user) return [];
       if (isSupabaseConfigured() && supabase) {
-        const { data, error } = await supabase.from('businesses').select('*').eq('author_id', user.id);
+        const { data, error = null } = await supabase.from('businesses').select('*').eq('author_id', user.id);
         if (error) throw error;
         return (data || []).map(mapBusinessFromDB);
       }
@@ -459,6 +459,7 @@ export const businessService = {
 
   async getBusinessPosts(businessId: string): Promise<BusinessPost[]> {
     try {
+      const user = await authService.getCurrentUser();
       if (isSupabaseConfigured() && supabase) {
           const { data, error } = await supabase
             .from('business_posts')
@@ -467,19 +468,46 @@ export const businessService = {
             .order('created_at', { ascending: false });
           
           if (error) return [];
-          const mapBusinessPostFromDB = (p: any): BusinessPost => ({
+
+          let userLikes: string[] = [];
+          if (user) {
+              const { data: likesData } = await supabase
+                .from('business_post_likes')
+                .select('post_id')
+                .eq('user_id', user.id);
+              userLikes = (likesData || []).map(l => l.post_id);
+          }
+
+          return (data || []).map(p => ({
             id: p.id,
             businessId: p.business_id,
             title: p.title,
             content: p.content,
             image: p.image,
             views: p.views || 0,
+            likes: p.likes || 0,
+            isLiked: userLikes.includes(p.id),
             createdAt: p.created_at
-          });
-          return (data || []).map(mapBusinessPostFromDB);
+          }));
       }
     } catch (e: any) { }
     return [];
+  },
+
+  async toggleBusinessPostLike(postId: string): Promise<boolean> {
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return false;
+      try {
+          const { data, error } = await supabase.rpc('toggle_business_post_like', { 
+            p_post_id: postId, 
+            p_user_id: user.id 
+          });
+          if (error) throw error;
+          return !!data;
+      } catch (e: any) {
+          console.error("Like toggle failed", e);
+          return false;
+      }
   },
 
   async createBusinessPost(data: Partial<BusinessPost>): Promise<void> {
@@ -505,11 +533,26 @@ export const businessService = {
       } catch (e: any) { throw e; }
   },
 
-  async viewBusinessPost(id: string): Promise<void> {
+  async viewBusinessPost(id: string): Promise<boolean> {
+      if (!isSupabaseConfigured() || !supabase || !id) return false;
       try {
-        if (isSupabaseConfigured() && supabase) {
-            await supabase.rpc('increment_post_views', { post_id: id });
-        }
-      } catch (e: any) {}
+          const storageKey = `v_post_${id}`;
+          const lastView = localStorage.getItem(storageKey);
+          const now = Date.now();
+          const ONE_DAY = 24 * 60 * 60 * 1000;
+
+          if (lastView && (now - parseInt(lastView) < ONE_DAY)) {
+              return false;
+          }
+
+          const { error } = await supabase.rpc('increment_post_views', { post_id: id });
+          if (!error) {
+              localStorage.setItem(storageKey, now.toString());
+              return true;
+          }
+          return false;
+      } catch (e: any) {
+          return false;
+      }
   }
 };

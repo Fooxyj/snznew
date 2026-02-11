@@ -1,6 +1,5 @@
 
-// Comment above fix: Added React to imports to provide the React namespace for React.FC
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Star, ShoppingBag, Calendar, MessageSquare, Eye, Loader2 } from 'lucide-react';
@@ -15,10 +14,20 @@ interface CRMOverviewProps {
 export const CRMOverview: React.FC<CRMOverviewProps> = ({ business }) => {
     const businessId = business.id;
     const [isChartMounted, setIsChartMounted] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        // Увеличиваем задержку для гарантии завершения всех анимаций и пересчетов layout
-        const timer = setTimeout(() => setIsChartMounted(true), 800);
+        // Ожидаем отрисовки DOM
+        const checkSize = () => {
+            if (containerRef.current && containerRef.current.offsetWidth > 0) {
+                setIsChartMounted(true);
+            } else {
+                // Если ширина всё еще 0 (анимация таба), пробуем через 100мс
+                setTimeout(checkSize, 100);
+            }
+        };
+
+        const timer = setTimeout(checkSize, 500);
         return () => clearTimeout(timer);
     }, []);
 
@@ -37,7 +46,6 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ business }) => {
         queryFn: () => api.getBusinessBookings(businessId)
     });
 
-    // Получаем отзывы для списка, но для цифр используем данные из business
     const { data: reviews = [], isLoading: loadingReviews } = useQuery({
         queryKey: ['reviews', businessId],
         queryFn: () => api.getReviews(businessId)
@@ -69,7 +77,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ business }) => {
     }
 
     return (
-        <div className="space-y-6 animate-in fade-in">
+        <div className="space-y-6 animate-in fade-in min-w-0">
             <h1 className="text-2xl font-black dark:text-white uppercase tracking-tight hidden lg:block">Дашборд</h1>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
@@ -103,7 +111,7 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ business }) => {
                 </div>
             </div>
 
-            <div className="mt-8 bg-white dark:bg-gray-800 p-6 lg:p-10 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden">
+            <div ref={containerRef} className="mt-8 bg-white dark:bg-gray-800 p-6 lg:p-10 rounded-[2.5rem] border dark:border-gray-700 shadow-sm overflow-hidden min-w-0">
                <div className="flex justify-between items-center mb-8">
                    <div>
                        <h3 className="font-black text-lg dark:text-white uppercase tracking-tight flex items-center gap-2">
@@ -113,10 +121,9 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ business }) => {
                    </div>
                </div>
                
-               {/* Обертка с жестко заданной высотой и min-width для предотвращения ошибок Recharts */}
-               <div className="w-full h-[350px] min-h-[300px] relative overflow-hidden">
+               <div className="w-full h-[350px] relative">
                    {isChartMounted ? (
-                       <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                       <ResponsiveContainer width="100%" height="100%">
                           <AreaChart data={activityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                              <defs>
                                 <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">

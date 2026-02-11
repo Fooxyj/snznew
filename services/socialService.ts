@@ -429,8 +429,20 @@ export const socialService = {
   async sendReport(tid: string, type: string, reason: string) {
       if (!tid || tid === 'undefined') return;
       const user = await authService.getCurrentUser();
-      if (!user || !isSupabaseConfigured() || !supabase) return;
-      await supabase.from('reports').insert({ user_id: user.id, target_id: tid, target_type: type, reason, status: 'new' });
+      if (!user || !isSupabaseConfigured() || !supabase) throw new Error("Требуется авторизация для отправки заявки");
+      
+      const { error } = await supabase.from('reports').insert({ 
+          user_id: user.id, 
+          target_id: tid, 
+          target_type: type, 
+          reason, 
+          status: 'new' 
+      });
+      
+      if (error) {
+          console.error("Database report error:", error);
+          throw new Error("Ошибка базы данных: запись не создана. Возможно, не настроены политики RLS.");
+      }
   },
 
   async sendSuggestion(text: string) {
@@ -617,16 +629,6 @@ export const socialService = {
       return mockStore.communities.find(c => c.id === id) || null;
   },
 
-  async createCommunity(data: any): Promise<void> {
-      const user = await authService.getCurrentUser();
-      if (!user || !isSupabaseConfigured() || !supabase) return;
-      await supabase.from('communities').insert({
-          ...data,
-          author_id: user.id,
-          status: 'pending'
-      });
-  },
-
   async joinCommunity(communityId: string): Promise<void> {
       const user = await authService.getCurrentUser();
       if (!user || !isSupabaseConfigured() || !supabase) return;
@@ -690,6 +692,20 @@ export const socialService = {
           }
       }
       return [];
+  },
+
+  // Comment above fix: Added missing createCommunity method to socialService
+  async createCommunity(data: any): Promise<void> {
+      const user = await authService.getCurrentUser();
+      if (!user || !isSupabaseConfigured() || !supabase) return;
+      await supabase.from('communities').insert({
+          name: data.name,
+          description: data.description,
+          image: data.image,
+          category: data.category,
+          author_id: user.id,
+          status: 'pending'
+      });
   },
 
   async createCommunityPost(communityId: string, content: string, image: string): Promise<void> {

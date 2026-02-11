@@ -5,23 +5,8 @@ import { isSupabaseConfigured } from '../config';
 import { authService } from './authService';
 import { mockStore } from './mockData';
 
-const formatRelativeDate = (dateStr: string | null | undefined): string => {
-    if (!dateStr || dateStr === 'null' || dateStr === 'undefined' || dateStr === '') return 'Недавно';
-    const normalizedDate = dateStr.includes(' ') && !dateStr.includes('T') 
-        ? dateStr.replace(' ', 'T') 
-        : dateStr;
-    let date = new Date(normalizedDate);
-    if (isNaN(date.getTime())) return 'Недавно';
-    const now = new Date();
-    const isToday = now.getDate() === date.getDate() && now.getMonth() === date.getMonth() && now.getFullYear() === date.getFullYear();
-    if (isToday) return `Сегодня, ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
-    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
-
-// Исправленный маппинг для новостей
 const mapNewsItem = (n: any): NewsItem => ({
     ...n,
-    // Мапим змеиный_регистр из БД в верблюжийРегистр приложения
     views: parseInt(String(n.views || 0)),
     commentsCount: parseInt(String(n.comments_count || 0)),
     date: n.date || n.created_at || new Date().toISOString()
@@ -32,6 +17,35 @@ const mapEventItem = (e: any): Event => ({
     authorId: e.author_id,
     date: e.date || e.created_at || 'Дата уточняется'
 });
+
+// Comment above fix: Added missing formatRelativeDate helper function used in getAdById
+const formatRelativeDate = (dateStr: string | null | undefined): string => {
+    if (!dateStr || dateStr === 'null' || dateStr === 'undefined' || dateStr === '') return '—';
+    
+    const normalizedDate = dateStr.includes(' ') && !dateStr.includes('T') 
+        ? dateStr.replace(' ', 'T') 
+        : dateStr;
+        
+    const date = new Date(normalizedDate);
+    if (isNaN(date.getTime())) return '—';
+
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const isYesterday = new Date(now.getTime() - 86400000).toDateString() === date.toDateString();
+
+    const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+    if (isToday) {
+        return `Сегодня, ${timeStr}`;
+    } else if (isYesterday) {
+        return `Вчера, ${timeStr}`;
+    } else if (now.getTime() - date.getTime() < 7 * 86400000) {
+        const weekday = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+        return `${weekday}, ${timeStr}`;
+    } else {
+        return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    }
+};
 
 export const cityService = {
     async getNews(): Promise<NewsItem[]> {
@@ -63,14 +77,26 @@ export const cityService = {
         return mockStore.news.find(n => n.id === id) || null;
     },
 
-    async viewNews(id: string): Promise<void> {
-        if (isSupabaseConfigured() && supabase) {
-            try {
-                // Вызов RPC функции инкремента
-                await supabase.rpc('increment_news_views', { news_id: id });
-            } catch (e) {
-                console.error("View increment failed", e);
+    async viewNews(id: string): Promise<boolean> {
+        if (!isSupabaseConfigured() || !supabase || !id) return false;
+        try {
+            const storageKey = `v_news_${id}`;
+            const lastView = localStorage.getItem(storageKey);
+            const now = Date.now();
+            const ONE_DAY = 24 * 60 * 60 * 1000;
+
+            if (lastView && (now - parseInt(lastView) < ONE_DAY)) {
+                return false; 
             }
+
+            const { error } = await supabase.rpc('increment_news_views', { news_id: id });
+            if (!error) {
+                localStorage.setItem(storageKey, now.toString());
+                return true;
+            }
+            return false;
+        } catch (e) {
+            return false;
         }
     },
 
@@ -374,10 +400,12 @@ export const cityService = {
 
     async createAppeal(data: any) {
         const user = await authService.getCurrentUser();
-        if (!user || !isSupabaseConfigured() || !supabase) return;
-        try {
-            await supabase.from('appeals').insert({ ...data, author_id: user.id, status: 'new' });
-        } catch (e) {}
+        if (!user) return;
+        if (isSupabaseConfigured() && supabase) {
+            try {
+                await supabase.from('appeals').insert({ ...data, author_id: user.id, status: 'new' });
+            } catch (e) {}
+        }
     },
 
     async resolveAppeal(id: string, resultImage: string) {
@@ -432,9 +460,9 @@ export const cityService = {
         const user = await authService.getCurrentUser();
         if (!user || !isSupabaseConfigured() || !supabase) return [];
         try {
-            const { data, error } = await supabase.from('rides').select('*').eq('driver_id', user.id);
+            const { data, error = null } = await supabase.from('rides').select('*').eq('driver_id', user.id);
             if (error) throw error;
-            return data?.map((r: any) => ({ 
+            return (data || [])?.map((r: any) => ({ 
                 ...r, 
                 fromCity: r.from_city, 
                 toCity: r.to_city, 
@@ -546,8 +574,8 @@ export const cityService = {
                 code: data.daily.weathercode[i],
                 tempDay: Math.round(data.daily.temperature_2m_max[i]),
                 tempNight: Math.round(data.daily.temperature_2m_min[i]),
-                precip: data.daily.precipitation_probability_max[i],
-                wind: data.daily.windspeed_10m_max[i]
+                precip: i < data.daily.precipitation_probability_max.length ? data.daily.precipitation_probability_max[i] : 0,
+                wind: i < data.daily.windspeed_10m_max.length ? data.daily.windspeed_10m_max[i] : 0
             }));
         } catch (e: any) {
             return [];

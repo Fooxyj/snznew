@@ -151,22 +151,20 @@ export const api = {
   async rejectContent(table: string, id: string, reason: string = 'Не соответствует правилам') {
       if (isSupabaseConfigured() && supabase) {
           console.log(`API: REJECTING content. Table: ${table}, ID: ${id}`);
-          const { data: snapshot } = await supabase!.from(table).select('*').eq('id', id).maybeSingle();
           
+          if (table === 'reports') {
+             await supabase.from('reports').update({ status: 'rejected' }).eq('id', id);
+             return true;
+          }
+
+          const { data: snapshot } = await supabase!.from(table).select('*').eq('id', id).maybeSingle();
           const { data, error } = await supabase!.from(table)
               .update({ status: 'rejected' })
               .eq('id', id)
               .select();
           
-          if (error) {
-              console.error("API: Reject update error:", error);
-              throw error;
-          }
-          
-          if (!data || data.length === 0) {
-              console.error("API: 0 rows affected during REJECT. RLS violation.");
-              throw new Error(`Нет прав на отклонение в таблице ${table}. Проверьте политики в SQL Editor.`);
-          }
+          if (error) throw error;
+          if (!data || data.length === 0) throw new Error(`Нет прав на отклонение в таблице ${table}`);
           
           await this.logModerationAction({ targetId: id, targetType: table, action: 'rejected', reason: reason, contentSnapshot: snapshot || { info: "Отклонено" } });
           return true;
@@ -232,24 +230,30 @@ export const api = {
   async approveContent(table: string, id: string) {
       if (isSupabaseConfigured() && supabase) {
           console.log(`API: APPROVING content. Table: ${table}, ID: ${id}`);
-          const statusVal = table === 'stories' ? 'published' : 'approved';
           
+          if (table === 'reports') {
+              const { data: report } = await supabase.from('reports').select('*').eq('id', id).single();
+              if (report) {
+                  const isVip = report.target_type === 'biz_vip_request' || report.reason.toLowerCase().includes('vip');
+                  const isVerify = report.target_type === 'biz_verify_request' || report.reason.toLowerCase().includes('верификация');
+                  
+                  if (isVip) {
+                      await supabase.from('businesses').update({ is_vip: true }).eq('id', report.target_id);
+                  } else if (isVerify) {
+                      await supabase.from('businesses').update({ verification_status: 'verified' }).eq('id', report.target_id);
+                  }
+              }
+              await supabase.from('reports').update({ status: 'approved' }).eq('id', id);
+              return true;
+          }
+
+          const statusVal = table === 'stories' ? 'published' : 'approved';
           const { data, error } = await supabase!.from(table)
               .update({ status: statusVal })
               .eq('id', id)
               .select();
           
-          if (error) {
-              console.error("API: Approve update DB error:", error);
-              throw error;
-          }
-          
-          if (!data || data.length === 0) {
-              console.error(`API: Failed to approve ${id} in ${table}. Zero rows affected. RLS is blocking the UPDATE.`);
-              throw new Error(`Ошибка доступа: база данных отклонила изменение статуса в таблице ${table}. Нужно добавить политику UPDATE в SQL Editor.`);
-          }
-          
-          console.info(`API: SUCCESS approved ${table}/${id}`);
+          if (error) throw error;
           return true;
       }
       return false;
@@ -315,7 +319,13 @@ export const api = {
 
   async getAdminReports(): Promise<Report[]> {
       if (!isSupabaseConfigured() || !supabase) return [];
-      const { data: reports } = await supabase.from('reports').select('*').neq('target_type', 'access_request').order('created_at', { ascending: false });
+      // Исключаем из обычных жалоб все технические заявки бизнеса
+      const techTypes = ['biz_vip_request', 'biz_verify_request', 'business_access_request'];
+      const { data: reports } = await supabase.from('reports')
+        .select('*')
+        .not('target_type', 'in', `(${techTypes.join(',')})`)
+        .order('created_at', { ascending: false });
+      
       if (!reports) return [];
       const userIds = [...new Set(reports.map(r => r.user_id).filter(Boolean))];
       const { data: profs } = await supabase.from('profiles').select('id, name, avatar').in('id', userIds);
@@ -350,23 +360,35 @@ export const api = {
       const tables = ['ads', 'rides', 'vacancies', 'resumes', 'lost_found', 'communities', 'stories', 'rentals'];
       
       try {
-          console.log("API: Fetching pending content from all tables...");
           const results = await Promise.all(tables.map(async (t) => {
-              const { data, error } = await supabase!.from(t).select('*').eq('status', 'pending');
-              if (error) {
-                  console.warn(`API: Failed to fetch pending from ${t}:`, error.message);
-                  return [];
-              }
+              const { data } = await supabase!.from(t).select('*').eq('status', 'pending');
               return (data || []).map(item => ({ ...item, _table: t }));
           }));
-          const flattened = results.flat();
-          console.log(`API: Found ${flattened.length} pending items total.`);
+          
+          // Захватываем все виды заявок от бизнеса из таблицы reports
+          const techTypes = ['biz_vip_request', 'biz_verify_request', 'business_access_request'];
+          const { data: bizRequests } = await supabase!.from('reports')
+            .select('*')
+            .in('target_type', techTypes)
+            .eq('status', 'new');
+            
+          const flattened = [
+              ...results.flat(),
+              ...(bizRequests || []).map(r => ({ ...r, _table: 'reports' }))
+          ];
           
           if (flattened.length === 0) return [];
           
           const userIds = [...new Set(flattened.map(it => it.author_id || it.driver_id || it.user_id).filter(Boolean))];
-          const { data: profiles } = await supabase!.from('profiles').select('id, name, avatar').in('id', userIds);
-          const profileMap = new Map<string, any>(profiles?.map(p => [p.id, p]) || []);
+          const bizIds = [...new Set(flattened.filter(it => it._table === 'reports').map(it => it.target_id))];
+          
+          const [profilesRes, bizRes] = await Promise.all([
+              supabase!.from('profiles').select('id, name, avatar').in('id', userIds),
+              bizIds.length > 0 ? supabase!.from('businesses').select('id, name').in('id', bizIds) : { data: [] }
+          ]);
+          
+          const profileMap = new Map<string, any>(profilesRes.data?.map(p => [p.id, p]) || []);
+          const businessMap = new Map<string, any>(bizRes.data?.map(b => [b.id, b]) || []);
           
           const typeLabels: Record<string, string> = {
               'ads': 'Маркет',
@@ -376,25 +398,39 @@ export const api = {
               'lost_found': 'Бюро находок',
               'communities': 'Клуб',
               'stories': 'История',
-              'rentals': 'Аренда'
+              'rentals': 'Аренда',
+              'reports': 'Заявка бизнеса'
           };
 
           return flattened.map(it => {
               const authorId = it.author_id || it.driver_id || it.user_id;
               const authorProfile = profileMap.get(authorId);
+              
+              let displayTitle = it.title || it.caption || it.name || 'Без названия';
+              let businessId = null;
+
+              if (it._table === 'reports') {
+                  const biz = businessMap.get(it.target_id);
+                  const bizName = biz?.name || 'Бизнес удален';
+                  const isVip = it.target_type === 'biz_vip_request' || it.reason.toLowerCase().includes('vip');
+                  displayTitle = `${isVip ? '👑 VIP' : '✅ Верификация'}: ${bizName}`;
+                  businessId = it.target_id;
+              }
+
               return { 
                   ...it, 
                   authorId, 
                   authorName: authorProfile?.name || 'Житель Снежинска', 
                   authorAvatar: authorProfile?.avatar || '', 
                   typeLabel: typeLabels[it._table] || it._table, 
-                  displayTitle: it.title || it.caption || it.name || 'Без названия',
+                  displayTitle,
                   image: it.media || it.image,
-                  createdAt: parseSafeDate(it.created_at) 
+                  createdAt: parseSafeDate(it.created_at),
+                  businessId
               };
           });
       } catch (e: any) {
-          console.error("API: getAllPendingContent CRITICAL error:", e.message);
+          console.error("API Error:", e.message);
           return [];
       }
   },
@@ -431,5 +467,25 @@ export const api = {
           authorName: bizMap.get(s.business_id) || profMap.get(s.user_id) || 'Житель',
           createdAt: parseSafeDate(s.created_at) 
       }));
+  },
+
+  async getBusinessCoupons(businessId: string): Promise<Coupon[]> {
+      if (!isSupabaseConfigured() || !supabase) return [];
+      const { data } = await supabase.from('coupons').select('*').eq('business_id', businessId).order('created_at', { ascending: false });
+      return data || [];
+  },
+
+  async createBusinessCoupon(businessId: string, data: any): Promise<void> {
+      if (!isSupabaseConfigured() || !supabase) return;
+      await supabase.from('coupons').insert({
+          ...data,
+          business_id: businessId,
+          partner_name: (await this.getBusinessById(businessId))?.name || 'Партнер'
+      });
+  },
+
+  async deleteCoupon(id: string): Promise<void> {
+      if (!isSupabaseConfigured() || !supabase) return;
+      await supabase.from('coupons').delete().eq('id', id);
   }
 };

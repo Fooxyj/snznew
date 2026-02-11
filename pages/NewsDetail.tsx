@@ -29,12 +29,15 @@ export const NewsDetail: React.FC = () => {
           const [n, u] = await Promise.all([api.getNewsById(id), api.getCurrentUser()]);
           
           if (n) {
-              // Инкрементируем локально для немедленного отображения +1
-              setNews({ ...n, views: (n.views || 0) + 1 });
+              setNews(n);
               setCurrentUser(u);
               
-              // Отправляем запрос в БД
-              await api.viewNews(id);
+              // Отправляем запрос в БД с защитой от накрутки
+              const viewAdded = await api.viewNews(id);
+              if (viewAdded) {
+                  // Инкрементируем только если лимит 24ч пройден
+                  setNews(prev => prev ? { ...prev, views: (prev.views || 0) + 1 } : null);
+              }
               
               if (u) {
                   try {

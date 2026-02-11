@@ -10,10 +10,10 @@ import { CRMEmployees } from '../components/crm/CRMEmployees';
 import { CRMMarketing } from '../components/crm/CRMMarketing';
 import { CRMSettings } from '../components/crm/CRMSettings';
 import { MiniSiteBuilder } from '../components/builder/MiniSiteBuilder';
-import { CreateProductModal, CreateServiceModal, CreateRentalModal, EditProductModal, CreateBusinessVacancyModal, CreateBusinessPostModal } from '../components/CRMModals';
+import { CreateProductModal, CreateServiceModal, CreateRentalModal, EditProductModal, CreateBusinessVacancyModal, CreateBusinessPostModal, CreateCouponModal } from '../components/CRMModals';
 import { CreateEventModal } from '../components/CreateEventModal';
 import { StoryEditor } from '../components/StoryEditor';
-import { Loader2, LayoutDashboard, ShoppingBag, Calendar, Users, Settings, Megaphone, Menu, X, LogOut, Film, Repeat, ChevronDown, PlusCircle, Check, PlaySquare, Layout as LayoutIcon, Briefcase, Hammer, Star, Building2, Newspaper, CreditCard, MessageCircle, AlertCircle, Clock } from 'lucide-react';
+import { Loader2, LayoutDashboard, ShoppingBag, Calendar, Users, Settings, Megaphone, Menu, X, LogOut, Film, Repeat, ChevronDown, PlusCircle, Check, PlaySquare, Layout as LayoutIcon, Briefcase, Hammer, Star, Building2, Newspaper, CreditCard, MessageCircle, AlertCircle, Clock, Gift } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Common';
 
@@ -26,9 +26,9 @@ const getDaysLabel = (days: number) => {
 };
 
 export const BusinessCRM: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'products' | 'services' | 'employees' | 'marketing' | 'settings' | 'rentals' | 'events' | 'minisite' | 'vacancies' | 'news'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'products' | 'services' | 'employees' | 'marketing' | 'settings' | 'rentals' | 'events' | 'minisite' | 'vacancies' | 'news' | 'coupons'>('overview');
     const [isSidebarOpen, setSidebarOpen] = useState(false);
-    const [modal, setModal] = useState<'product' | 'service' | 'rental' | 'event' | 'editProduct' | 'story' | 'vacancy' | 'post' | null>(null);
+    const [modal, setModal] = useState<'product' | 'service' | 'rental' | 'event' | 'editProduct' | 'story' | 'vacancy' | 'post' | 'coupon' | null>(null);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     
     const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
@@ -102,6 +102,12 @@ export const BusinessCRM: React.FC = () => {
         enabled: !!selectedBusiness && !isExpired
     });
 
+    const { data: coupons = [] } = useQuery({
+        queryKey: ['businessCoupons', selectedBusiness?.id],
+        queryFn: () => selectedBusiness ? api.getBusinessCoupons(selectedBusiness.id) : [],
+        enabled: !!selectedBusiness && !isExpired
+    });
+
     const menuItems = useMemo(() => {
         const items = [
             { id: 'overview', label: isMaster ? 'Мой Профиль' : 'Обзор витрины', icon: LayoutDashboard },
@@ -109,6 +115,7 @@ export const BusinessCRM: React.FC = () => {
             { id: 'products', label: isMaster ? 'Мои работы' : 'Товары / Меню', icon: isMaster ? Hammer : ShoppingBag },
             { id: 'services', label: 'Услуги и Прайс', icon: Briefcase },
             { id: 'bookings', label: 'Записи клиентов', icon: Calendar },
+            { id: 'coupons', label: 'Бонусная программа', icon: Gift },
             { id: 'vacancies', label: 'Вакансии', icon: Users },
         ];
 
@@ -197,6 +204,7 @@ export const BusinessCRM: React.FC = () => {
                                                 queryClient.invalidateQueries({ queryKey: ['businessVacancies', b.id] });
                                                 queryClient.invalidateQueries({ queryKey: ['businessPosts', b.id] });
                                                 queryClient.invalidateQueries({ queryKey: ['employees', b.id] });
+                                                queryClient.invalidateQueries({ queryKey: ['businessCoupons', b.id] });
                                             }}
                                             className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all ${b.id === selectedBusinessId ? 'bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-500/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                                         >
@@ -241,8 +249,8 @@ export const BusinessCRM: React.FC = () => {
             </aside>
 
             {/* Content Area */}
-            <main className={`flex-1 overflow-auto p-4 lg:p-10 pt-20 md:pt-10 relative ${isExpired ? 'blur-md pointer-events-none select-none overflow-hidden' : ''}`}>
-                <div className="max-w-6xl mx-auto">
+            <main className={`flex-1 overflow-auto p-4 lg:p-10 pt-20 md:pt-10 relative min-w-0 ${isExpired ? 'blur-md pointer-events-none select-none overflow-hidden' : ''}`}>
+                <div className="max-w-6xl mx-auto min-w-0">
                     {activeTab === 'overview' && <CRMOverview business={selectedBusiness} />}
                     {activeTab === 'minisite' && <MiniSiteBuilder businessId={selectedBusiness.id} />}
                     {activeTab === 'news' && (
@@ -273,6 +281,20 @@ export const BusinessCRM: React.FC = () => {
                             }} 
                         />
                     )}
+                    {activeTab === 'coupons' && (
+                        <CRMInventory 
+                            items={coupons} 
+                            type="products" 
+                            label="Бонусные купоны" 
+                            onAdd={() => setModal('coupon')} 
+                            onDelete={async (id) => { 
+                                if(confirm("Удалить купон? Он пропадет из магазина бонусов.")) {
+                                    await api.deleteCoupon(id); 
+                                    queryClient.invalidateQueries({queryKey:['businessCoupons', selectedBusiness?.id]}); 
+                                }
+                            }} 
+                        />
+                    )}
                     {activeTab === 'bookings' && (
                         <CRMBookings 
                             businessId={selectedBusiness.id} 
@@ -287,7 +309,7 @@ export const BusinessCRM: React.FC = () => {
                         <CRMInventory 
                             items={products} 
                             type="products" 
-                            label={isMaster ? "Мои работы" : "Товары и Меню"} 
+                            label={isMaster ? "Мои работы" : "Товары / Меню"} 
                             onAdd={() => setModal('product')} 
                             onEdit={(item) => {
                                 setEditingProduct(item);
@@ -319,7 +341,7 @@ export const BusinessCRM: React.FC = () => {
                         <CRMEmployees businessId={selectedBusiness.id} />
                     )}
                     {activeTab === 'marketing' && (
-                        <CRMMarketing businessId={selectedBusiness.id} />
+                        <CRMMarketing businessId={selectedBusiness.id} setActiveTab={setActiveTab} />
                     )}
                     {activeTab === 'settings' && <CRMSettings business={selectedBusiness} />}
                 </div>
@@ -372,6 +394,14 @@ export const BusinessCRM: React.FC = () => {
             </button>
 
             {/* Modals */}
+            {modal === 'coupon' && (
+                <CreateCouponModal 
+                    businessId={selectedBusiness.id} 
+                    isOpen={true} 
+                    onClose={() => setModal(null)} 
+                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ['businessCoupons', selectedBusiness?.id] })} 
+                />
+            )}
             {modal === 'vacancy' && (
                 <CreateBusinessVacancyModal 
                     business={selectedBusiness} 

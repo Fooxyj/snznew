@@ -413,21 +413,16 @@ export const AdminDashboard: React.FC = () => {
                 success("Одобрено!");
                 await refetchPending();
             } else {
-                throw new Error("Не удалось обновить статус (запрос выполнен, но строка не изменилась)");
+                throw new Error("Не удалось обновить статус");
             }
         } catch (e: any) {
             console.error("Dashboard: Moderation approve error:", e);
-            // Если ошибка - возвращаем в список
             setLocallyProcessedIds(prev => {
                 const next = new Set(prev);
                 next.delete(compositeId);
                 return next;
             });
-            // Показываем более детальную ошибку если это RLS
-            const finalMsg = e.message?.includes('RLS') || e.message?.includes('доступа') 
-                ? "Ошибка БД: Недостаточно прав для модерирования этой таблицы. Примените SQL скрипт в панели Supabase."
-                : `Ошибка: ${e.message || "Сбой связи с сервером"}`;
-            showError(finalMsg);
+            showError(`Ошибка: ${e.message}`);
         } finally {
             setModerationLoading(null);
         }
@@ -458,10 +453,7 @@ export const AdminDashboard: React.FC = () => {
                 next.delete(compositeId);
                 return next;
             });
-            const finalMsg = e.message?.includes('RLS') || e.message?.includes('доступа') 
-                ? "Ошибка БД: Недостаточно прав для модерирования этой таблицы. Примените SQL скрипт в панели Supabase."
-                : `Ошибка: ${e.message || "Сбой связи с сервером"}`;
-            showError(finalMsg);
+            showError(`Ошибка: ${e.message}`);
         } finally {
             setModerationLoading(null);
         }
@@ -602,6 +594,7 @@ export const AdminDashboard: React.FC = () => {
                                 {pending.map((it: any) => {
                                     const compositeId = `${it._table}-${it.id}`;
                                     const isItemProcessing = moderationLoading === compositeId;
+                                    const isBizRequest = it._table === 'reports';
                                     
                                     return (
                                         <div key={compositeId} className={`bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] border dark:border-gray-700 shadow-sm flex flex-col md:flex-row gap-6 group relative overflow-hidden transition-all duration-300 ${isItemProcessing ? 'opacity-60 scale-[0.98] pointer-events-none' : 'opacity-100'}`}>
@@ -610,30 +603,51 @@ export const AdminDashboard: React.FC = () => {
                                                     <img src={it.image || it.media} className="w-full h-full rounded-2xl object-cover border dark:border-gray-700 shadow-sm" alt="" />
                                                 </div>
                                             )}
+                                            {isBizRequest && (
+                                                <div className="w-full md:w-32 h-32 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-blue-600 shrink-0 border border-blue-100 dark:border-blue-800">
+                                                    {it.target_type === 'biz_vip_request' ? <Crown className="w-12 h-12" /> : <ShieldCheck className="w-12 h-12" />}
+                                                </div>
+                                            )}
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                                    <Badge color="blue">{it.typeLabel}</Badge>
+                                                    <Badge color={isBizRequest ? 'orange' : 'blue'}>{it.typeLabel}</Badge>
                                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{formatDisplayDate(it.createdAt)}</span>
                                                 </div>
                                                 <h3 className="font-bold text-lg dark:text-white mb-2 leading-tight">{it.displayTitle}</h3>
-                                                <p className="text-sm text-gray-500 line-clamp-2 mb-5 leading-relaxed">{it.description || it.content || it.caption || 'Без описания'}</p>
+                                                <p className="text-sm text-gray-500 line-clamp-2 mb-5 leading-relaxed">{it.description || it.content || it.caption || it.reason || 'Без описания'}</p>
                                                 
-                                                {it.authorId && (
-                                                    <Link 
-                                                        to={`/user/${it.authorId}`} 
-                                                        className="inline-flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-900 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-gray-100 dark:border-gray-700 group/auth"
-                                                    >
-                                                        <img 
-                                                            src={it.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(it.authorName)}&background=random`} 
-                                                            className="w-8 h-8 rounded-lg object-cover shadow-sm group-hover/auth:ring-2 ring-blue-500 transition-all" 
-                                                            alt="" 
-                                                        />
-                                                        <div className="flex flex-col text-left">
-                                                            <span className="text-[10px] font-black uppercase text-blue-600 leading-none mb-0.5">{it.authorName}</span>
-                                                            <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Перейти в профиль</span>
-                                                        </div>
-                                                    </Link>
-                                                )}
+                                                <div className="flex flex-wrap gap-2">
+                                                    {it.authorId && (
+                                                        <Link 
+                                                            to={`/user/${it.authorId}`} 
+                                                            className="inline-flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-900 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-gray-100 dark:border-gray-700 group/auth"
+                                                        >
+                                                            <img 
+                                                                src={it.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(it.authorName)}&background=random`} 
+                                                                className="w-8 h-8 rounded-lg object-cover shadow-sm group-hover/auth:ring-2 ring-blue-500 transition-all" 
+                                                                alt="" 
+                                                            />
+                                                            <div className="flex flex-col text-left">
+                                                                <span className="text-[10px] font-black uppercase text-blue-600 leading-none mb-0.5">{it.authorName}</span>
+                                                                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Автор</span>
+                                                            </div>
+                                                        </Link>
+                                                    )}
+                                                    {it.businessId && (
+                                                        <Link 
+                                                            to={`/business/${it.businessId}`} 
+                                                            className="inline-flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl hover:bg-blue-100 transition-all border border-blue-100 dark:border-blue-800"
+                                                        >
+                                                            <div className="w-8 h-8 bg-white dark:bg-gray-800 rounded-lg flex items-center justify-center text-blue-600 shadow-sm">
+                                                                <Building2 className="w-4 h-4" />
+                                                            </div>
+                                                            <div className="flex flex-col text-left">
+                                                                <span className="text-[10px] font-black uppercase text-blue-600 leading-none mb-0.5">Открыть бизнес</span>
+                                                                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Проверить профиль</span>
+                                                            </div>
+                                                        </Link>
+                                                    )}
+                                                </div>
                                             </div>
                                             
                                             <div className="flex flex-row md:flex-col gap-2 justify-center shrink-0 pt-4 md:pt-0 relative z-20">

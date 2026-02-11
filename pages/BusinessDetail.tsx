@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Product, Service, Event, UserRole, Business, Vacancy, Review, BusinessPost } from '../types';
 import { Button, formatPhone } from '../components/ui/Common';
-import { MapPin, Phone, Clock, Loader2, Star, ChevronLeft, ShoppingBag, Plus, X, Calendar, Clock4, Trash2, Film, CreditCard, Globe, MessageCircle, Heart, User, Sparkles, ExternalLink, Send, Briefcase, ShieldCheck, Newspaper, Eye, ArrowRight } from 'lucide-react';
+import { MapPin, Phone, Clock, Loader2, Star, ChevronLeft, ShoppingBag, Plus, X, Calendar, Clock4, Trash2, Film, CreditCard, Globe, MessageCircle, Heart, User, Sparkles, ExternalLink, Send, Briefcase, ShieldCheck, Newspaper, Eye, ArrowRight, Share2, MoreHorizontal } from 'lucide-react';
 import { YandexMap } from '../components/YandexMap';
 import { NotFound } from './NotFound';
 import { useToast } from '../components/ToastProvider';
@@ -40,7 +40,7 @@ const ProductDetailModal: React.FC<{ product: Product | null; onClose: () => voi
                     
                     <div className="flex-1 space-y-4 mb-8">
                         <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-widest border-b dark:border-gray-700 pb-2">Описание</h4>
-                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap italic">
+                        <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap italic">
                             {product.description || "Описание товара временно отсутствует. Вы можете уточнить детали у представителя заведения."}
                         </p>
                     </div>
@@ -59,11 +59,119 @@ const ProductDetailModal: React.FC<{ product: Product | null; onClose: () => voi
     );
 };
 
+// Компонент одного поста в стиле соцсети
+const SocialBusinessPost: React.FC<{ post: BusinessPost; business: Business; onOpenImage: (url: string) => void }> = ({ post, business, onOpenImage }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const queryClient = useQueryClient();
+    const navigate = useNavigate();
+    const { success } = useToast();
+    
+    const textLimit = 150;
+    const isLongText = post.content.length > textLimit;
+    
+    const formattedDate = (dateStr: string) => {
+        const d = new Date(dateStr);
+        const now = new Date();
+        const diffHours = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60));
+        if (diffHours < 1) return 'только что';
+        if (diffHours < 24) return `${diffHours} ч. назад`;
+        return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    };
+
+    const handleLike = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const ok = await api.toggleBusinessPostLike(post.id);
+        if (ok) {
+            queryClient.invalidateQueries({ queryKey: ['businessPosts', business.id] });
+        } else {
+            navigate('/auth');
+        }
+    };
+
+    const handleShare = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const shareUrl = window.location.href;
+        if (navigator.share) {
+            navigator.share({ 
+                title: post.title, 
+                text: `${post.title}\n\n${post.content.substring(0, 100)}...`, 
+                url: shareUrl 
+            }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(shareUrl);
+            success("Ссылка скопирована в буфер обмена!");
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-all mb-8 max-w-2xl mx-auto w-full">
+            {/* Header */}
+            <div className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <img src={business.image} className="w-10 h-10 rounded-full object-cover border dark:border-gray-700" alt="" />
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-sm dark:text-white leading-none">{business.name}</span>
+                            {business.verificationStatus === 'verified' && <ShieldCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-50" />}
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight mt-0.5">{formattedDate(post.createdAt)}</span>
+                    </div>
+                </div>
+                <button className="p-2 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-full transition-colors">
+                    <MoreHorizontal className="w-5 h-5" />
+                </button>
+            </div>
+
+            {/* Content Image */}
+            {post.image && (
+                <div className="w-full aspect-video bg-gray-100 dark:bg-gray-900 cursor-zoom-in overflow-hidden" onClick={() => onOpenImage(post.image!)}>
+                    <img src={post.image} className="w-full h-full object-cover hover:scale-[1.02] transition-transform duration-700" alt="" />
+                </div>
+            )}
+
+            {/* Text Body */}
+            <div className="p-5">
+                <h3 className="font-black text-lg dark:text-white uppercase tracking-tight mb-2 leading-tight">{post.title}</h3>
+                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                    {isLongText && !isExpanded ? `${post.content.substring(0, textLimit)}...` : post.content}
+                </p>
+                {isLongText && (
+                    <button 
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest mt-3 hover:text-blue-700 transition-colors"
+                    >
+                        {isExpanded ? 'Скрыть' : 'Показать ещё'}
+                    </button>
+                )}
+            </div>
+
+            {/* Footer / Interactions */}
+            <div className="px-5 py-4 border-t dark:border-gray-700 flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                    <button 
+                        onClick={handleLike}
+                        className={`flex items-center gap-2 transition-all active:scale-90 ${post.isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
+                    >
+                        <Heart className={`w-5 h-5 ${post.isLiked ? 'fill-current' : ''}`} />
+                        <span className="text-[11px] font-black uppercase">{post.likes > 0 ? post.likes : 'Лайк'}</span>
+                    </button>
+                    <div className="flex items-center gap-2 text-gray-400">
+                        <Eye className="w-5 h-5" />
+                        <span className="text-[11px] font-black uppercase tracking-widest">{post.views}</span>
+                    </div>
+                </div>
+                <button onClick={handleShare} className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
+                    <Share2 className="w-5 h-5" />
+                </button>
+            </div>
+        </div>
+    );
+};
+
 export const BusinessDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const { success, error: showError } = useToast();
     
     const [activeTab, setActiveTab] = useState<'menu' | 'services' | 'vacancies' | 'news'>('menu');
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -81,6 +189,15 @@ export const BusinessDetail: React.FC = () => {
     const { data: vacancies = [] } = useQuery({ queryKey: ['businessVacancies', id], queryFn: () => api.getVacanciesByBusiness(id!) });
     const { data: posts = [] } = useQuery({ queryKey: ['businessPosts', id], queryFn: () => api.getBusinessPosts(id!) });
     const { data: user } = useQuery({ queryKey: ['user'], queryFn: api.getCurrentUser });
+
+    // Эффект для инкремента просмотров новостей бизнеса
+    useEffect(() => {
+        if (activeTab === 'news' && posts.length > 0) {
+            posts.forEach(post => {
+                api.viewBusinessPost(post.id);
+            });
+        }
+    }, [activeTab, posts]);
 
     const handleContactShop = async () => {
         if (!user) return navigate('/auth');
@@ -165,7 +282,7 @@ export const BusinessDetail: React.FC = () => {
                     {business.description && (
                         <div className="mt-10 pt-10 border-t dark:border-gray-700">
                             <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.3em] mb-4">О компании</h3>
-                            <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed whitespace-pre-wrap italic">
+                            <p className="text-gray-600 dark:text-gray-300 text-sm md:text-lg leading-relaxed whitespace-pre-wrap italic">
                                 "{business.description}"
                             </p>
                         </div>
@@ -234,28 +351,17 @@ export const BusinessDetail: React.FC = () => {
                         )}
 
                         {activeTab === 'news' && (
-                            <div className="space-y-8 max-w-4xl mx-auto">
+                            <div className="space-y-6 flex flex-col items-center">
                                 {posts.length === 0 ? (
-                                    <div className="py-20 text-center text-gray-400 uppercase font-black text-xs tracking-widest italic border-2 border-dashed rounded-3xl dark:border-gray-800">Пока новостей нет</div>
+                                    <div className="col-span-full py-20 text-center text-gray-400 uppercase font-black text-xs tracking-widest italic border-2 border-dashed rounded-3xl dark:border-gray-800 w-full">Пока новостей нет</div>
                                 ) : (
                                     posts.map(post => (
-                                        <div key={post.id} className="bg-white dark:bg-gray-800 rounded-[2.5rem] border dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-all">
-                                            {post.image && (
-                                                <div className="aspect-video w-full overflow-hidden bg-gray-100 dark:bg-gray-900 cursor-zoom-in" onClick={() => setViewerImage(post.image || null)}>
-                                                    <img src={post.image} className="w-full h-full object-cover" alt="" />
-                                                </div>
-                                            )}
-                                            <div className="p-8 md:p-10">
-                                                <div className="flex items-center gap-4 text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4">
-                                                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-blue-500" /> {new Date(post.createdAt).toLocaleDateString()}</span>
-                                                    <span className="flex items-center gap-1"><Eye className="w-3 h-3 text-blue-500" /> {post.views}</span>
-                                                </div>
-                                                <h3 className="text-2xl font-black dark:text-white uppercase tracking-tight mb-4 leading-tight">{post.title}</h3>
-                                                <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed whitespace-pre-wrap">
-                                                    {post.content}
-                                                </p>
-                                            </div>
-                                        </div>
+                                        <SocialBusinessPost 
+                                            key={post.id} 
+                                            post={post} 
+                                            business={business} 
+                                            onOpenImage={(url) => setViewerImage(url)} 
+                                        />
                                     ))
                                 )}
                             </div>
@@ -300,7 +406,9 @@ export const BusinessDetail: React.FC = () => {
                                                     <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> {v.schedule === 'full' ? 'Полный день' : v.schedule === 'shift' ? 'Сменный' : 'Удаленно'}</span>
                                                     <span className="flex items-center gap-1.5 text-blue-600"><CreditCard className="w-4 h-4" /> {v.salaryMin ? `от ${v.salaryMin.toLocaleString()} ₽` : 'з/п договорная'}</span>
                                                 </div>
-                                                <p className="text-gray-600 dark:text-gray-300 line-clamp-2 italic">"{v.description}"</p>
+                                                <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap italic line-clamp-2">
+                                                    "{v.description}"
+                                                </p>
                                             </div>
                                             <Button variant="outline" className="rounded-2xl px-10 py-4 font-black uppercase text-xs tracking-widest shrink-0" onClick={() => handleContactShop()}>Откликнуться</Button>
                                         </div>
