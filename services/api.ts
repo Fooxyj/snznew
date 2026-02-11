@@ -59,6 +59,22 @@ export const api = {
   ...cityService,
   ...moderationService,
 
+  async resetPassword(email: string) {
+      if (!isSupabaseConfigured() || !supabase) throw new Error("Система не настроена");
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + '/#/reset-password',
+      });
+      if (error) throw error;
+      return true;
+  },
+
+  async updatePassword(password: string) {
+      if (!isSupabaseConfigured() || !supabase) throw new Error("Система не настроена");
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      return true;
+  },
+
   async getAchievements(): Promise<Achievement[]> {
     const user = await this.getCurrentUser();
     if (!user) return [];

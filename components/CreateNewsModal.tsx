@@ -99,8 +99,8 @@ export const CreateNewsModal: React.FC<CreateNewsModalProps> = ({ isOpen, onClos
                 <select className="w-full px-3 py-2 border rounded-lg outline-none bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                     <option>Новости администрации</option>
                     <option>Новости ВНИИТФ</option>
-                    <option>Новости культуры</option>
                     <option>Новости спорта</option>
+                    <option>Новости культуры</option>
                     <option>ЖКХ</option>
                     <option>Город</option>
                     <option>Прочее</option>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import { User, Ad, Business, UserRole, Story, TransportSchedule, Banner, Report, Suggestion, NewsItem, Event, Campaign, Quest, Ride, AccessRequest, PromoAd, ExclusivePage, ModerationLog, Achievement } from '../types';
@@ -126,7 +127,7 @@ export const Profile: React.FC = () => {
     const genderLabel = getGenderLabel(user.gender);
 
     return (
-        <div className="max-w-6xl mx-auto p-4 lg:p-8 pb-24">
+        <div className="max-w-6xl mx-auto p-4 lg:p-8 pt-24 pb-24 md:pt-8">
             {editingAd && <EditAdModal ad={editingAd} isOpen={!!editingAd} onClose={() => setEditingAd(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['myContent', user.id] })} />}
             <DeleteConfirmModal 
                 isOpen={!!deleteTarget} 
@@ -546,7 +547,7 @@ export const AdminDashboard: React.FC = () => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto p-4 lg:p-8 pb-24">
+        <div className="max-w-7xl mx-auto p-4 lg:p-8 pt-24 pb-24 md:pt-8">
             <DeleteConfirmModal 
                 isOpen={!!deleteConfirm} 
                 onClose={() => setDeleteConfirm(null)} 
@@ -837,7 +838,6 @@ export const AdminDashboard: React.FC = () => {
                                         </div>
                                         <div className="flex gap-1 shrink-0 ml-4">
                                             <button onClick={(e) => openEditModal(e, 'event', evt)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all"><Pencil className="w-4.5 h-4.5"/></button>
-                                            {/* Comment above fix: Renamed map parameter to 'evt' to avoid shadowing MouseEvent 'e' which caused property access errors */}
                                             <button onClick={(e) => triggerDelete(e, 'events', evt.id, 'events', evt.title)} className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-900/20 rounded-xl transition-all"><Trash2 className="w-4.5 h-4.5"/></button>
                                         </div>
                                     </div>

@@ -26,6 +26,7 @@ const PublicProfile = lazy(() => import('./pages/PublicProfile').then(m => ({ de
 const AdminDashboard = lazy(() => import('./pages/Dashboards').then(m => ({ default: m.AdminDashboard })));
 const ConnectBusiness = lazy(() => import('./pages/ConnectBusiness').then(m => ({ default: m.ConnectBusiness })));
 const AuthPage = lazy(() => import('./pages/Auth').then(m => ({ default: m.AuthPage })));
+const ResetPassword = lazy(() => import('./pages/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const NewsDetail = lazy(() => import('./pages/NewsDetail').then(m => ({ default: m.NewsDetail })));
 const NewsFeed = lazy(() => import('./pages/NewsFeed').then(m => ({ default: m.NewsFeed })));
 const ChatPage = lazy(() => import('./pages/Chat').then(m => ({ default: m.ChatPage })));
@@ -101,6 +102,7 @@ const App: React.FC = () => {
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/auth" element={<AuthPage />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/news" element={<NewsFeed />} />
                     <Route path="/news/:id" element={<NewsDetail />} />
                     <Route path="/classifieds" element={<Classifieds />} />

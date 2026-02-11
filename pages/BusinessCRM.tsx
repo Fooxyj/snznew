@@ -145,9 +145,25 @@ export const BusinessCRM: React.FC = () => {
     return (
         <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] bg-[#F8FAFC] dark:bg-gray-950 overflow-hidden relative">
             
+            {/* Backdrop for mobile CRM menu */}
+            {isSidebarOpen && (
+                <div 
+                    className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[75] animate-in fade-in duration-300"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
             {/* Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 transform transition-transform duration-300 lg:translate-x-0 lg:static h-full ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
-                <div className="p-4 border-b dark:border-gray-700">
+            <aside className={`fixed top-16 lg:top-0 bottom-0 left-0 z-[80] w-72 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 transform transition-transform duration-300 lg:translate-x-0 lg:static h-full ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col shadow-2xl lg:shadow-none`}>
+                <div className="p-4 border-b dark:border-gray-700 relative">
+                    {/* Close button for mobile inside the panel */}
+                    <button 
+                        onClick={() => setSidebarOpen(false)}
+                        className="lg:hidden absolute -right-3 top-4 bg-white dark:bg-gray-800 text-gray-400 p-2 rounded-full shadow-lg border dark:border-gray-700 z-10"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+
                     <div className="relative">
                         <button 
                             onClick={() => setIsBusinessDropdownOpen(!isBusinessDropdownOpen)}
@@ -225,7 +241,7 @@ export const BusinessCRM: React.FC = () => {
             </aside>
 
             {/* Content Area */}
-            <main className={`flex-1 overflow-auto p-4 lg:p-10 relative ${isExpired ? 'blur-md pointer-events-none select-none overflow-hidden' : ''}`}>
+            <main className={`flex-1 overflow-auto p-4 lg:p-10 pt-20 md:pt-10 relative ${isExpired ? 'blur-md pointer-events-none select-none overflow-hidden' : ''}`}>
                 <div className="max-w-6xl mx-auto">
                     {activeTab === 'overview' && <CRMOverview business={selectedBusiness} />}
                     {activeTab === 'minisite' && <MiniSiteBuilder businessId={selectedBusiness.id} />}
@@ -350,7 +366,7 @@ export const BusinessCRM: React.FC = () => {
             {/* Sidebar Toggle Button (Mobile) */}
             <button 
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden fixed bottom-24 right-4 z-40 bg-blue-600 text-white p-4 rounded-2xl shadow-2xl"
+                className="lg:hidden fixed bottom-24 right-4 z-[90] bg-blue-600 text-white p-4 rounded-2xl shadow-2xl active:scale-90 transition-transform"
             >
                 <Menu className="w-6 h-6" />
             </button>

@@ -180,6 +180,7 @@ export const CATALOG_MENU = [
     submenu: [
       { title: 'Администрация', path: '/news?cat=Новости администрации' },
       { title: 'ВНИИТФ', path: '/news?cat=Новости ВНИИТФ' },
+      { title: 'Спорт', path: '/news?cat=Новости спорта' },
       { title: 'Городские новости', path: '/news?cat=Город' },
       { title: 'ЖКХ', path: '/news?cat=ЖКХ' },
     ]

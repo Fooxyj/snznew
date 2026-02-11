@@ -3,13 +3,13 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { Button } from '../components/ui/Common';
-import { Lock, Mail, User, Loader2, Info, X, FileText, Check, AlertCircle } from 'lucide-react';
+import { Lock, Mail, User, Loader2, Info, X, FileText, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '../components/ToastProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import { Captcha } from '../components/ui/Captcha';
 
 export const AuthPage: React.FC = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [mode, setMode] = useState<'login' | 'register' | 'recovery'>('login');
   const [loading, setLoading] = useState(false);
   const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
@@ -31,25 +31,43 @@ export const AuthPage: React.FC = () => {
   const validate = () => {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) return "Введите корректный Email";
-      if (formData.password.length < 6) return "Пароль должен быть не менее 6 символов";
-      if (!isLogin) {
+      if (mode !== 'recovery' && formData.password.length < 6) return "Пароль должен быть не менее 6 символов";
+      if (mode === 'register') {
           if (!formData.name.trim()) return "Введите имя";
           if (!isAgreed) return "Необходимо принять пользовательское соглашение";
       }
       return null;
   };
 
+  const handleRecovery = async (e: React.FormEvent) => {
+      e.preventDefault();
+      const emailErr = !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
+      if (emailErr) return showError("Введите корректный Email");
+      
+      setLoading(true);
+      try {
+          await api.resetPassword(formData.email);
+          success("Инструкции по сбросу пароля отправлены на ваш Email!");
+          setMode('login');
+      } catch (err: any) {
+          showError(err.message || "Ошибка отправки");
+      } finally {
+          setLoading(false);
+      }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === 'recovery') return handleRecovery(e);
+
     setAuthError(null);
-    
     const validationError = validate();
     if (validationError) {
         showError(validationError);
         return;
     }
 
-    if (!isLogin && !isCaptchaVerified) {
+    if (mode === 'register' && !isCaptchaVerified) {
         showError("Пожалуйста, подтвердите, что вы не робот");
         return;
     }
@@ -57,7 +75,7 @@ export const AuthPage: React.FC = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
+      if (mode === 'login') {
         await api.signIn(formData.email, formData.password);
         success("С возвращением!");
       } else {
@@ -66,9 +84,6 @@ export const AuthPage: React.FC = () => {
       }
       
       await queryClient.invalidateQueries({ queryKey: ['user'] });
-      await queryClient.invalidateQueries({ queryKey: ['myBusiness'] });
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      
       navigate('/');
     } catch (err: any) {
       const msg = err.message || "Ошибка авторизации";
@@ -131,7 +146,7 @@ export const AuthPage: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 w-full max-w-md p-8 rounded-[2.5rem] shadow-2xl border border-gray-100 dark:border-gray-700 relative overflow-hidden">
         <div className="text-center mb-8 relative z-10">
           <h1 className="text-3xl font-black text-blue-900 dark:text-blue-400 uppercase tracking-tighter leading-none">
-            {isLogin ? 'Вход' : 'Регистрация'}
+            {mode === 'login' ? 'Вход' : mode === 'register' ? 'Регистрация' : 'Сброс пароля'}
           </h1>
           <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-3">
             {platformName} • Простор твоего города
@@ -146,7 +161,7 @@ export const AuthPage: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
-          {!isLogin && (
+          {mode === 'register' && (
             <div className="relative group">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
               <input
@@ -172,26 +187,39 @@ export const AuthPage: React.FC = () => {
             />
           </div>
 
-          <div className="relative group">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
-            <input
-              type="password"
-              placeholder="Пароль"
-              className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl focus:ring-2 focus:ring-blue-500/20 outline-none transition-all dark:text-white font-bold placeholder:text-gray-400 placeholder:font-medium"
-              required
-              minLength={6}
-              value={formData.password}
-              onChange={e => setFormData({...formData, password: e.target.value})}
-            />
-          </div>
+          {mode !== 'recovery' && (
+            <div className="relative group">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
+              <input
+                type="password"
+                placeholder="Пароль"
+                className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-700 border-none rounded-2xl focus:ring-2 focus:ring-blue-500/20 outline-none transition-all dark:text-white font-bold placeholder:text-gray-400 placeholder:font-medium"
+                required
+                minLength={6}
+                value={formData.password}
+                onChange={e => setFormData({...formData, password: e.target.value})}
+              />
+            </div>
+          )}
 
-          {!isLogin && (
+          {mode === 'login' && (
+              <div className="flex justify-end">
+                  <button 
+                    type="button" 
+                    onClick={() => setMode('recovery')}
+                    className="text-[10px] font-black uppercase text-gray-400 hover:text-blue-600 tracking-widest transition-colors"
+                  >
+                      Забыли пароль?
+                  </button>
+              </div>
+          )}
+
+          {mode === 'register' && (
               <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
                 <div className="pt-2">
                     <Captcha onVerify={setIsCaptchaVerified} />
                 </div>
                 
-                {/* Чекбокс соглашения */}
                 <div className="flex items-start gap-3 p-1">
                     <button 
                         type="button"
@@ -216,24 +244,25 @@ export const AuthPage: React.FC = () => {
           )}
 
           <Button 
-            className={`w-full py-5 text-lg mt-4 shadow-2xl transition-all font-black uppercase tracking-widest rounded-2xl ${(!isLogin && (!isAgreed || !isCaptchaVerified)) ? 'opacity-50 grayscale cursor-not-allowed' : 'shadow-blue-500/20 hover:scale-[1.02] active:scale-95'}`} 
-            disabled={loading || (!isLogin && (!isAgreed || !isCaptchaVerified))}
+            className={`w-full py-5 text-lg mt-4 shadow-2xl transition-all font-black uppercase tracking-widest rounded-2xl ${((mode === 'register') && (!isAgreed || !isCaptchaVerified)) ? 'opacity-50 grayscale cursor-not-allowed' : 'shadow-blue-500/20 hover:scale-[1.02] active:scale-95'}`} 
+            disabled={loading || ((mode === 'register') && (!isAgreed || !isCaptchaVerified))}
           >
-            {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : (isLogin ? 'Войти в Простор' : 'Создать аккаунт')}
+            {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : (mode === 'login' ? 'Войти в Простор' : mode === 'register' ? 'Создать аккаунт' : 'Отправить ссылку')}
           </Button>
         </form>
 
-        <div className="mt-8 text-center relative z-10 border-t dark:border-gray-700 pt-6">
+        <div className="mt-8 text-center relative z-10 border-t dark:border-gray-700 pt-6 space-y-4">
           <button 
             onClick={() => { 
-                setIsLogin(!isLogin); 
+                if (mode === 'recovery') setMode('login');
+                else setMode(mode === 'login' ? 'register' : 'login'); 
                 setIsCaptchaVerified(false); 
                 setIsAgreed(false); 
                 setAuthError(null);
             }}
             className="text-xs text-blue-600 dark:text-blue-400 font-black uppercase tracking-widest hover:text-blue-800 transition-colors"
           >
-            {isLogin ? 'Нет аккаунта? Присоединиться' : 'Уже в Просторе? Войти'}
+            {mode === 'login' ? 'Нет аккаунта? Присоединиться' : mode === 'register' ? 'Уже в Просторе? Войти' : 'Вспомнили пароль? Вернуться'}
           </button>
         </div>
 
