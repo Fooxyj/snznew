@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { Button } from '../components/ui/Common';
-import { Loader2, Briefcase, Upload, User, Building, Star, Info, FileText, Check, X } from 'lucide-react';
+import { Loader2, Briefcase, Upload, User, Building, Star, Info, FileText, Check, X, ShieldAlert } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WORK_SCHEDULES, BUSINESS_CATEGORIES, MASTER_CATEGORIES } from '../constants';
 import { PhoneInput } from '../components/ui/PhoneInput';
@@ -13,7 +13,7 @@ export const ConnectBusiness: React.FC = () => {
     const [showTerms, setShowTerms] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
-        category: '', // Инициализируем пустым, установим ниже
+        category: '', 
         description: '',
         address: '',
         phone: '',
@@ -24,7 +24,6 @@ export const ConnectBusiness: React.FC = () => {
         coverImage: ''
     });
 
-    // Установка категории по умолчанию при смене типа (Компания/Мастер)
     const handleSetType = (master: boolean) => {
         setIsMaster(master);
         setFormData(prev => ({
@@ -70,9 +69,14 @@ export const ConnectBusiness: React.FC = () => {
             return;
         }
 
+        // Валидация для Компаний
         if (!isMaster) {
-            if (formData.inn.length > 0 && (formData.inn.length < 10 || formData.inn.length > 12)) {
-                alert("ИНН должен содержать 10 или 12 цифр");
+            if (formData.inn.length < 10) {
+                alert("ИНН организации должен содержать не менее 10 цифр");
+                return;
+            }
+            if (formData.ogrn.length < 13) {
+                alert("ОГРН/ОГРНИП должен содержать не менее 13 цифр");
                 return;
             }
         }
@@ -83,9 +87,9 @@ export const ConnectBusiness: React.FC = () => {
                 ...formData,
                 isMaster: isMaster,
                 category: formData.category,
-                verificationStatus: isMaster ? 'verified' : 'pending'
+                verificationStatus: isMaster ? 'verified' : 'pending',
+                terms_accepted: false // Начальное состояние соглашения с правилами контента
             });
-            alert(isMaster ? "Ваш профиль специалиста создан!" : "Заявка на подключение бизнеса отправлена!");
             navigate('/business-crm');
         } catch (e: any) {
             alert(e.message);
@@ -94,7 +98,6 @@ export const ConnectBusiness: React.FC = () => {
         }
     };
 
-    // При первом рендере устанавливаем дефолтную категорию если она пустая
     if (formData.category === '') {
         setFormData(prev => ({ ...prev, category: BUSINESS_CATEGORIES[0] }));
     }
@@ -110,10 +113,9 @@ export const ConnectBusiness: React.FC = () => {
                         </div>
                         <div className="prose prose-sm dark:prose-invert text-gray-600 dark:text-gray-300">
                             <p><strong>1. Возможности:</strong> Вы получаете доступ к CRM, управлению заказами, вакансиями и личной витрине товаров.</p>
-                            <p><strong>2. Верификация:</strong> Компании проходят проверку ИНН. Специалисты верифицируются через рейтинг и отзывы жителей.</p>
-                            <p><strong>3. Ответственность:</strong> Запрещено размещение недостоверной информации, дублирование аккаунтов, хамство в чатах.</p>
-                            <p><strong>4. Санкции:</strong> При выявлении мошенничества или жалоб со стороны жителей, администрация вправе бессрочно заблокировать бизнес-кабинет без возврата средств за платные услуги.</p>
-                            <p><strong>5. Модерация:</strong> Любой контент может быть удален, если он нарушает законы РФ или нормы этики.</p>
+                            <p><strong>2. Верификация:</strong> Компании проходят обязательную проверку ИНН. Специалисты верифицируются через рейтинг.</p>
+                            <p><strong>3. Ответственность:</strong> Запрещено размещение недостоверной информации, дублирование аккаунтов.</p>
+                            <p><strong>4. Санкции:</strong> При выявлении мошенничества администрация вправе заблокировать бизнес-кабинет.</p>
                         </div>
                         <Button className="w-full mt-8" onClick={() => { setIsAgreed(true); setShowTerms(false); }}>Я согласен с условиями</Button>
                     </div>
@@ -154,17 +156,18 @@ export const ConnectBusiness: React.FC = () => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
                         <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">
-                            {isMaster ? 'Как вас называть в каталоге?' : 'Название компании'}
+                            {isMaster ? 'Как вас называть в каталоге? *' : 'Название компании *'}
                         </label>
                         <input className="w-full border rounded-2xl p-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder={isMaster ? "Напр: Кондитер Мария" : "Название организации"} />
                     </div>
 
                     <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">Категория</label>
+                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">Категория *</label>
                         <select 
                             className="w-full border rounded-2xl p-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold appearance-none bg-white"
                             value={formData.category}
                             onChange={e => setFormData({...formData, category: e.target.value})}
+                            required
                         >
                             {(isMaster ? MASTER_CATEGORIES : BUSINESS_CATEGORIES).map(cat => (
                                 <option key={cat} value={cat}>{cat}</option>
@@ -172,20 +175,32 @@ export const ConnectBusiness: React.FC = () => {
                         </select>
                     </div>
                     
-                    {!isMaster && (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ИНН (необязательно)</label>
-                                <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.inn} onChange={(e) => handleNumericInput(e, 'inn')} maxLength={12} />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ОГРН (необязательно)</label>
-                                <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={formData.ogrn} onChange={(e) => handleNumericInput(e, 'ogrn')} maxLength={15} />
-                            </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ИНН *</label>
+                            <input 
+                                className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" 
+                                value={formData.inn} 
+                                onChange={(e) => handleNumericInput(e, 'inn')} 
+                                maxLength={12}
+                                required
+                                placeholder="10 или 12 цифр"
+                            />
                         </div>
-                    )}
+                        <div>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ОГРН *</label>
+                            <input 
+                                className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" 
+                                value={formData.ogrn} 
+                                onChange={(e) => handleNumericInput(e, 'ogrn')} 
+                                maxLength={15} 
+                                required
+                                placeholder="ОГРН организации"
+                            />
+                        </div>
+                    </div>
 
-                    <div className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl">
+                    <div className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border dark:border-gray-700">
                         <button 
                             type="button" 
                             onClick={() => setIsAgreed(!isAgreed)}
@@ -194,7 +209,7 @@ export const ConnectBusiness: React.FC = () => {
                             {isAgreed && <Check className="w-4 h-4 stroke-[4]" />}
                         </button>
                         <div className="text-xs text-gray-500">
-                            Я ознакомлен и принимаю <button type="button" onClick={() => setShowTerms(true)} className="text-blue-600 font-bold underline">Условия использования бизнес-кабинета</button>
+                            Я подтверждаю достоверность данных и принимаю <button type="button" onClick={() => setShowTerms(true)} className="text-blue-600 font-bold underline">Правила Бизнеса</button>
                         </div>
                     </div>
 

@@ -1,4 +1,5 @@
 
+
 export enum UserRole {
   GUEST = 'GUEST',
   USER = 'USER',
@@ -170,6 +171,8 @@ export interface Business {
   canPostStories?: boolean; 
   isMaster?: boolean; 
   subscription_expires_at?: string;
+  // Comment above fix: Added terms_accepted property to Business interface to fix property accessibility errors
+  terms_accepted?: boolean;
 }
 export interface Story { id: string; authorId: string; media: string; caption: string; contentConfig?: any; createdAt: string; authorName?: string; authorAvatar?: string; status?: 'published' | 'pending' | 'rejected'; viewers?: { id: string; name: string; avatar: string }[]; userId?: string; }
 export interface AccessRequest { id: string; businessId: string; businessName: string; userId: string; userName: string; message: string; createdAt: string; }

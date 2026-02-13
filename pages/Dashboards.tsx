@@ -616,30 +616,33 @@ export const AdminDashboard: React.FC = () => {
                                                 <h3 className="font-bold text-lg dark:text-white mb-2 leading-tight">{it.displayTitle}</h3>
                                                 <p className="text-sm text-gray-500 line-clamp-2 mb-5 leading-relaxed">{it.description || it.content || it.caption || it.reason || 'Без описания'}</p>
                                                 
+                                                {/* Информация о владельце (ЗАЩИТА АДМИНА) */}
                                                 <div className="flex flex-wrap gap-2">
                                                     {it.authorId && (
-                                                        <Link 
-                                                            to={`/user/${it.authorId}`} 
-                                                            className="inline-flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-900 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-gray-100 dark:border-gray-700 group/auth"
-                                                        >
-                                                            <img 
-                                                                src={it.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(it.authorName)}&background=random`} 
-                                                                className="w-8 h-8 rounded-lg object-cover shadow-sm group-hover/auth:ring-2 ring-blue-500 transition-all" 
-                                                                alt="" 
-                                                            />
+                                                        <div className="inline-flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-700">
+                                                            <Link to={`/user/${it.authorId}`}>
+                                                                <img 
+                                                                    src={it.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(it.authorName)}&background=random`} 
+                                                                    className="w-9 h-9 rounded-xl object-cover shadow-sm hover:ring-2 ring-blue-500 transition-all" 
+                                                                    alt="" 
+                                                                />
+                                                            </Link>
                                                             <div className="flex flex-col text-left">
-                                                                <span className="text-[10px] font-black uppercase text-blue-600 leading-none mb-0.5">{it.authorName}</span>
-                                                                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Автор</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-black uppercase text-blue-600 leading-none">{it.authorName}</span>
+                                                                    <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Автор</span>
+                                                                </div>
+                                                                <a href={`mailto:${it.authorEmail}`} className="text-[10px] text-gray-400 font-medium hover:text-blue-500 transition-colors">{it.authorEmail}</a>
                                                             </div>
-                                                        </Link>
+                                                        </div>
                                                     )}
                                                     {it.businessId && (
                                                         <Link 
                                                             to={`/business/${it.businessId}`} 
-                                                            className="inline-flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl hover:bg-blue-100 transition-all border border-blue-100 dark:border-blue-800"
+                                                            className="inline-flex items-center gap-3 p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-2xl hover:bg-blue-100 transition-all border border-blue-100 dark:border-blue-800"
                                                         >
-                                                            <div className="w-8 h-8 bg-white dark:bg-gray-800 rounded-lg flex items-center justify-center text-blue-600 shadow-sm">
-                                                                <Building2 className="w-4 h-4" />
+                                                            <div className="w-9 h-9 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
+                                                                <Building2 className="w-5 h-5" />
                                                             </div>
                                                             <div className="flex flex-col text-left">
                                                                 <span className="text-[10px] font-black uppercase text-blue-600 leading-none mb-0.5">Открыть бизнес</span>

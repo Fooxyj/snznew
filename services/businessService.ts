@@ -19,7 +19,8 @@ const mapBusinessFromDB = (b: any): Business => {
         verificationStatus: b.verification_status || 'pending',
         isMaster: !!b.is_master,
         lat: parseFloat(String(b.lat || 0)),
-        lng: parseFloat(String(b.lng || 0))
+        lng: parseFloat(String(b.lng || 0)),
+        terms_accepted: !!b.terms_accepted
     };
 };
 
@@ -138,8 +139,12 @@ export const businessService = {
   async createProduct(data: any): Promise<void> {
     if (isSupabaseConfigured() && supabase) {
       const { error } = await supabase.from('products').insert({
-          ...data,
-          business_id: data.businessId
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          image: data.image,
+          category: data.category,
+          business_id: data.businessId 
       });
       if (error) throw error;
     }
@@ -147,7 +152,13 @@ export const businessService = {
 
   async updateProduct(id: string, data: any): Promise<void> {
     if (isSupabaseConfigured() && supabase) {
-      const { error } = await supabase.from('products').update(data).eq('id', id);
+      const { error } = await supabase.from('products').update({
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          image: data.image,
+          category: data.category
+      }).eq('id', id);
       if (error) throw error;
     }
   },
@@ -360,7 +371,7 @@ export const businessService = {
     const user = await authService.getCurrentUser();
     if (!user) throw new Error("Unauthorized");
     if (isSupabaseConfigured() && supabase) {
-      const { error } = await supabase.from('rentals').insert({ 
+      const { error = await supabase.from('rentals').insert({ 
           title: data.title,
           description: data.description,
           price_per_day: data.pricePerDay,
@@ -370,7 +381,7 @@ export const businessService = {
           author_id: user.id, 
           status: 'pending',
           is_available: true
-      });
+      }) } = {};
       if (error) throw error;
     }
   },

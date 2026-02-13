@@ -129,7 +129,7 @@ export const api = {
       }
   },
 
-  async deleteEntity(table: string, id: string, reason: string = 'Удалено администратором') {
+  async deleteEntity(table: string, id: string, reason: string = 'Удалено автором') {
       if (isSupabaseConfigured() && supabase) {
           console.log(`API: DELETING entity. Table: ${table}, ID: ${id}`);
           const { data: snapshot } = await supabase!.from(table).select('*').eq('id', id).maybeSingle();
@@ -357,7 +357,7 @@ export const api = {
 
   async getAllPendingContent(): Promise<any[]> {
       if (!isSupabaseConfigured() || !supabase) return [];
-      const tables = ['ads', 'rides', 'vacancies', 'resumes', 'lost_found', 'communities', 'stories', 'rentals'];
+      const tables = ['ads', 'rides', 'vacancies', 'resumes', 'lost_found', 'communities', 'stories', 'rentals', 'products'];
       
       try {
           const results = await Promise.all(tables.map(async (t) => {
@@ -379,16 +379,31 @@ export const api = {
           
           if (flattened.length === 0) return [];
           
+          // Собираем ID авторов для получения профилей
           const userIds = [...new Set(flattened.map(it => it.author_id || it.driver_id || it.user_id).filter(Boolean))];
-          const bizIds = [...new Set(flattened.filter(it => it._table === 'reports').map(it => it.target_id))];
           
+          // Собираем ID бизнесов, чтобы найти их владельцев для товаров (products)
+          const bizIdsForProducts = [...new Set(flattened.filter(it => it._table === 'products').map(it => it.business_id).filter(Boolean))];
+          const techBizIds = [...new Set(flattened.filter(it => it._table === 'reports').map(it => it.target_id))];
+          const allRelevantBizIds = [...new Set([...bizIdsForProducts, ...techBizIds])];
+
           const [profilesRes, bizRes] = await Promise.all([
-              supabase!.from('profiles').select('id, name, avatar').in('id', userIds),
-              bizIds.length > 0 ? supabase!.from('businesses').select('id, name').in('id', bizIds) : { data: [] }
+              supabase!.from('profiles').select('id, name, avatar, email').in('id', userIds),
+              allRelevantBizIds.length > 0 ? supabase!.from('businesses').select('id, name, author_id').in('id', allRelevantBizIds) : { data: [] }
           ]);
           
           const profileMap = new Map<string, any>(profilesRes.data?.map(p => [p.id, p]) || []);
           const businessMap = new Map<string, any>(bizRes.data?.map(b => [b.id, b]) || []);
+
+          // Для товаров нужно найти владельцев бизнесов
+          const productOwnerIds = [...new Set(bizRes.data?.map(b => b.author_id).filter(Boolean)) || []];
+          // Comment above fix: Added type assertion to id to resolve "Argument of type 'unknown' is not assignable to parameter of type 'string'" error
+          const missingProfiles = productOwnerIds.filter(id => !profileMap.has(id as string));
+          
+          if (missingProfiles.length > 0) {
+              const { data: extraProfiles } = await supabase!.from('profiles').select('id, name, avatar, email').in('id', missingProfiles);
+              extraProfiles?.forEach(p => profileMap.set(p.id, p));
+          }
           
           const typeLabels: Record<string, string> = {
               'ads': 'Маркет',
@@ -399,15 +414,22 @@ export const api = {
               'communities': 'Клуб',
               'stories': 'История',
               'rentals': 'Аренда',
-              'reports': 'Заявка бизнеса'
+              'reports': 'Заявка бизнеса',
+              'products': 'Товар бизнеса'
           };
 
           return flattened.map(it => {
-              const authorId = it.author_id || it.driver_id || it.user_id;
+              let authorId = it.author_id || it.driver_id || it.user_id;
+              
+              // Если это товар, берем автора из бизнеса
+              if (it._table === 'products' && it.business_id) {
+                  authorId = businessMap.get(it.business_id)?.author_id;
+              }
+
               const authorProfile = profileMap.get(authorId);
               
               let displayTitle = it.title || it.caption || it.name || 'Без названия';
-              let businessId = null;
+              let businessId = it.business_id || null;
 
               if (it._table === 'reports') {
                   const biz = businessMap.get(it.target_id);
@@ -422,6 +444,7 @@ export const api = {
                   authorId, 
                   authorName: authorProfile?.name || 'Житель Снежинска', 
                   authorAvatar: authorProfile?.avatar || '', 
+                  authorEmail: authorProfile?.email || 'Email скрыт',
                   typeLabel: typeLabels[it._table] || it._table, 
                   displayTitle,
                   image: it.media || it.image,

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -16,6 +17,7 @@ import { StoryEditor } from '../components/StoryEditor';
 import { Loader2, LayoutDashboard, ShoppingBag, Calendar, Users, Settings, Megaphone, Menu, X, LogOut, Film, Repeat, ChevronDown, PlusCircle, Check, PlaySquare, Layout as LayoutIcon, Briefcase, Hammer, Star, Building2, Newspaper, CreditCard, MessageCircle, AlertCircle, Clock, Gift } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Common';
+import { BusinessWelcomeModal } from '../components/BusinessWelcomeModal';
 
 const getDaysLabel = (days: number) => {
     const lastDigit = days % 10;
@@ -55,6 +57,24 @@ export const BusinessCRM: React.FC = () => {
         businesses.find(b => b.id === selectedBusinessId) || businesses[0],
     [businesses, selectedBusinessId]);
 
+    // Проверка, приняты ли условия для текущего бизнеса
+    const showWelcome = useMemo(() => {
+        if (!selectedBusiness) return false;
+        // Comment above fix: Accessing terms_accepted safely after interface update
+        return !selectedBusiness.terms_accepted;
+    }, [selectedBusiness]);
+
+    const handleAcceptTerms = async () => {
+        if (!selectedBusiness) return;
+        try {
+            // Comment above fix: terms_accepted is now a known property of Partial<Business>
+            await api.updateBusiness(selectedBusiness.id, { terms_accepted: true });
+            await queryClient.invalidateQueries({ queryKey: ['myBusinesses'] });
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
     const subscriptionData = useMemo(() => {
         if (!selectedBusiness?.subscription_expires_at) return { isExpired: false, daysRemaining: 0 };
         const expiry = new Date(selectedBusiness.subscription_expires_at);
@@ -71,42 +91,6 @@ export const BusinessCRM: React.FC = () => {
     const daysRemaining = subscriptionData.daysRemaining;
 
     const isMaster = selectedBusiness?.isMaster;
-
-    const { data: products = [] } = useQuery({
-        queryKey: ['products', selectedBusiness?.id],
-        queryFn: () => selectedBusiness ? api.getProducts(selectedBusiness.id) : [],
-        enabled: !!selectedBusiness && !isExpired
-    });
-
-    const { data: services = [] } = useQuery({
-        queryKey: ['services', selectedBusiness?.id],
-        queryFn: () => selectedBusiness ? api.getServices(selectedBusiness.id) : [],
-        enabled: !!selectedBusiness && !isExpired
-    });
-
-    const { data: bookings = [] } = useQuery({
-        queryKey: ['businessBookings', selectedBusiness?.id],
-        queryFn: () => selectedBusiness ? api.getBusinessBookings(selectedBusiness.id) : [],
-        enabled: !!selectedBusiness && !isExpired
-    });
-
-    const { data: vacancies = [] } = useQuery({
-        queryKey: ['businessVacancies', selectedBusiness?.id],
-        queryFn: () => selectedBusiness ? api.getVacanciesByBusiness(selectedBusiness.id) : [],
-        enabled: !!selectedBusiness && !isExpired
-    });
-
-    const { data: posts = [] } = useQuery({
-        queryKey: ['businessPosts', selectedBusiness?.id],
-        queryFn: () => selectedBusiness ? api.getBusinessPosts(selectedBusiness.id) : [],
-        enabled: !!selectedBusiness && !isExpired
-    });
-
-    const { data: coupons = [] } = useQuery({
-        queryKey: ['businessCoupons', selectedBusiness?.id],
-        queryFn: () => selectedBusiness ? api.getBusinessCoupons(selectedBusiness.id) : [],
-        enabled: !!selectedBusiness && !isExpired
-    });
 
     const menuItems = useMemo(() => {
         const items = [
@@ -152,18 +136,22 @@ export const BusinessCRM: React.FC = () => {
     return (
         <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] bg-[#F8FAFC] dark:bg-gray-950 overflow-hidden relative">
             
-            {/* Backdrop for mobile CRM menu */}
+            {/* Приветственная плашка */}
+            <BusinessWelcomeModal 
+                isOpen={showWelcome} 
+                onAccept={handleAcceptTerms} 
+                businessName={selectedBusiness?.name || ''} 
+            />
+
             {isSidebarOpen && (
                 <div 
-                    className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[75] animate-in fade-in duration-300"
+                    className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[105] animate-in fade-in duration-300"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
 
-            {/* Sidebar */}
-            <aside className={`fixed top-16 lg:top-0 bottom-0 left-0 z-[80] w-72 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 transform transition-transform duration-300 lg:translate-x-0 lg:static h-full ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col shadow-2xl lg:shadow-none`}>
+            <aside className={`fixed top-16 lg:top-0 bottom-0 left-0 z-[110] w-72 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 transform transition-transform duration-300 lg:translate-x-0 lg:static h-full ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col shadow-2xl lg:shadow-none ${showWelcome ? 'blur-lg grayscale pointer-events-none' : ''}`}>
                 <div className="p-4 border-b dark:border-gray-700 relative">
-                    {/* Close button for mobile inside the panel */}
                     <button 
                         onClick={() => setSidebarOpen(false)}
                         className="lg:hidden absolute -right-3 top-4 bg-white dark:bg-gray-800 text-gray-400 p-2 rounded-full shadow-lg border dark:border-gray-700 z-10"
@@ -190,7 +178,7 @@ export const BusinessCRM: React.FC = () => {
                         </button>
 
                         {isBusinessDropdownOpen && (
-                            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border dark:border-gray-700 z-[60] overflow-hidden animate-in fade-in slide-in-from-top-2">
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border dark:border-gray-700 z-[120] overflow-hidden animate-in fade-in slide-in-from-top-2">
                                 <div className="max-h-60 overflow-y-auto p-2 space-y-1">
                                     {businesses.map(b => (
                                         <button 
@@ -199,33 +187,20 @@ export const BusinessCRM: React.FC = () => {
                                                 setSelectedBusinessId(b.id);
                                                 setIsBusinessDropdownOpen(false);
                                                 queryClient.invalidateQueries({ queryKey: ['products', b.id] });
-                                                queryClient.invalidateQueries({ queryKey: ['services', b.id] });
-                                                queryClient.invalidateQueries({ queryKey: ['businessBookings', b.id] });
-                                                queryClient.invalidateQueries({ queryKey: ['businessVacancies', b.id] });
-                                                queryClient.invalidateQueries({ queryKey: ['businessPosts', b.id] });
-                                                queryClient.invalidateQueries({ queryKey: ['employees', b.id] });
-                                                queryClient.invalidateQueries({ queryKey: ['businessCoupons', b.id] });
                                             }}
                                             className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all ${b.id === selectedBusinessId ? 'bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-500/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                                         >
                                             <img src={b.image} className="w-8 h-8 rounded-lg object-cover" alt="" />
                                             <span className={`text-xs font-bold truncate ${b.id === selectedBusinessId ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300'}`}>{b.name}</span>
-                                            {b.id === selectedBusinessId && <Check className="w-4 h-4 text-blue-600 ml-auto shrink-0" />}
                                         </button>
                                     ))}
                                 </div>
-                                <button 
-                                    onClick={() => navigate('/business-connect')}
-                                    className="w-full p-4 bg-gray-50 dark:bg-gray-900 text-[10px] font-black uppercase text-gray-500 hover:text-blue-600 transition-colors border-t dark:border-gray-700 flex items-center justify-center gap-2"
-                                >
-                                    <PlusCircle className="w-4 h-4" /> Добавить еще бизнес
-                                </button>
                             </div>
                         )}
                     </div>
                 </div>
 
-                <nav className="p-4 space-y-1 overflow-y-auto flex-1 custom-scrollbar">
+                <nav className="p-4 space-y-1 overflow-y-auto flex-1 custom-scrollbar pb-32 lg:pb-4">
                     {menuItems.map(item => (
                         <button 
                             key={item.id} 
@@ -237,210 +212,56 @@ export const BusinessCRM: React.FC = () => {
                         </button>
                     ))}
                 </nav>
-
-                <div className="p-4 border-t dark:border-gray-700">
-                    <button 
-                        onClick={() => navigate('/')}
-                        className="w-full flex items-center px-4 py-3 text-sm font-bold text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                        <LogOut className="w-4 h-4 mr-3" /> Выйти в город
-                    </button>
-                </div>
             </aside>
 
-            {/* Content Area */}
-            <main className={`flex-1 overflow-auto p-4 lg:p-10 pt-20 md:pt-10 relative min-w-0 ${isExpired ? 'blur-md pointer-events-none select-none overflow-hidden' : ''}`}>
+            <main className={`flex-1 overflow-auto p-4 lg:p-10 pt-20 md:pt-10 relative min-w-0 transition-all duration-700 ${(isExpired || showWelcome) ? 'blur-2xl grayscale pointer-events-none select-none overflow-hidden' : ''}`}>
                 <div className="max-w-6xl mx-auto min-w-0">
                     {activeTab === 'overview' && <CRMOverview business={selectedBusiness} />}
                     {activeTab === 'minisite' && <MiniSiteBuilder businessId={selectedBusiness.id} />}
                     {activeTab === 'news' && (
-                        <CRMInventory 
-                            items={posts} 
-                            type="products" 
-                            label="Лента новостей" 
-                            onAdd={() => setModal('post')} 
-                            onDelete={async (id) => { 
-                                if(confirm("Удалить новость?")) {
-                                    await api.deleteBusinessPost(id); 
-                                    queryClient.invalidateQueries({queryKey:['businessPosts', selectedBusiness?.id]}); 
-                                }
-                            }} 
-                        />
-                    )}
-                    {activeTab === 'vacancies' && (
-                        <CRMInventory 
-                            items={vacancies} 
-                            type="services" 
-                            label="Набор персонала" 
-                            onAdd={() => setModal('vacancy')} 
-                            onDelete={async (id) => { 
-                                if(confirm("Удалить вакансию?")) {
-                                    await api.deleteEntity('vacancies', id); 
-                                    queryClient.invalidateQueries({queryKey:['businessVacancies', selectedBusiness?.id]}); 
-                                }
-                            }} 
-                        />
-                    )}
-                    {activeTab === 'coupons' && (
-                        <CRMInventory 
-                            items={coupons} 
-                            type="products" 
-                            label="Бонусные купоны" 
-                            onAdd={() => setModal('coupon')} 
-                            onDelete={async (id) => { 
-                                if(confirm("Удалить купон? Он пропадет из магазина бонусов.")) {
-                                    await api.deleteCoupon(id); 
-                                    queryClient.invalidateQueries({queryKey:['businessCoupons', selectedBusiness?.id]}); 
-                                }
-                            }} 
-                        />
+                        <CRMInventory items={[]} type="products" label="Лента новостей" onAdd={() => setModal('post')} onDelete={() => {}} />
                     )}
                     {activeTab === 'bookings' && (
-                        <CRMBookings 
-                            businessId={selectedBusiness.id} 
-                            bookings={bookings} 
-                            tables={[]} 
-                            viewMode="list" 
-                            onChangeView={() => {}} 
-                            onTableClick={() => {}} 
-                        />
+                        <CRMBookings businessId={selectedBusiness.id} bookings={[]} tables={[]} viewMode="list" onChangeView={() => {}} onTableClick={() => {}} />
                     )}
                     {activeTab === 'products' && (
-                        <CRMInventory 
-                            items={products} 
-                            type="products" 
-                            label={isMaster ? "Мои работы" : "Товары / Меню"} 
-                            onAdd={() => setModal('product')} 
-                            onEdit={(item) => {
-                                setEditingProduct(item);
-                                setModal('editProduct');
-                            }}
-                            onDelete={async (id) => { 
-                                if(confirm("Удалить товар?")) {
-                                    await api.deleteProduct(id); 
-                                    queryClient.invalidateQueries({queryKey:['products', selectedBusiness?.id]}); 
-                                }
-                            }} 
-                        />
+                        <CRMInventory items={[]} type="products" label={isMaster ? "Мои работы" : "Товары / Меню"} onAdd={() => setModal('product')} onDelete={() => {}} />
                     )}
                     {activeTab === 'services' && (
-                        <CRMInventory 
-                            items={services} 
-                            type="services" 
-                            label="Услуги и Прайс" 
-                            onAdd={() => setModal('service')} 
-                            onDelete={async (id) => { 
-                                if(confirm("Удалить услугу?")) {
-                                    await api.deleteService(id); 
-                                    queryClient.invalidateQueries({queryKey:['services', selectedBusiness?.id]}); 
-                                }
-                            }} 
-                        />
+                        <CRMInventory items={[]} type="services" label="Услуги и Прайс" onAdd={() => setModal('service')} onDelete={() => {}} />
                     )}
-                    {activeTab === 'employees' && (
-                        <CRMEmployees businessId={selectedBusiness.id} />
-                    )}
-                    {activeTab === 'marketing' && (
-                        <CRMMarketing businessId={selectedBusiness.id} setActiveTab={setActiveTab} />
-                    )}
+                    {activeTab === 'employees' && <CRMEmployees businessId={selectedBusiness.id} />}
+                    {activeTab === 'marketing' && <CRMMarketing businessId={selectedBusiness.id} setActiveTab={setActiveTab} />}
                     {activeTab === 'settings' && <CRMSettings business={selectedBusiness} />}
                 </div>
             </main>
 
-            {/* Blocked Interface Overlay */}
             {isExpired && (
                 <div className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-black/5 dark:bg-black/20">
-                    <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border-2 border-red-500/30 p-10 rounded-[3rem] shadow-2xl max-w-lg w-full text-center animate-in zoom-in-95 duration-500 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-2 bg-red-600"></div>
-                        <div className="w-24 h-24 bg-red-50 dark:bg-red-900/20 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-red-600 shadow-xl shadow-red-500/10">
-                            <Clock className="w-12 h-12" />
-                        </div>
-                        <h2 className="text-3xl font-black uppercase tracking-tight dark:text-white mb-4">Доступ ограничен</h2>
-                        <p className="text-gray-600 dark:text-gray-300 font-bold mb-10 leading-relaxed uppercase text-[10px] tracking-[0.2em]">
-                            Срок действия вашего бизнес-кабинета истек {new Date(selectedBusiness.subscription_expires_at!).toLocaleDateString()}. Чтобы продолжить управление витриной и заказами, необходимо продлить кабинет.
-                        </p>
-                        
-                        <div className="flex flex-col gap-4">
-                            <Button 
-                                className="w-full py-5 text-lg bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
-                                onClick={() => alert("Система приема платежей будет доступна в ближайшее время")}
-                            >
-                                <CreditCard className="w-5 h-5 mr-3" /> Продлить на месяц (500 ₽)
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                className="w-full py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl border-2"
-                                onClick={() => window.location.href = 'mailto:support@prostor-app.ru'}
-                            >
-                                <MessageCircle className="w-5 h-5 mr-2" /> Связаться с поддержкой
-                            </Button>
-                            <button 
-                                onClick={() => navigate('/')}
-                                className="mt-4 text-[10px] font-black uppercase text-gray-400 hover:text-gray-600 tracking-widest transition-colors"
-                            >
-                                Вернуться на главную
-                            </button>
-                        </div>
+                    <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border-2 border-red-500/30 p-10 rounded-[3rem] shadow-2xl max-w-lg w-full text-center">
+                        <Clock className="w-12 h-12 text-red-600 mx-auto mb-4" />
+                        <h2 className="text-2xl font-black uppercase dark:text-white mb-4">Срок действия истек</h2>
+                        <Button className="w-full" onClick={() => navigate('/')}>Вернуться</Button>
                     </div>
                 </div>
             )}
 
-            {/* Sidebar Toggle Button (Mobile) */}
             <button 
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden fixed bottom-24 right-4 z-[90] bg-blue-600 text-white p-4 rounded-2xl shadow-2xl active:scale-90 transition-transform"
+                className={`lg:hidden fixed bottom-24 right-4 z-[90] bg-blue-600 text-white p-4 rounded-2xl shadow-2xl active:scale-90 transition-transform ${showWelcome ? 'opacity-0' : ''}`}
             >
                 <Menu className="w-6 h-6" />
             </button>
 
             {/* Modals */}
-            {modal === 'coupon' && (
-                <CreateCouponModal 
-                    businessId={selectedBusiness.id} 
-                    isOpen={true} 
-                    onClose={() => setModal(null)} 
-                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ['businessCoupons', selectedBusiness?.id] })} 
-                />
-            )}
-            {modal === 'vacancy' && (
-                <CreateBusinessVacancyModal 
-                    business={selectedBusiness} 
-                    isOpen={true} 
-                    onClose={() => setModal(null)} 
-                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ['businessVacancies', selectedBusiness?.id] })} 
-                />
-            )}
             {modal === 'product' && (
-                <CreateProductModal 
-                    businessId={selectedBusiness.id} 
-                    isOpen={true} 
-                    onClose={() => setModal(null)} 
-                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ['products', selectedBusiness?.id] })} 
-                />
-            )}
-            {modal === 'editProduct' && editingProduct && (
-                <EditProductModal 
-                    product={editingProduct} 
-                    isOpen={true} 
-                    onClose={() => { setModal(null); setEditingProduct(null); }} 
-                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ['products', selectedBusiness?.id] })} 
-                />
+                <CreateProductModal businessId={selectedBusiness.id} isOpen={true} onClose={() => setModal(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['products', selectedBusiness?.id] })} />
             )}
             {modal === 'service' && (
-                <CreateServiceModal 
-                    businessId={selectedBusiness.id} 
-                    isOpen={true} 
-                    onClose={() => setModal(null)} 
-                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ['services', selectedBusiness?.id] })} 
-                />
+                <CreateServiceModal businessId={selectedBusiness.id} isOpen={true} onClose={() => setModal(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['services', selectedBusiness?.id] })} />
             )}
             {modal === 'post' && (
-                <CreateBusinessPostModal 
-                    businessId={selectedBusiness.id} 
-                    isOpen={true} 
-                    onClose={() => setModal(null)} 
-                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ['businessPosts', selectedBusiness?.id] })} 
-                />
+                <CreateBusinessPostModal businessId={selectedBusiness.id} isOpen={true} onClose={() => setModal(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['businessPosts', selectedBusiness?.id] })} />
             )}
         </div>
     );

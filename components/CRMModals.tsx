@@ -1,10 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Upload, Trash2, RefreshCw, ImagePlus, Check, Briefcase, Plus, Sparkles, Zap, Flame, Newspaper, Gift, Coins, ImagePlus as ImagePlusIcon, Camera } from 'lucide-react';
+import { X, Loader2, Upload, Trash2, RefreshCw, ImagePlus, Check, Briefcase, Plus, Sparkles, Zap, Flame, Newspaper, Gift, Coins, ImagePlus as ImagePlusIcon, Camera, ShoppingBag } from 'lucide-react';
 import { Button } from './ui/Common';
 import { api } from '../services/api';
 import { Product } from '../types';
 import { SuccessModal } from './SuccessModal';
+
+const PRODUCT_CATEGORIES = [
+    'Еда и напитки',
+    'Одежда и обувь',
+    'Красота и здоровье',
+    'Дом и сад',
+    'Детские товары',
+    'Электроника',
+    'Книги и хобби',
+    'Спорт и отдых',
+    'Автотовары',
+    'Услуги',
+    'Другое'
+];
 
 export const CreateCouponModal: React.FC<{ businessId: string; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ businessId, isOpen, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({ title: '', description: '', price: '', image: '' });
@@ -50,7 +64,7 @@ export const CreateCouponModal: React.FC<{ businessId: string; isOpen: boolean; 
         <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center px-6 py-4 border-b dark:border-gray-700 shrink-0">
-                    <h3 className="font-bold text-lg dark:text-white uppercase tracking-tight flex items-center gap-2">
+                    <h3 className="font-bold text-lg dark:white uppercase tracking-tight flex items-center gap-2">
                         <Gift className="w-5 h-5 text-purple-500" /> Создать бонусный купон
                     </h3>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
@@ -210,9 +224,8 @@ export const CreateBusinessPostModal: React.FC<{ businessId: string; isOpen: boo
     );
 };
 
-// Comment above fix: Replaced the truncated comment with full implementations for missing components
 export const CreateProductModal: React.FC<{ businessId: string; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ businessId, isOpen, onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({ name: '', description: '', price: '', image: '', category: '' });
+    const [formData, setFormData] = useState({ name: '', description: '', price: '', image: '', category: PRODUCT_CATEGORIES[0] });
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
 
@@ -235,36 +248,97 @@ export const CreateProductModal: React.FC<{ businessId: string; isOpen: boolean;
             await api.createProduct({ ...formData, businessId, price: Number(formData.price) });
             onSuccess();
             onClose();
+            setFormData({ name: '', description: '', price: '', image: '', category: PRODUCT_CATEGORIES[0] });
         } catch (e: any) { alert(e.message); } finally { setLoading(false); }
     };
 
     return (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold dark:text-white uppercase">Новый товар</h2>
-                    <button onClick={onClose}><X className="text-gray-400" /></button>
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center px-6 py-4 border-b dark:border-gray-700 shrink-0">
+                    <h3 className="font-bold text-lg dark:text-white uppercase tracking-tight flex items-center gap-2">
+                        <ShoppingBag className="w-5 h-5 text-blue-500" /> Новый товар
+                    </h3>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Название" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
-                    <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Категория" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required />
-                    <textarea className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Описание" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} />
-                    <input type="number" className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Цена (₽)" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
-                    <div className="border-2 border-dashed rounded-xl p-4 text-center relative cursor-pointer">
-                        {formData.image ? <img src={formData.image} className="h-20 mx-auto" /> : <div className="text-gray-400">Добавить фото</div>}
-                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleUpload} />
+                
+                <form id="product-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 custom-scrollbar">
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Название товара</label>
+                        <input className="w-full border rounded-xl p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder="Напр: Пицца Маргарита" />
                     </div>
-                    <Button className="w-full py-3" disabled={loading || uploading}>{loading ? <Loader2 className="animate-spin" /> : 'Создать'}</Button>
+
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Категория</label>
+                        <select className="w-full border rounded-xl p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold appearance-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required>
+                            {PRODUCT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Описание</label>
+                        <textarea className="w-full border rounded-xl p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none font-medium" rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Расскажите о товаре..." />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Цена (₽)</label>
+                        <input type="number" className="w-full border rounded-xl p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required placeholder="0" />
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Фото товара</label>
+                        {formData.image ? (
+                            <div className="relative group rounded-2xl overflow-hidden border dark:border-gray-600 shadow-md">
+                                <img src={formData.image} alt="Preview" className="w-full h-40 object-cover" />
+                                <button type="button" onClick={() => setFormData(prev => ({ ...prev, image: '' }))} className="absolute top-3 right-3 bg-red-500 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4" /></button>
+                            </div>
+                        ) : (
+                            <div className="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-10 text-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group cursor-pointer">
+                                {uploading ? (
+                                    <div className="flex flex-col items-center text-blue-500">
+                                        <Loader2 className="w-10 h-10 animate-spin mb-2" />
+                                        <span className="text-sm font-bold uppercase tracking-widest">Загрузка...</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handleUpload} accept="image/*" />
+                                        <div className="flex flex-col items-center text-gray-400 group-hover:text-blue-500">
+                                            <Camera className="w-10 h-10 mb-3 opacity-50 group-hover:opacity-100" />
+                                            <span className="text-sm font-bold uppercase tracking-widest">Добавить фото</span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </form>
+
+                <div className="px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 shrink-0">
+                    <Button form="product-form" className="w-full py-4 text-lg font-black uppercase tracking-tighter" disabled={loading || uploading}>
+                        {loading ? <Loader2 className="animate-spin w-6 h-6" /> : 'Создать товар'}
+                    </Button>
+                </div>
             </div>
         </div>
     );
 };
 
 export const EditProductModal: React.FC<{ product: Product; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ product, isOpen, onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({ ...product, price: product.price.toString() });
+    const [formData, setFormData] = useState({ name: product.name, description: product.description, price: product.price.toString(), image: product.image, category: product.category || PRODUCT_CATEGORIES[0] });
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+
+    useEffect(() => {
+        if (isOpen && product) {
+            setFormData({
+                name: product.name,
+                description: product.description,
+                price: product.price.toString(),
+                image: product.image,
+                category: product.category || PRODUCT_CATEGORIES[0]
+            });
+        }
+    }, [isOpen, product]);
 
     if (!isOpen) return null;
 
@@ -289,22 +363,53 @@ export const EditProductModal: React.FC<{ product: Product; isOpen: boolean; onC
     };
 
     return (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold dark:text-white uppercase">Редактировать товар</h2>
-                    <button onClick={onClose}><X className="text-gray-400" /></button>
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center px-6 py-4 border-b dark:border-gray-700 shrink-0">
+                    <h3 className="font-bold text-lg dark:text-white uppercase tracking-tight">Редактировать товар</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Название" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
-                    <textarea className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Описание" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} />
-                    <input type="number" className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Цена (₽)" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
-                    <div className="border-2 border-dashed rounded-xl p-4 text-center relative cursor-pointer">
-                        {formData.image ? <img src={formData.image} className="h-20 mx-auto" /> : <div className="text-gray-400">Добавить фото</div>}
-                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleUpload} />
+                
+                <form id="edit-product-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 custom-scrollbar">
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Название товара</label>
+                        <input className="w-full border rounded-xl p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
                     </div>
-                    <Button className="w-full py-3" disabled={loading || uploading}>{loading ? <Loader2 className="animate-spin" /> : 'Сохранить'}</Button>
+
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Категория</label>
+                        <select className="w-full border rounded-xl p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold appearance-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required>
+                            {PRODUCT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Описание</label>
+                        <textarea className="w-full border rounded-xl p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none font-medium" rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Цена (₽)</label>
+                        <input type="number" className="w-full border rounded-xl p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Фото товара</label>
+                        <div className="relative group rounded-2xl overflow-hidden border dark:border-gray-600 shadow-md">
+                            <img src={formData.image} alt="Preview" className="w-full h-40 object-cover" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                {uploading ? <Loader2 className="w-8 h-8 animate-spin" /> : <Camera className="w-8 h-8" />}
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleUpload} accept="image/*" />
+                            </div>
+                        </div>
+                    </div>
                 </form>
+
+                <div className="px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 shrink-0">
+                    <Button form="edit-product-form" className="w-full py-4 text-lg font-black uppercase tracking-tighter" disabled={loading || uploading}>
+                        {loading ? <Loader2 className="animate-spin w-6 h-6" /> : 'Сохранить изменения'}
+                    </Button>
+                </div>
             </div>
         </div>
     );
