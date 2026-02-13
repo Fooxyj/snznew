@@ -28,10 +28,12 @@ const parseSafeDate = (dateStr: string | null | undefined): string => {
 };
 
 const mapBusinessFromDB = (b: any): Business => {
+    const reviewsCount = parseInt(String(b.reviews_count || 0));
     return {
         ...b,
-        rating: parseFloat(String(b.rating || 0)),
-        reviewsCount: parseInt(String(b.reviews_count || 0)),
+        // Исправлено: если отзывов 0, рейтинг не может быть 5.0
+        rating: reviewsCount === 0 ? 0 : parseFloat(String(b.rating || 0)),
+        reviewsCount: reviewsCount,
         workHours: b.work_hours || '',
         website: b.website || '', 
         authorId: b.author_id,
@@ -157,9 +159,12 @@ export const api = {
              return true;
           }
 
+          const statusColumn = table === 'stories' ? 'status' : (table === 'businesses' ? 'verification_status' : 'status');
+          const statusVal = 'rejected';
+
           const { data: snapshot } = await supabase!.from(table).select('*').eq('id', id).maybeSingle();
           const { data, error } = await supabase!.from(table)
-              .update({ status: 'rejected' })
+              .update({ [statusColumn]: statusVal })
               .eq('id', id)
               .select();
           
@@ -205,6 +210,7 @@ export const api = {
               supabase.from('businesses')
                 .select('*')
                 .or(`name.ilike.${searchPattern},description.ilike.${searchPattern},category.ilike.${searchPattern}`)
+                .eq('verification_status', 'verified') // КРИТИЧНО: Поиск только по проверенным
                 .limit(20),
               supabase.from('news')
                 .select('*')
@@ -247,9 +253,11 @@ export const api = {
               return true;
           }
 
-          const statusVal = table === 'stories' ? 'published' : 'approved';
+          const statusColumn = table === 'stories' ? 'status' : (table === 'businesses' ? 'verification_status' : 'status');
+          const statusVal = table === 'stories' ? 'published' : 'verified';
+
           const { data, error } = await supabase!.from(table)
-              .update({ status: statusVal })
+              .update({ [statusColumn]: statusVal })
               .eq('id', id)
               .select();
           
@@ -357,12 +365,15 @@ export const api = {
 
   async getAllPendingContent(): Promise<any[]> {
       if (!isSupabaseConfigured() || !supabase) return [];
-      const tables = ['ads', 'rides', 'vacancies', 'resumes', 'lost_found', 'communities', 'stories', 'rentals', 'products'];
+      // Мы ищем и новые (pending) и отклоненные (rejected), чтобы админ мог их восстановить
+      const tables = ['ads', 'rides', 'vacancies', 'resumes', 'lost_found', 'communities', 'stories', 'rentals', 'products', 'businesses'];
       
       try {
           const results = await Promise.all(tables.map(async (t) => {
-              const { data } = await supabase!.from(t).select('*').eq('status', 'pending');
-              return (data || []).map(item => ({ ...item, _table: t }));
+              const statusCol = t === 'stories' ? 'status' : (t === 'businesses' ? 'verification_status' : 'status');
+              // Теперь запрашиваем оба статуса
+              const { data } = await supabase!.from(t).select('*').in(statusCol, ['pending', 'rejected']);
+              return (data || []).map(item => ({ ...item, _table: t, _currentStatus: item[statusCol] }));
           }));
           
           // Захватываем все виды заявок от бизнеса из таблицы reports
@@ -397,7 +408,6 @@ export const api = {
 
           // Для товаров нужно найти владельцев бизнесов
           const productOwnerIds = [...new Set(bizRes.data?.map(b => b.author_id).filter(Boolean)) || []];
-          // Comment above fix: Added type assertion to id to resolve "Argument of type 'unknown' is not assignable to parameter of type 'string'" error
           const missingProfiles = productOwnerIds.filter(id => !profileMap.has(id as string));
           
           if (missingProfiles.length > 0) {
@@ -415,21 +425,20 @@ export const api = {
               'stories': 'История',
               'rentals': 'Аренда',
               'reports': 'Заявка бизнеса',
-              'products': 'Товар бизнеса'
+              'products': 'Товар бизнеса',
+              'businesses': 'Регистрация бизнеса'
           };
 
           return flattened.map(it => {
               let authorId = it.author_id || it.driver_id || it.user_id;
               
-              // Если это товар, берем автора из бизнеса
               if (it._table === 'products' && it.business_id) {
                   authorId = businessMap.get(it.business_id)?.author_id;
               }
 
               const authorProfile = profileMap.get(authorId);
-              
               let displayTitle = it.title || it.caption || it.name || 'Без названия';
-              let businessId = it.business_id || null;
+              let businessId = it.business_id || (it._table === 'businesses' ? it.id : null);
 
               if (it._table === 'reports') {
                   const biz = businessMap.get(it.target_id);
@@ -449,7 +458,8 @@ export const api = {
                   displayTitle,
                   image: it.media || it.image,
                   createdAt: parseSafeDate(it.created_at),
-                  businessId
+                  businessId,
+                  isRejected: it._currentStatus === 'rejected'
               };
           });
       } catch (e: any) {

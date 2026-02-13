@@ -6,6 +6,7 @@ import { Loader2, Briefcase, Upload, User, Building, Star, Info, FileText, Check
 import { useNavigate } from 'react-router-dom';
 import { WORK_SCHEDULES, BUSINESS_CATEGORIES, MASTER_CATEGORIES } from '../constants';
 import { PhoneInput } from '../components/ui/PhoneInput';
+import { LaunchPromo } from '../components/LaunchPromo';
 
 export const ConnectBusiness: React.FC = () => {
     const [isMaster, setIsMaster] = useState(false);
@@ -103,9 +104,12 @@ export const ConnectBusiness: React.FC = () => {
     }
 
     return (
-        <div className="max-w-2xl mx-auto p-4 lg:p-8 pb-24">
+        <div className="max-w-3xl mx-auto p-4 lg:p-8 pb-24 space-y-12">
+            {/* Промо-блок в начале страницы */}
+            <LaunchPromo compact />
+
             {showTerms && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl overflow-y-auto max-h-[80vh] border dark:border-gray-700">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-black uppercase tracking-tight dark:text-white">Правила Бизнеса</h3>
@@ -122,101 +126,103 @@ export const ConnectBusiness: React.FC = () => {
                 </div>
             )}
 
-            <h1 className="text-3xl font-black mb-6 dark:text-white flex items-center gap-3 uppercase tracking-tight">
-                {isMaster ? <Star className="w-10 h-10 text-orange-500 fill-current" /> : <Briefcase className="w-10 h-10 text-blue-600" />}
-                {isMaster ? 'Специалист' : 'Бизнес-аккаунт'}
-            </h1>
+            <div>
+                <h1 className="text-3xl font-black mb-6 dark:text-white flex items-center gap-3 uppercase tracking-tight">
+                    {isMaster ? <Star className="w-10 h-10 text-orange-500 fill-current" /> : <Briefcase className="w-10 h-10 text-blue-600" />}
+                    {isMaster ? 'Специалист' : 'Бизнес-аккаунт'}
+                </h1>
 
-            <div className="grid grid-cols-2 gap-4 mb-8">
-                <button 
-                    type="button"
-                    onClick={() => handleSetType(false)}
-                    className={`p-6 rounded-3xl border-2 transition-all text-left flex flex-col gap-3 ${!isMaster ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800'}`}
-                >
-                    <Building className={`w-8 h-8 ${!isMaster ? 'text-blue-600' : 'text-gray-400'}`} />
-                    <div>
-                        <div className="font-black text-sm uppercase dark:text-white">Компания</div>
-                        <div className="text-[10px] text-gray-500 uppercase font-bold">Магазин, кафе, сервис</div>
-                    </div>
-                </button>
-                <button 
-                    type="button"
-                    onClick={() => handleSetType(true)}
-                    className={`p-6 rounded-3xl border-2 transition-all text-left flex flex-col gap-3 ${isMaster ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800'}`}
-                >
-                    <Star className={`w-8 h-8 ${isMaster ? 'text-orange-500 fill-current' : 'text-gray-400'}`} />
-                    <div>
-                        <div className="font-black text-sm uppercase dark:text-white">Специалист</div>
-                        <div className="text-[10px] text-gray-500 uppercase font-bold">Частные услуги, фриланс</div>
-                    </div>
-                </button>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 shadow-xl border border-gray-100 dark:border-gray-700">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">
-                            {isMaster ? 'Как вас называть в каталоге? *' : 'Название компании *'}
-                        </label>
-                        <input className="w-full border rounded-2xl p-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder={isMaster ? "Напр: Кондитер Мария" : "Название организации"} />
-                    </div>
-
-                    <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">Категория *</label>
-                        <select 
-                            className="w-full border rounded-2xl p-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold appearance-none bg-white"
-                            value={formData.category}
-                            onChange={e => setFormData({...formData, category: e.target.value})}
-                            required
-                        >
-                            {(isMaster ? MASTER_CATEGORIES : BUSINESS_CATEGORIES).map(cat => (
-                                <option key={cat} value={cat}>{cat}</option>
-                            ))}
-                        </select>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 mb-8">
+                    <button 
+                        type="button"
+                        onClick={() => handleSetType(false)}
+                        className={`p-6 rounded-3xl border-2 transition-all text-left flex flex-col gap-3 ${!isMaster ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800'}`}
+                    >
+                        <Building className={`w-8 h-8 ${!isMaster ? 'text-blue-600' : 'text-gray-400'}`} />
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ИНН *</label>
-                            <input 
-                                className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" 
-                                value={formData.inn} 
-                                onChange={(e) => handleNumericInput(e, 'inn')} 
-                                maxLength={12}
-                                required
-                                placeholder="10 или 12 цифр"
-                            />
+                            <div className="font-black text-sm uppercase dark:text-white">Компания</div>
+                            <div className="text-[10px] text-gray-500 uppercase font-bold">Магазин, кафе, сервис</div>
                         </div>
+                    </button>
+                    <button 
+                        type="button"
+                        onClick={() => handleSetType(true)}
+                        className={`p-6 rounded-3xl border-2 transition-all text-left flex flex-col gap-3 ${isMaster ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800'}`}
+                    >
+                        <Star className={`w-8 h-8 ${isMaster ? 'text-orange-500 fill-current' : 'text-gray-400'}`} />
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ОГРН *</label>
-                            <input 
-                                className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" 
-                                value={formData.ogrn} 
-                                onChange={(e) => handleNumericInput(e, 'ogrn')} 
-                                maxLength={15} 
+                            <div className="font-black text-sm uppercase dark:text-white">Специалист</div>
+                            <div className="text-[10px] text-gray-500 uppercase font-bold">Частные услуги, фриланс</div>
+                        </div>
+                    </button>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 shadow-xl border border-gray-100 dark:border-gray-700">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">
+                                {isMaster ? 'Как вас называть в каталоге? *' : 'Название компании *'}
+                            </label>
+                            <input className="w-full border rounded-2xl p-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder={isMaster ? "Напр: Кондитер Мария" : "Название организации"} />
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">Категория *</label>
+                            <select 
+                                className="w-full border rounded-2xl p-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold appearance-none bg-white"
+                                value={formData.category}
+                                onChange={e => setFormData({...formData, category: e.target.value})}
                                 required
-                                placeholder="ОГРН организации"
-                            />
+                            >
+                                {(isMaster ? MASTER_CATEGORIES : BUSINESS_CATEGORIES).map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
                         </div>
-                    </div>
-
-                    <div className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border dark:border-gray-700">
-                        <button 
-                            type="button" 
-                            onClick={() => setIsAgreed(!isAgreed)}
-                            className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${isAgreed ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 dark:border-gray-600'}`}
-                        >
-                            {isAgreed && <Check className="w-4 h-4 stroke-[4]" />}
-                        </button>
-                        <div className="text-xs text-gray-500">
-                            Я подтверждаю достоверность данных и принимаю <button type="button" onClick={() => setShowTerms(true)} className="text-blue-600 font-bold underline">Правила Бизнеса</button>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ИНН *</label>
+                                <input 
+                                    className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" 
+                                    value={formData.inn} 
+                                    onChange={(e) => handleNumericInput(e, 'inn')} 
+                                    maxLength={12}
+                                    required
+                                    placeholder="10 или 12 цифр"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 ml-1">ОГРН *</label>
+                                <input 
+                                    className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" 
+                                    value={formData.ogrn} 
+                                    onChange={(e) => handleNumericInput(e, 'ogrn')} 
+                                    maxLength={15} 
+                                    required
+                                    placeholder="ОГРН организации"
+                                />
+                            </div>
                         </div>
-                    </div>
 
-                    <Button className={`w-full py-5 text-xl font-black uppercase tracking-tighter border-none shadow-2xl ${isMaster ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`} disabled={loading || uploadingImage || uploadingCover}>
-                        {loading ? <Loader2 className="animate-spin" /> : isMaster ? 'Создать профиль' : 'Зарегистрировать бизнес'}
-                    </Button>
-                </form>
+                        <div className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border dark:border-gray-700">
+                            <button 
+                                type="button" 
+                                onClick={() => setIsAgreed(!isAgreed)}
+                                className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${isAgreed ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 dark:border-gray-600'}`}
+                            >
+                                {isAgreed && <Check className="w-4 h-4 stroke-[4]" />}
+                            </button>
+                            <div className="text-xs text-gray-500">
+                                Я подтверждаю достоверность данных и принимаю <button type="button" onClick={() => setShowTerms(true)} className="text-blue-600 font-bold underline">Правила Бизнеса</button>
+                            </div>
+                        </div>
+
+                        <Button className={`w-full py-5 text-xl font-black uppercase tracking-tighter border-none shadow-2xl ${isMaster ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`} disabled={loading || uploadingImage || uploadingCover}>
+                            {loading ? <Loader2 className="animate-spin" /> : isMaster ? 'Создать профиль' : 'Зарегистрировать бизнес'}
+                        </Button>
+                    </form>
+                </div>
             </div>
         </div>
     );

@@ -34,15 +34,9 @@ export const AdDetail: React.FC = () => {
     const handleWrite = async () => {
         if (!ad || !currentUser) return navigate('/auth');
         try {
-            const payload = JSON.stringify({ 
-                type: 'ad_inquiry', 
-                adId: ad.id, 
-                title: ad.title, 
-                price: `${ad.price.toLocaleString()} ${ad.currency}`, 
-                image: ad.image, 
-                text: "Здравствуйте! Меня интересует это объявление." 
-            });
-            const chatId = await api.startChat(ad.authorId, payload);
+            // Теперь передаем пустую строку в качестве сообщения, 
+            // чтобы просто открыть/создать диалог без автоотправки
+            const chatId = await api.startChat(ad.authorId, '');
             navigate(`/chat?id=${chatId}`);
         } catch (e: any) { 
             alert(e.message); 

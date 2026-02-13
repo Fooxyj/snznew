@@ -10,6 +10,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { StoriesRail } from '../components/StoriesRail';
 import { BannerSlot } from '../components/BannerSlot';
+import { LaunchTicker } from '../components/LaunchTicker';
 import { Button, Badge } from '../components/ui/Common';
 import { PageBlock, NewsItem, Ad, Event } from '../types';
 
@@ -99,14 +100,15 @@ export const Home: React.FC = () => {
   const pageContent = useMemo(() => {
     const adsPerPage = 8;
     
-    // 1. VIP Страница
+    // 1. VIP Страница (Главная: Новости + Афиша)
     if (currentPage === 1) {
         return {
             type: 'standard',
             title: 'VIP Город',
-            subtitle: 'НОВОСТИ ГОРОДА',
+            subtitle: 'ГЛАВНОЕ В СНЕЖИНСКЕ',
             icon: <Crown className="w-6 h-6 text-orange-500" />,
             news: news.slice(0, 4),
+            events: events.slice(0, 4),
             ads: shuffleArray(ads.filter(a => a.isVip)).slice(0, adsPerPage),
             adLabel: 'VIP Объявления'
         };
@@ -117,14 +119,14 @@ export const Home: React.FC = () => {
         return { type: 'exclusive' };
     }
 
-    // 3. PRO Страница (Теперь События + PRO Объявления)
+    // 3. PRO Страница (Теперь больше новостей + PRO Объявления)
     if (currentPage === proPageStart) {
         return {
             type: 'standard',
             title: 'PRO Снежинск',
-            subtitle: 'АКТУАЛЬНАЯ АФИША И УСЛУГИ',
+            subtitle: 'ЛУЧШИЕ ПРЕДЛОЖЕНИЯ',
             icon: <Wand2 className="w-6 h-6 text-indigo-500" />,
-            events: events.slice(0, 4),
+            news: news.slice(8, 12),
             ads: shuffleArray(ads.filter(a => a.isPremium && !a.isVip)).slice(0, adsPerPage),
             adLabel: 'PRO Предложения'
         };
@@ -186,58 +188,77 @@ export const Home: React.FC = () => {
       
       {pageContent?.type === 'standard' ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-16 max-w-[1440px] mx-auto overflow-x-hidden">
-              <StoriesRail />
               
+              {/* Бегущая строка сверху */}
+              {currentPage === 1 && <LaunchTicker />}
+
+              <StoriesRail />
+
               <BannerSlot position={`home_top_p${currentPage}`} />
 
-              {/* СЕКЦИЯ КОНТЕНТА (НОВОСТИ ИЛИ СОБЫТИЯ) */}
-              <section className="space-y-8">
-                  <div className="flex items-center justify-between px-1">
-                      <div className="flex items-center gap-4">
-                          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-blue-600 shadow-sm border border-blue-100 dark:border-blue-800">
-                             {pageContent.events ? <Calendar className="w-6 h-6" /> : <Newspaper className="w-6 h-6" />}
-                          </div>
-                          <div>
-                              <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter leading-none">
-                                  {pageContent.events ? 'Афиша' : 'Новости'}
-                              </h2>
-                          </div>
-                      </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-10">
-                      {pageContent.news?.map(item => (
-                          <Link key={item.id} to={`/news/${item.id}`} className="group block h-full flex flex-col">
-                              <div className="aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 mb-4 shadow-sm border dark:border-gray-700 shrink-0">
-                                  <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
-                              </div>
-                              <div className="px-1 flex flex-col flex-1">
-                                  <h4 className="text-[12px] font-black dark:text-white line-clamp-2 leading-4 uppercase group-hover:text-blue-600 transition-colors tracking-tight mb-3 h-8 overflow-hidden">{item.title}</h4>
-                                  <div className="mt-auto flex items-center gap-3 text-[9px] text-gray-400 font-black uppercase tracking-widest">
-                                      <span className="flex items-center gap-1"><Eye className="w-3 h-3 text-blue-500" /> {formatViews(item.views)}</span>
-                                      <span className="w-1 h-1 bg-gray-300 dark:bg-gray-700 rounded-full"></span>
-                                      <span>{formatDateShort(item.date)}</span>
-                                  </div>
-                              </div>
-                          </Link>
-                      ))}
-                      {pageContent.events?.map(item => (
-                          <Link key={item.id} to={`/event/${item.id}`} className="group block h-full flex flex-col">
-                              <div className="aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 mb-4 shadow-sm border dark:border-gray-700 shrink-0">
-                                  <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
-                              </div>
-                              <div className="px-1 flex flex-col flex-1">
-                                  <h4 className="text-[12px] font-black dark:text-white line-clamp-2 leading-4 uppercase group-hover:text-blue-600 transition-colors tracking-tight mb-3 h-8 overflow-hidden">{item.title}</h4>
-                                  <div className="mt-auto flex items-center gap-3 text-[9px] text-gray-400 font-black uppercase tracking-widest">
-                                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-blue-500" /> {item.date}</span>
-                                      <span className="w-1 h-1 bg-gray-300 dark:bg-gray-700 rounded-full"></span>
-                                      <span className="truncate">{item.location}</span>
-                                  </div>
-                              </div>
-                          </Link>
-                      ))}
-                  </div>
-              </section>
+              {/* СЕКЦИЯ НОВОСТЕЙ */}
+              {pageContent.news && pageContent.news.length > 0 && (
+                <section className="space-y-8">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-blue-600 shadow-sm border border-blue-100 dark:border-blue-800">
+                               <Newspaper className="w-6 h-6" />
+                            </div>
+                            <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter leading-none">Новости города</h2>
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-10">
+                        {pageContent.news.map(item => (
+                            <Link key={item.id} to={`/news/${item.id}`} className="group block h-full flex flex-col">
+                                <div className="aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 mb-4 shadow-sm border dark:border-gray-700 shrink-0">
+                                    <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
+                                </div>
+                                <div className="px-1 flex flex-col flex-1">
+                                    <h4 className="text-[12px] font-black dark:text-white line-clamp-2 leading-4 uppercase group-hover:text-blue-600 transition-colors tracking-tight mb-3 h-8 overflow-hidden">{item.title}</h4>
+                                    <div className="mt-auto flex items-center gap-3 text-[9px] text-gray-400 font-black uppercase tracking-widest">
+                                        <span className="flex items-center gap-1"><Eye className="w-3 h-3 text-blue-500" /> {formatViews(item.views)}</span>
+                                        <span className="w-1 h-1 bg-gray-300 dark:bg-gray-700 rounded-full"></span>
+                                        <span>{formatDateShort(item.date)}</span>
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+              )}
+
+              {/* СЕКЦИЯ АФИШИ (Только если есть на текущей странице) */}
+              {pageContent.events && pageContent.events.length > 0 && (
+                <section className="space-y-8 animate-in slide-in-from-bottom-2 duration-1000">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl text-indigo-600 shadow-sm border border-indigo-100 dark:border-indigo-800">
+                               <Calendar className="w-6 h-6" />
+                            </div>
+                            <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter leading-none">Городская Афиша</h2>
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-10">
+                        {pageContent.events.map(item => (
+                            <Link key={item.id} to={`/event/${item.id}`} className="group block h-full flex flex-col">
+                                <div className="aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 mb-4 shadow-sm border dark:border-gray-700 shrink-0">
+                                    <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
+                                </div>
+                                <div className="px-1 flex flex-col flex-1">
+                                    <h4 className="text-[12px] font-black dark:text-white line-clamp-2 leading-4 uppercase group-hover:text-blue-600 transition-colors tracking-tight mb-3 h-8 overflow-hidden">{item.title}</h4>
+                                    <div className="mt-auto flex items-center gap-3 text-[9px] text-gray-400 font-black uppercase tracking-widest">
+                                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-indigo-500" /> {item.date}</span>
+                                        <span className="w-1 h-1 bg-gray-300 dark:bg-gray-700 rounded-full"></span>
+                                        <span className="truncate">{item.location}</span>
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+              )}
 
               <BannerSlot position={`home_mid_p${currentPage}`} />
 
@@ -279,7 +300,7 @@ export const Home: React.FC = () => {
                                   </div>
                               </div>
                           </Link>
-                      )})}
+                          )})}
                   </div>
               </section>
           </div>

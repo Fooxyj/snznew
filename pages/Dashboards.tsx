@@ -4,13 +4,14 @@ import { api } from '../services/api';
 import { User, Ad, Business, UserRole, Story, TransportSchedule, Banner, Report, Suggestion, NewsItem, Event, Campaign, Quest, Ride, AccessRequest, PromoAd, ExclusivePage, ModerationLog, Achievement } from '../types';
 import { Button, XPBar, Badge, Rating, UserStatus, BadgeIcon } from '../components/ui/Common';
 import { Img } from '../components/ui/Image';
+import { LaunchPromo } from '../components/LaunchPromo';
 import { 
     User as UserIcon, Settings, Loader2, Plus, 
     ShoppingBag, Check, X, 
     Trophy, MapPin, Shield, Star, Crown, Zap,
     BarChart3, FileText, Calendar, Bus, Image as ImageIcon, Heart, AlertTriangle, Lightbulb, CheckCircle, Trash2, Pencil, Car, ChevronRight, RefreshCw, UserCircle,
     ArrowRight, Users, ShieldCheck, Key, Megaphone, Flag, Info, Building2, Clock, Wallet, Layout as LayoutIcon, MessageSquare, Search, History, Eye, ShieldAlert, Target, AlignLeft,
-    Mail, Briefcase, UserCheck, PlaySquare
+    Mail, Briefcase, UserCheck, PlaySquare, XCircle
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -36,7 +37,7 @@ const DeleteConfirmModal: React.FC<{
     onConfirm: () => void; 
     title?: string;
     loading?: boolean;
-}> = ({ isOpen, onClose, onConfirm, title, loading }) => {
+}> = ({ isOpen, onClose, onClose: onCancel, onConfirm, title, loading }) => {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -58,7 +59,7 @@ const DeleteConfirmModal: React.FC<{
                         {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Подтверждаю удаление'}
                     </Button>
                     <button 
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCancel(); }}
                         className="py-4 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors"
                     >
                         Отмена
@@ -80,6 +81,7 @@ export const Profile: React.FC = () => {
     const { data: myContent } = useQuery({ queryKey: ['myContent', user?.id], queryFn: () => api.getUserContent(user?.id!), enabled: !!user?.id });
     const { data: favoriteItems } = useQuery({ queryKey: ['favoritesData', user?.favorites], queryFn: () => api.getFavorites(user?.favorites || []), enabled: !!user?.id });
     const { data: achievements = [] } = useQuery({ queryKey: ['achievements'], queryFn: api.getAchievements, enabled: !!user?.id });
+    const { data: myBusinesses = [] } = useQuery({ queryKey: ['myBusinesses'], queryFn: api.getMyBusinesses, enabled: !!user?.id });
 
     if (userLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
     if (!user) return <div className="p-10 text-center font-bold uppercase tracking-widest text-gray-400">Войдите в аккаунт</div>;
@@ -127,7 +129,7 @@ export const Profile: React.FC = () => {
     const genderLabel = getGenderLabel(user.gender);
 
     return (
-        <div className="max-w-6xl mx-auto p-4 lg:p-8 pt-24 pb-24 md:pt-8">
+        <div className="max-w-6xl mx-auto p-4 lg:p-8 pt-24 pb-24 md:pt-8 space-y-12">
             {editingAd && <EditAdModal ad={editingAd} isOpen={!!editingAd} onClose={() => setEditingAd(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['myContent', user.id] })} />}
             <DeleteConfirmModal 
                 isOpen={!!deleteTarget} 
@@ -136,7 +138,7 @@ export const Profile: React.FC = () => {
                 title={deleteTarget?.title}
             />
             
-            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 lg:p-12 shadow-sm border dark:border-gray-700 mb-12 relative overflow-hidden flex flex-col md:flex-row items-center gap-10">
+            <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 lg:p-12 shadow-sm border dark:border-gray-700 relative overflow-hidden flex flex-col md:flex-row items-center gap-10">
                 <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-r from-blue-500/5 to-indigo-500/5 dark:from-blue-500/10 dark:to-indigo-500/10 pointer-events-none"></div>
 
                 <div className="relative z-10 shrink-0">
@@ -188,6 +190,9 @@ export const Profile: React.FC = () => {
                     <div className="max-w-md mx-auto md:mx-0"><XPBar xp={user.xp} /></div>
                 </div>
             </div>
+
+            {/* Предложение бизнеса для обычных пользователей */}
+            {myBusinesses.length === 0 && <LaunchPromo compact />}
 
             <div className="flex border-b dark:border-gray-700 mb-8 gap-8 px-2 overflow-x-auto scrollbar-hide">
                 <button onClick={() => setActiveTab('my-ads')} className={`pb-4 text-sm font-black uppercase tracking-widest relative flex items-center gap-2 whitespace-nowrap ${activeTab === 'my-ads' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>
@@ -597,7 +602,7 @@ export const AdminDashboard: React.FC = () => {
                                     const isBizRequest = it._table === 'reports';
                                     
                                     return (
-                                        <div key={compositeId} className={`bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] border dark:border-gray-700 shadow-sm flex flex-col md:flex-row gap-6 group relative overflow-hidden transition-all duration-300 ${isItemProcessing ? 'opacity-60 scale-[0.98] pointer-events-none' : 'opacity-100'}`}>
+                                        <div key={compositeId} className={`bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] border dark:border-gray-700 shadow-sm flex flex-col md:flex-row gap-6 group relative overflow-hidden transition-all duration-300 ${isItemProcessing ? 'opacity-60 scale-[0.98] pointer-events-none' : 'opacity-100'} ${it.isRejected ? 'border-red-500/20 bg-red-50/5' : ''}`}>
                                             {(it.image || it.media) && (
                                                 <div className="w-full md:w-32 h-40 md:h-32 shrink-0">
                                                     <img src={it.image || it.media} className="w-full h-full rounded-2xl object-cover border dark:border-gray-700 shadow-sm" alt="" />
@@ -611,6 +616,7 @@ export const AdminDashboard: React.FC = () => {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                                                     <Badge color={isBizRequest ? 'orange' : 'blue'}>{it.typeLabel}</Badge>
+                                                    {it.isRejected && <Badge color="red" className="animate-pulse">Отклонено ранее</Badge>}
                                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{formatDisplayDate(it.createdAt)}</span>
                                                 </div>
                                                 <h3 className="font-bold text-lg dark:text-white mb-2 leading-tight">{it.displayTitle}</h3>
@@ -807,7 +813,7 @@ export const AdminDashboard: React.FC = () => {
                                         </div>
                                         <div className="flex gap-1 shrink-0 ml-4">
                                             <button onClick={(e) => openEditModal(e, 'news', n)} className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all"><Pencil className="w-4.5 h-4.5"/></button>
-                                            <button onClick={(e) => triggerDelete(e, 'news', n.id, 'news', n.title)} className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"><Trash2 className="w-4.5 h-4.5"/></button>
+                                            <button onClick={(e) => triggerDelete(e, 'news', n.id, 'news', n.title)} className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-900/20 rounded-xl transition-all"><Trash2 className="w-4.5 h-4.5"/></button>
                                         </div>
                                     </div>
                                 ))}
@@ -826,7 +832,7 @@ export const AdminDashboard: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="flex gap-1 shrink-0 ml-4">
-                                            <button onClick={(e) => triggerDelete(e, 'stories', s.id, 'adminStories', `История от ${formatDisplayDate(s.createdAt)}`)} className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"><Trash2 className="w-4.5 h-4.5"/></button>
+                                            <button onClick={(e) => triggerDelete(e, 'stories', s.id, 'adminStories', `История от ${formatDisplayDate(s.createdAt)}`)} className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-900/20 rounded-xl transition-all"><Trash2 className="w-4.5 h-4.5"/></button>
                                         </div>
                                     </div>
                                 ))}

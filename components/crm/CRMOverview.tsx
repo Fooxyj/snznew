@@ -63,6 +63,9 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ business }) => {
 
     const isLoading = loadingProducts || loadingServices || loadingBookings || loadingReviews;
 
+    // Корректный расчет рейтинга для отображения
+    const displayRating = (business.reviewsCount || 0) === 0 ? 0 : (business.rating || 0);
+
     if (isLoading) {
         return (
             <div className="space-y-6 animate-in fade-in">
@@ -104,9 +107,9 @@ export const CRMOverview: React.FC<CRMOverviewProps> = ({ business }) => {
                         <Star className="w-3.5 h-3.5" /> Рейтинг
                     </div>
                     <div className="text-3xl font-black text-yellow-500 leading-none flex items-center gap-1.5">
-                        {business.rating > 0 ? business.rating.toFixed(1) : '0.0'} 
+                        {displayRating.toFixed(1)} 
                         <Star className="w-6 h-6 fill-current" />
-                        <span className="text-sm font-bold text-gray-400 ml-1">({business.reviewsCount})</span>
+                        <span className="text-sm font-bold text-gray-400 ml-1">({business.reviewsCount || 0})</span>
                     </div>
                 </div>
             </div>

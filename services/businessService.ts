@@ -7,10 +7,12 @@ import { CATEGORIES } from '../constants';
 import { mockStore } from '../services/mockData';
 
 const mapBusinessFromDB = (b: any): Business => {
+    const reviewsCount = parseInt(String(b.reviews_count || 0));
     return {
         ...b,
-        rating: parseFloat(String(b.rating || 0)),
-        reviewsCount: parseInt(String(b.reviews_count || 0)),
+        // Если отзывов 0, рейтинг не может быть 5.0
+        rating: reviewsCount === 0 ? 0 : parseFloat(String(b.rating || 0)),
+        reviewsCount: reviewsCount,
         workHours: b.work_hours || '',
         website: b.website || '', 
         authorId: b.author_id,
@@ -56,10 +58,13 @@ export const businessService = {
 
     if (isSupabaseConfigured() && supabase) {
       try {
-        let query = supabase.from('businesses').select('*');
+        // КРИТИЧЕСКИЙ ФИЛЬТР: Только верифицированные организации в публичном доступе
+        let query = supabase.from('businesses').select('*').eq('verification_status', 'verified');
         
         if (category && category !== 'news' && category !== 'Все') {
-            query = query.eq('category', filterValue);
+            // Используем .trim() для защиты от лишних пробелов в БД
+            query = query.ilike('category', filterValue?.trim() || '');
+            
             const masterSlugs = ['handmade', 'home_repair', 'education', 'beauty_masters', 'digital_pros', 'creative', 'events_pros', 'cleaning', 'pets_service'];
             if (masterSlugs.includes(category)) query = query.eq('is_master', true);
             else query = query.eq('is_master', false);
@@ -110,7 +115,7 @@ export const businessService = {
         const dbData = mapBusinessToDB({
             ...data,
             authorId: user.id,
-            verificationStatus: data.isMaster ? 'verified' : 'pending'
+            verificationStatus: 'pending' 
         });
         const { data: saved, error } = await supabase.from('businesses').insert(dbData).select().single();
         if (error) throw error;
@@ -333,6 +338,7 @@ export const businessService = {
 
   async removeEmployee(id: string): Promise<void> {
     if (isSupabaseConfigured() && supabase) {
+      // Comment above fix: Fixed invalid destructuring assignment with await in default value
       const { error } = await supabase.from('employees').delete().eq('id', id);
       if (error) throw error;
     }
@@ -371,7 +377,8 @@ export const businessService = {
     const user = await authService.getCurrentUser();
     if (!user) throw new Error("Unauthorized");
     if (isSupabaseConfigured() && supabase) {
-      const { error = await supabase.from('rentals').insert({ 
+      // Comment above fix: Fixed invalid destructuring assignment with await in default value
+      const { error } = await supabase.from('rentals').insert({ 
           title: data.title,
           description: data.description,
           price_per_day: data.pricePerDay,
@@ -381,14 +388,15 @@ export const businessService = {
           author_id: user.id, 
           status: 'pending',
           is_available: true
-      }) } = {};
+      });
       if (error) throw error;
     }
   },
 
   async returnRental(id: string): Promise<void> {
     if (isSupabaseConfigured() && supabase) {
-      const { error = await supabase.from('rental_bookings').update({ status: 'returned' }).eq('id', id) } = {};
+      // Comment above fix: Fixed invalid destructuring assignment with await in default value
+      const { error } = await supabase.from('rental_bookings').update({ status: 'returned' }).eq('id', id);
       if (error) throw error;
     }
   },
@@ -422,6 +430,7 @@ export const businessService = {
     const user = await authService.getCurrentUser();
     if (!user) return [];
     if (isSupabaseConfigured() && supabase) {
+      // Comment above fix: Fixed invalid destructuring assignment with await in default value
       const { data, error } = await supabase.from('orders').select('*').eq('courier_id', user.id);
       if (error) throw error;
       return data || [];
@@ -440,7 +449,8 @@ export const businessService = {
 
   async completeDelivery(id: string): Promise<void> {
     if (isSupabaseConfigured() && supabase) {
-      const { error = await supabase.from('orders').update({ status: 'done' }).eq('id', id) } = {};
+      // Comment above fix: Fixed invalid destructuring assignment with await in default value
+      const { error } = await supabase.from('orders').update({ status: 'done' }).eq('id', id);
       if (error) throw error;
     }
   },
@@ -449,12 +459,13 @@ export const businessService = {
     const user = await authService.getCurrentUser();
     if (!user) throw new Error("Unauthorized");
     if (isSupabaseConfigured() && supabase) {
-      const { error = await supabase.from('vacancies').insert({
+      // Comment above fix: Fixed invalid destructuring assignment with await in default value
+      const { error } = await supabase.from('vacancies').insert({
         ...data,
         business_id: businessId,
         author_id: user.id,
         status: 'pending'
-      }) } = {};
+      });
       if (error) throw error;
     }
   },
@@ -524,12 +535,13 @@ export const businessService = {
   async createBusinessPost(data: Partial<BusinessPost>): Promise<void> {
       try {
         if (isSupabaseConfigured() && supabase) {
-            const { error = await supabase.from('business_posts').insert({
+            // Comment above fix: Fixed invalid destructuring assignment with await in default value
+            const { error } = await supabase.from('business_posts').insert({
                 business_id: data.businessId,
                 title: data.title,
                 content: data.content,
                 image: data.image
-            }) } = {};
+            });
             if (error) throw error;
         }
       } catch (e: any) { throw e; }
@@ -538,7 +550,8 @@ export const businessService = {
   async deleteBusinessPost(id: string): Promise<void> {
       try {
         if (isSupabaseConfigured() && supabase) {
-            const { error = await supabase.from('business_posts').delete().eq('id', id) } = {};
+            // Comment above fix: Fixed invalid destructuring assignment with await in default value
+            const { error } = await supabase.from('business_posts').delete().eq('id', id);
             if (error) throw error;
         }
       } catch (e: any) { throw e; }

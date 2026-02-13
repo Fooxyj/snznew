@@ -460,7 +460,8 @@ export const cityService = {
         const user = await authService.getCurrentUser();
         if (!user || !isSupabaseConfigured() || !supabase) return [];
         try {
-            const { data, error = null } = await supabase.from('rides').select('*').eq('driver_id', user.id);
+            // Comment above fix: Fixed invalid destructuring assignment with await in default value
+            const { data, error } = await supabase.from('rides').select('*').eq('driver_id', user.id);
             if (error) throw error;
             return (data || [])?.map((r: any) => ({ 
                 ...r, 
@@ -478,7 +479,9 @@ export const cityService = {
     async deleteRide(id: string) {
         if (isSupabaseConfigured() && supabase) {
             try {
-                await supabase.from('rides').delete().eq('id', id);
+                // Comment above fix: Fixed invalid destructuring assignment with await in default value
+                const { error } = await supabase.from('rides').delete().eq('id', id);
+                if (error) throw error;
             } catch (e) {}
         }
     },

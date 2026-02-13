@@ -33,19 +33,22 @@ export const BUSINESS_CATEGORIES = [
     'Кафе и рестораны',
     'Аренда и Отдых',
     'Кино',
-    'Красота и Уход',
+    'Красота',
     'Спортзалы и секции',
     'Медицина',
     'Транспорт',
-    'Автосервисы и Мойки'
+    'Автосервисы и Мойки',
+    'Грузоперевозки',
+    'Туризм',
+    'Культура'
 ];
 
-// Категории для частных мастеров (Частные мастера)
+// Категории для частных мастеров
 export const MASTER_CATEGORIES = [
     'Еда и Хендмейд',
     'Ремонт и Быт',
     'Обучение и Репетиторы',
-    'Красота и Здоровье',
+    'Красота',
     'IT и Фриланс',
     'Фото и Креатив',
     'Праздники и Шоу',
@@ -80,7 +83,7 @@ export const CURRENT_USER: User = {
   name: 'Алексей С.',
   avatar: 'https://picsum.photos/seed/user1/100/100',
   role: UserRole.USER,
-  xp: 1450, // Level 2
+  xp: 1450,
   email: 'alex@snz.ru',
   favorites: ['b1', 'a2'],
   badges: []
@@ -155,15 +158,18 @@ export const CATEGORIES = [
   { id: 'cafe', label: 'Кафе и рестораны', icon: 'Coffee' },
   { id: 'rent', label: 'Аренда и Отдых', icon: 'Key' }, 
   { id: 'cinema', label: 'Кино', icon: 'Film' },
-  { id: 'beauty', label: 'Красота и Уход', icon: 'Scissors' },
+  { id: 'beauty', label: 'Красота', icon: 'Scissors' },
   { id: 'sport', label: 'Спортзалы и секции', icon: 'Dumbbell' },
   { id: 'med', label: 'Медицина', icon: 'Stethoscope' },
   { id: 'transport', label: 'Транспорт', icon: 'Bus' },
+  { id: 'cargo', label: 'Грузоперевозки', icon: 'Truck' },
+  { id: 'tourism', label: 'Туризм', icon: 'Map' },
+  { id: 'culture', label: 'Культура', icon: 'Drama' },
   { id: 'car_service', label: 'Автосервисы и Мойки', icon: 'Wrench' },
   { id: 'handmade', label: 'Еда и Хендмейд', icon: 'Star' },
   { id: 'home_repair', label: 'Ремонт и Быт', icon: 'Wrench' },
   { id: 'education', label: 'Обучение и Репетиторы', icon: 'BookOpen' },
-  { id: 'beauty_masters', label: 'Красота и Здоровье', icon: 'Heart' },
+  { id: 'beauty_masters', label: 'Красота', icon: 'Heart' },
   { id: 'digital_pros', label: 'IT и Фриланс', icon: 'Monitor' },
   { id: 'creative', label: 'Фото и Креатив', icon: 'Camera' },
   { id: 'events_pros', label: 'Праздники и Шоу', icon: 'Sparkles' },
@@ -202,9 +208,10 @@ export const CATALOG_MENU = [
     title: 'Услуги',
     icon: 'Briefcase',
     submenu: [
-      { title: 'Красота и Уход', path: '/category/beauty' },
+      { title: 'Красота', path: '/category/beauty' },
       { title: 'Автосервисы', path: '/category/car_service' },
       { title: 'Медицина', path: '/category/med' },
+      { title: 'Грузоперевозки', path: '/category/cargo' },
     ]
   },
   {
@@ -216,6 +223,8 @@ export const CATALOG_MENU = [
       { title: 'Аренда и Отдых', path: '/category/rent' },
       { title: 'Спортивные залы', path: '/category/sport' },
       { title: 'Кино', path: '/category/cinema' },
+      { title: 'Туризм', path: '/category/tourism' },
+      { title: 'Культура', path: '/category/culture' },
     ]
   },
   {
@@ -226,7 +235,7 @@ export const CATALOG_MENU = [
         { title: 'Еда и Хендмейд', path: '/category/handmade' },
         { title: 'Ремонт и Быт', path: '/category/home_repair' },
         { title: 'Репетиторы', path: '/category/education' },
-        { title: 'Красота и Здоровье', path: '/category/beauty_masters' },
+        { title: 'Красота', path: '/category/beauty_masters' },
         { title: 'IT и Фриланс', path: '/category/digital_pros' },
         { title: 'Фото и Креатив', path: '/category/creative' },
         { title: 'Праздники и Шоу', path: '/category/events_pros' },
