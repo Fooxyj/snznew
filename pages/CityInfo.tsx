@@ -218,14 +218,14 @@ export const TransportPage: React.FC = () => {
 
 export const EmergencyPage: React.FC = () => {
     const emergencyNumbers = [
-        { title: 'Служба спасения (ЕДДС)', phone: '112', cityPhone: '+7 (35146) 3-21-42', icon: Shield, color: 'text-red-600', bg: 'bg-red-50' },
-        { title: 'Полиция (Дежурная часть)', phone: '102', cityPhone: '+7 (35146) 3-22-22', icon: Siren, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { title: 'Скорая помощь', phone: '103', cityPhone: '+7 (35146) 9-22-03', icon: Activity, color: 'text-green-600', bg: 'bg-green-50' },
-        { title: 'Пожарная служба', phone: '101', cityPhone: '+7 (35146) 9-11-01', icon: Flame, color: 'text-orange-600', bg: 'bg-orange-50' },
-        { title: 'Газовая служба (Аварийная)', phone: '104', cityPhone: '+7 (35146) 3-34-44', icon: Droplets, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-        { title: 'Трансэнерго (Аварийная)', phone: '', cityPhone: '+7 (35146) 3-22-11', icon: Zap, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-        { title: 'Лифтовое хозяйство', phone: '', cityPhone: '+7 (35146) 3-23-22', icon: Wrench, color: 'text-teal-600', bg: 'bg-teal-50' },
-        { title: 'Диспетчер ЖКХ (Сервис-Десна)', phone: '', cityPhone: '+7 (35146) 2-15-55', icon: Building2, color: 'text-gray-600', bg: 'bg-gray-50' },
+        { title: 'Служба спасения (ЕДДС)', phone: '112', cityPhone: '8 (35146) 3-21-42', icon: Shield, color: 'text-red-600', bg: 'bg-red-50' },
+        { title: 'Полиция (Дежурная часть)', phone: '102', cityPhone: '8 (35146) 3-22-22', icon: Siren, color: 'text-blue-600', bg: 'bg-blue-50' },
+        { title: 'Скорая помощь', phone: '103', cityPhone: '9-37-97', mobilePhone: '8 (35146) 9-37-97', icon: Activity, color: 'text-green-600', bg: 'bg-green-50' },
+        { title: 'Пожарная служба', phone: '101', cityPhone: '8 (35146) 9-11-01', icon: Flame, color: 'text-orange-600', bg: 'bg-orange-50' },
+        { title: 'Газовая служба (Аварийная)', phone: '104', icon: Droplets, color: 'text-yellow-600', bg: 'bg-yellow-50' },
+        { title: 'ПСС Снежинска', phone: '+7 (35146) 2-61-28', address: 'ул. 40 лет Октября, 40', icon: Shield, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { title: 'Трансэнерго (Аварийная)', cityPhone: '8 (35146) 3-22-11', icon: Zap, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { title: 'Диспетчер ЖКХ', cityPhone: '8 (35146) 2-15-55', icon: Building2, color: 'text-gray-600', bg: 'bg-gray-50' },
     ];
 
     const handleCall = (phone: string) => {
@@ -238,7 +238,7 @@ export const EmergencyPage: React.FC = () => {
                 <h1 className="text-3xl font-black mb-2 flex items-center justify-center md:justify-start gap-3 dark:text-white uppercase tracking-tighter">
                     <Siren className="w-10 h-10 text-red-600" /> Экстренные службы
                 </h1>
-                <p className="text-gray-500 font-medium">Важные контакты Снежинска, которые должны быть под рукой</p>
+                <p className="text-gray-500 font-medium italic">Работают круглосуточно. Звонки бесплатны.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -258,16 +258,31 @@ export const EmergencyPage: React.FC = () => {
                                         {item.phone}
                                     </button>
                                 )}
-                                <button 
-                                    onClick={() => handleCall(item.cityPhone)}
-                                    className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline text-left truncate"
-                                >
-                                    {item.cityPhone}
-                                </button>
+                                {item.cityPhone && (
+                                    <button 
+                                        onClick={() => handleCall(item.cityPhone)}
+                                        className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline text-left truncate"
+                                    >
+                                        {item.cityPhone}
+                                    </button>
+                                )}
+                                {item.mobilePhone && (
+                                    <button 
+                                        onClick={() => handleCall(item.mobilePhone)}
+                                        className="text-[10px] font-bold text-gray-400 hover:text-blue-600 text-left"
+                                    >
+                                        Моб: {item.mobilePhone}
+                                    </button>
+                                )}
+                                {item.address && (
+                                    <p className="text-[10px] font-bold text-gray-500 flex items-center gap-1 mt-1">
+                                        <MapPin className="w-3 h-3" /> {item.address}
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <button 
-                            onClick={() => handleCall(item.phone || item.cityPhone)}
+                            onClick={() => handleCall(item.phone || item.cityPhone || '')}
                             className="p-4 bg-red-600 text-white rounded-2xl shadow-lg shadow-red-500/20 active:scale-90 transition-all"
                         >
                             <PhoneCall className="w-6 h-6" />
@@ -283,9 +298,9 @@ export const EmergencyPage: React.FC = () => {
                 <div className="text-sm text-red-800 dark:text-red-300 leading-relaxed font-medium">
                     <p className="font-bold mb-1">Советы по безопасности:</p>
                     <ul className="list-disc pl-4 space-y-1 opacity-80">
-                        <li>Заранее сохраните эти номера в контактах вашего телефона.</li>
-                        <li>При звонке в ЕДДС (112) четко называйте адрес и характер происшествия.</li>
-                        <li>Будьте бдительны и помогайте тем, кто оказался в трудной ситуации.</li>
+                        <li>Номер 112 работает даже без SIM-карты и при отрицательном балансе.</li>
+                        <li>Сохраните номер ПСС в контактах — они помогут при ЧС на озере или в лесу.</li>
+                        <li>При звонке четко называйте адрес и характер происшествия.</li>
                     </ul>
                 </div>
             </div>

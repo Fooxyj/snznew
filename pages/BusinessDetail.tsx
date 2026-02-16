@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Product, Service, Event, UserRole, Business, Vacancy, Review, BusinessPost } from '../types';
 import { Button, formatPhone } from '../components/ui/Common';
-import { MapPin, Phone, Clock, Loader2, Star, ChevronLeft, ShoppingBag, Plus, X, Calendar, Clock4, Trash2, Film, CreditCard, Globe, MessageCircle, Heart, User, Sparkles, ExternalLink, Send, Briefcase, ShieldCheck, Newspaper, Eye, ArrowRight, Share2, MoreHorizontal } from 'lucide-react';
+import { MapPin, Phone, Clock, Loader2, Star, ChevronLeft, ShoppingBag, Plus, X, Calendar, Clock4, Trash2, Film, CreditCard, Globe, MessageCircle, Heart, User, Sparkles, ExternalLink, Send, Briefcase, ShieldCheck, Newspaper, Eye, ArrowRight, Share2, MoreHorizontal, AlertTriangle, FileText, QrCode } from 'lucide-react';
 import { YandexMap } from '../components/YandexMap';
 import { NotFound } from './NotFound';
 import { useToast } from '../components/ToastProvider';
@@ -208,6 +208,11 @@ export const BusinessDetail: React.FC = () => {
         } catch (e: any) { alert(e.message); }
     };
 
+    const isMedical = useMemo(() => {
+        const cat = business?.category?.toLowerCase() || '';
+        return cat.includes('медицина') || cat.includes('клиник') || cat.includes('зоо') || cat.includes('вет');
+    }, [business]);
+
     if (businessLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600 w-12 h-12" /></div>;
     if (!business) return <NotFound />;
 
@@ -277,6 +282,32 @@ export const BusinessDetail: React.FC = () => {
                             )}
                         </div>
                     </div>
+
+                    {/* Юридическая плашка для медицины/ветеринарии */}
+                    {isMedical && (
+                        <div className="mt-8 p-6 rounded-[2rem] bg-red-50 dark:bg-red-950/20 border-2 border-dashed border-red-100 dark:border-red-900/30">
+                            <div className="flex items-start gap-4">
+                                <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-1" />
+                                <div className="space-y-4">
+                                    <div>
+                                        <h4 className="text-sm font-black uppercase text-red-700 dark:text-red-400 tracking-tight">Важная информация</h4>
+                                        <p className="text-xs text-red-600 dark:text-red-300 font-medium leading-relaxed mt-1">
+                                            ИМЕЮТСЯ ПРОТИВОПОКАЗАНИЯ, НЕОБХОДИМА КОНСУЛЬТАЦИЯ СПЕЦИАЛИСТА. 
+                                            Данная страница носит ознакомительный характер. Платформа «Простор» не оказывает медицинских услуг и не проверяет квалификацию персонала.
+                                        </p>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase">
+                                            <FileText className="w-4 h-4 text-blue-500" /> Лицензия: {business.inn ? 'Проверена' : 'Требуется проверка'}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase">
+                                            <QrCode className="w-4 h-4 text-blue-500" /> Выписка из реестра (QR)
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Description Section */}
                     {business.description && (

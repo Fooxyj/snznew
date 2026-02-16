@@ -45,15 +45,7 @@ export const BUSINESS_CATEGORIES = [
 
 // Категории для частных мастеров
 export const MASTER_CATEGORIES = [
-    'Еда и Хендмейд',
-    'Ремонт и Быт',
-    'Обучение и Репетиторы',
-    'Красота',
-    'IT и Фриланс',
-    'Фото и Креатив',
-    'Праздники и Шоу',
-    'Уборка и Клининг',
-    'Зооуслуги'
+    'Еда и Хендмейд'
 ];
 
 export const WORK_SCHEDULES = [
@@ -169,7 +161,6 @@ export const CATEGORIES = [
   { id: 'handmade', label: 'Еда и Хендмейд', icon: 'Star' },
   { id: 'home_repair', label: 'Ремонт и Быт', icon: 'Wrench' },
   { id: 'education', label: 'Обучение и Репетиторы', icon: 'BookOpen' },
-  { id: 'beauty_masters', label: 'Красота', icon: 'Heart' },
   { id: 'digital_pros', label: 'IT и Фриланс', icon: 'Monitor' },
   { id: 'creative', label: 'Фото и Креатив', icon: 'Camera' },
   { id: 'events_pros', label: 'Праздники и Шоу', icon: 'Sparkles' },
@@ -212,6 +203,13 @@ export const CATALOG_MENU = [
       { title: 'Автосервисы', path: '/category/car_service' },
       { title: 'Медицина', path: '/category/med' },
       { title: 'Грузоперевозки', path: '/category/cargo' },
+      { title: 'Ремонт и Быт', path: '/category/home_repair' },
+      { title: 'Репетиторы', path: '/category/education' },
+      { title: 'IT и Фриланс', path: '/category/digital_pros' },
+      { title: 'Фото и Креатив', path: '/category/creative' },
+      { title: 'Праздники и Шоу', path: '/category/events_pros' },
+      { title: 'Клининг', path: '/category/cleaning' },
+      { title: 'Зооуслуги', path: '/category/pets_service' },
     ]
   },
   {
@@ -232,15 +230,7 @@ export const CATALOG_MENU = [
     title: 'Частные мастера',
     icon: 'Star',
     submenu: [
-        { title: 'Еда и Хендмейд', path: '/category/handmade' },
-        { title: 'Ремонт и Быт', path: '/category/home_repair' },
-        { title: 'Репетиторы', path: '/category/education' },
-        { title: 'Красота', path: '/category/beauty_masters' },
-        { title: 'IT и Фриланс', path: '/category/digital_pros' },
-        { title: 'Фото и Креатив', path: '/category/creative' },
-        { title: 'Праздники и Шоу', path: '/category/events_pros' },
-        { title: 'Клининг', path: '/category/cleaning' },
-        { title: 'Зооуслуги', path: '/category/pets_service' },
+        { title: 'Еда и Хендмейд', path: '/category/handmade' }
     ]
   }
 ];

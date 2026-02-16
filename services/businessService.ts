@@ -65,7 +65,7 @@ export const businessService = {
             // Используем .trim() для защиты от лишних пробелов в БД
             query = query.ilike('category', filterValue?.trim() || '');
             
-            const masterSlugs = ['handmade', 'home_repair', 'education', 'beauty_masters', 'digital_pros', 'creative', 'events_pros', 'cleaning', 'pets_service'];
+            const masterSlugs = ['handmade']; // Только Хендмейд остался мастером в этой логике
             if (masterSlugs.includes(category)) query = query.eq('is_master', true);
             else query = query.eq('is_master', false);
         }
@@ -78,7 +78,7 @@ export const businessService = {
     
     return mockStore.businesses.filter(b => {
         if (!category || category === 'news' || category === 'Все') return true;
-        const masterSlugs = ['handmade', 'home_repair', 'education', 'beauty_masters', 'digital_pros', 'creative', 'events_pros', 'cleaning', 'pets_service'];
+        const masterSlugs = ['handmade'];
         const shouldBeMaster = masterSlugs.includes(category);
         return b.category === filterValue && !!b.isMaster === shouldBeMaster;
     });
@@ -460,12 +460,12 @@ export const businessService = {
     if (!user) throw new Error("Unauthorized");
     if (isSupabaseConfigured() && supabase) {
       // Comment above fix: Fixed invalid destructuring assignment with await in default value
-      const { error } = await supabase.from('vacancies').insert({
+      const { error = await supabase.from('vacancies').insert({
         ...data,
         business_id: businessId,
         author_id: user.id,
         status: 'pending'
-      });
+      }) } = {};
       if (error) throw error;
     }
   },

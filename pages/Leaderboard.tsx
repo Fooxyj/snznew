@@ -1,12 +1,14 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { User } from '../types';
-import { Loader2, Trophy, Crown } from 'lucide-react';
-import { BadgeIcon } from '../components/ui/Common';
+import { Loader2, Trophy, Crown, Info, X, Zap, Heart, MessageSquare, ShoppingBag, Flag } from 'lucide-react';
+import { BadgeIcon, Button } from '../components/ui/Common';
 
 export const Leaderboard: React.FC = () => {
+    const [showInfo, setShowInfo] = useState(false);
+    
     const { data: users = [], isLoading } = useQuery({
         queryKey: ['leaderboard'],
         queryFn: api.getLeaderboard
@@ -22,16 +24,66 @@ export const Leaderboard: React.FC = () => {
     const top3 = users.slice(0, 3);
     const rest = users.slice(3);
 
-    // Функция для получения значков к показу (логика как в профиле)
     const getDisplayBadges = (u: User) => {
         return Array.isArray(u.showcasedBadges) ? u.showcasedBadges : u.badges.slice(0, 3);
     };
 
     return (
         <div className="max-w-4xl mx-auto p-4 lg:p-8 pb-32">
-            <h1 className="text-3xl font-black mb-12 text-center flex items-center justify-center gap-3 dark:text-white uppercase tracking-tighter">
-                <Trophy className="w-10 h-10 text-yellow-500" /> Доска Почета
-            </h1>
+            <div className="flex flex-col items-center mb-12">
+                <h1 className="text-3xl font-black text-center flex items-center justify-center gap-3 dark:text-white uppercase tracking-tighter">
+                    <Trophy className="w-10 h-10 text-yellow-500" /> Доска Почета
+                </h1>
+                <button 
+                    onClick={() => setShowInfo(true)}
+                    className="mt-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                    <Info className="w-4 h-4" /> Как попасть в топ?
+                </button>
+            </div>
+
+            {/* Modal Info */}
+            {showInfo && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
+                    <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl border dark:border-gray-700 animate-in zoom-in-95">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-black uppercase tracking-tight dark:text-white">Правила рейтинга</h3>
+                            <button onClick={() => setShowInfo(false)}><X className="w-6 h-6 text-gray-400" /></button>
+                        </div>
+                        <div className="space-y-6">
+                            <p className="text-sm text-gray-500 font-medium leading-relaxed">На Доску Почета попадают самые активные и полезные жители Снежинска. Ваш статус определяется количеством накопленного опыта (XP).</p>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800">
+                                    <Flag className="w-5 h-5 text-blue-600 mb-2" />
+                                    <div className="font-bold text-xs dark:text-white">Квесты</div>
+                                    <p className="text-[10px] text-gray-400">Проходите городские задания</p>
+                                </div>
+                                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-2xl border border-red-100 dark:border-red-800">
+                                    <Heart className="w-5 h-5 text-red-500 mb-2" />
+                                    <div className="font-bold text-xs dark:text-white">Добро</div>
+                                    <p className="text-[10px] text-gray-400">Участвуйте в благотворительности</p>
+                                </div>
+                                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-100 dark:border-green-800">
+                                    <ShoppingBag className="w-5 h-5 text-green-600 mb-2" />
+                                    <div className="font-bold text-xs dark:text-white">Маркет</div>
+                                    <p className="text-[10px] text-gray-400">Размещайте объявления</p>
+                                </div>
+                                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-2xl border border-purple-100 dark:border-purple-800">
+                                    <MessageSquare className="w-5 h-5 text-purple-600 mb-2" />
+                                    <div className="font-bold text-xs dark:text-white">Социум</div>
+                                    <p className="text-[10px] text-gray-400">Общайтесь в клубах и чатах</p>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl text-[11px] text-gray-500 italic">
+                                * Рейтинг обновляется в реальном времени. Лидеры месяца могут получать специальные награды от партнеров Простора.
+                            </div>
+                        </div>
+                        <Button className="w-full mt-8 py-4 rounded-2xl font-black uppercase tracking-widest" onClick={() => setShowInfo(false)}>Понятно</Button>
+                    </div>
+                </div>
+            )}
 
             {/* Podium */}
             <div className="flex justify-center items-end gap-2 sm:gap-6 mb-16 px-2">
