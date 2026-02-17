@@ -15,7 +15,6 @@ import { Img } from '../components/ui/Image';
 import { ImageViewer } from '../components/ImageViewer';
 import { Button } from '../components/ui/Common';
 
-// --- Компонент для парсинга и отображения карточек в сообщениях ---
 const MessageContent: React.FC<{ text: string; isSelf: boolean }> = ({ text, isSelf }) => {
     const navigate = useNavigate();
 
@@ -33,7 +32,6 @@ const MessageContent: React.FC<{ text: string; isSelf: boolean }> = ({ text, isS
         return <p className="text-sm leading-relaxed font-medium whitespace-pre-wrap break-words">{text}</p>;
     }
 
-    // Рендеринг карточки объявления
     if (parsedData.type === 'ad_inquiry') {
         return (
             <div className={`flex flex-col gap-3 rounded-xl overflow-hidden border ${isSelf ? 'bg-white/10 border-white/20' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'} p-3 max-w-[280px]`}>
@@ -45,9 +43,11 @@ const MessageContent: React.FC<{ text: string; isSelf: boolean }> = ({ text, isS
                         <div className="text-sm font-black text-blue-600 mt-1">{parsedData.price}</div>
                     </div>
                 </div>
-                <div className={`text-xs p-2 rounded-lg italic ${isSelf ? 'bg-black/20' : 'bg-white dark:bg-gray-800'}`}>
-                    "{parsedData.text}"
-                </div>
+                {parsedData.text && (
+                    <div className={`text-xs p-2 rounded-lg italic ${isSelf ? 'bg-black/20' : 'bg-white dark:bg-gray-800'}`}>
+                        "{parsedData.text}"
+                    </div>
+                )}
                 <button 
                     onClick={() => navigate(`/ad/${parsedData.adId}`)}
                     className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-1.5"
@@ -58,7 +58,6 @@ const MessageContent: React.FC<{ text: string; isSelf: boolean }> = ({ text, isS
         );
     }
 
-    // Рендеринг карточки вакансии
     if (parsedData.type === 'vacancy_apply') {
         return (
             <div className={`flex flex-col gap-3 rounded-xl overflow-hidden border ${isSelf ? 'bg-white/10 border-white/20' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'} p-3 max-w-[280px]`}>
@@ -70,40 +69,16 @@ const MessageContent: React.FC<{ text: string; isSelf: boolean }> = ({ text, isS
                     <div className={`text-sm font-bold ${isSelf ? 'text-white' : 'dark:text-white'}`}>{parsedData.title}</div>
                     <div className="text-[11px] text-gray-400 font-bold uppercase">{parsedData.company}</div>
                 </div>
-                <div className={`text-xs p-2 rounded-lg italic ${isSelf ? 'bg-black/20' : 'bg-white dark:bg-gray-800'}`}>
-                    "{parsedData.text}"
-                </div>
+                {parsedData.text && (
+                    <div className={`text-xs p-2 rounded-lg italic ${isSelf ? 'bg-black/20' : 'bg-white dark:bg-gray-800'}`}>
+                        "{parsedData.text}"
+                    </div>
+                )}
             </div>
         );
     }
 
-    // Рендеринг карточки поездки
-    if (parsedData.type === 'ride_booking') {
-        return (
-            <div className={`flex flex-col gap-3 rounded-xl overflow-hidden border ${isSelf ? 'bg-white/10 border-white/20' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'} p-3 max-w-[280px]`}>
-                <div className="flex items-center gap-2 mb-1">
-                    <Car className="w-4 h-4 text-blue-500" />
-                    <div className="text-[10px] font-black uppercase text-blue-500 tracking-widest">Бронь поездки</div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-center">
-                    <div className="bg-black/5 dark:bg-white/5 p-1.5 rounded-lg">
-                        <div className="text-[8px] font-black uppercase opacity-50">Дата</div>
-                        <div className="text-[10px] font-bold">{parsedData.date}</div>
-                    </div>
-                    <div className="bg-black/5 dark:bg-white/5 p-1.5 rounded-lg">
-                        <div className="text-[8px] font-black uppercase opacity-50">Места</div>
-                        <div className="text-[10px] font-bold">{parsedData.requestedSeats}</div>
-                    </div>
-                </div>
-                <div className={`text-[11px] font-bold flex items-center justify-between ${isSelf ? 'text-white' : 'dark:text-white'}`}>
-                    <span>{parsedData.fromCity} → {parsedData.toCity}</span>
-                    <span className="text-blue-600">{parsedData.price}</span>
-                </div>
-            </div>
-        );
-    }
-
-    return <p className="text-sm font-medium opacity-50 italic">[Системное сообщение]</p>;
+    return <p className="text-sm leading-relaxed font-medium whitespace-pre-wrap break-words">{text}</p>;
 };
 
 export const ChatPage: React.FC = () => {
@@ -114,12 +89,10 @@ export const ChatPage: React.FC = () => {
     const [newMessage, setNewMessage] = useState('');
     const [chatFilter, setChatFilter] = useState<'personal' | 'business'>('personal');
     
-    // Selection States
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const longPressTimer = useRef<any>(null);
     
-    // Media States
     const [isUploadingMedia, setIsUploadingMedia] = useState(false);
     const [viewerImage, setViewerImage] = useState<string | null>(null);
     
@@ -148,10 +121,10 @@ export const ChatPage: React.FC = () => {
     }, [conversations, activeChat, activeConvoMetadata]);
 
     const isActingAsBusiness = useMemo(() => {
-        return activeConvo?.businessId && activeConvo?.businessOwnerId === currentUser?.id;
+        if (!activeConvo?.businessId || !currentUser) return false;
+        return (activeConvo.businessOwnerId || "").toLowerCase() === currentUser.id.toLowerCase();
     }, [activeConvo, currentUser]);
 
-    // Read logic
     useEffect(() => {
         if (activeChat && currentUser) {
             api.markMessagesAsRead(activeChat).then(() => {
@@ -175,7 +148,6 @@ export const ChatPage: React.FC = () => {
         refetchInterval: 3000 
     });
 
-    // --- Selection & Long Press Logic ---
     const startLongPress = (id: string) => {
         if (isSelectMode) return;
         longPressTimer.current = setTimeout(() => {
@@ -201,32 +173,40 @@ export const ChatPage: React.FC = () => {
     };
 
     const handleDeleteSelected = async (mode: 'forMe' | 'forEveryone') => {
-        if (selectedIds.length === 0) return;
+        if (selectedIds.length === 0 || !currentUser) return;
         
-        const myMessagesInSelection = mode === 'forEveryone' 
-            ? messages.filter(m => selectedIds.includes(m.id) && m.senderId === currentUser?.id)
-            : selectedIds;
+        const myId = currentUser.id.toLowerCase();
+        
+        const myMessages = messages.filter(m => 
+            selectedIds.includes(m.id) && 
+            m.senderId.toLowerCase() === myId
+        );
 
-        if (mode === 'forEveryone' && myMessagesInSelection.length === 0) {
-            alert("Вы можете удалять 'Для всех' только свои сообщения.");
-            return;
-        }
+        if (mode === 'forEveryone') {
+            if (myMessages.length === 0) {
+                alert("Вы можете удалять 'Для всех' только свои сообщения.");
+                return;
+            }
 
-        const confirmMsg = mode === 'forEveryone' 
-            ? `Удалить ${myMessagesInSelection.length} ваших сообщ. для всех?`
-            : `Скрыть ${selectedIds.length} сообщ. у себя?`;
-
-        if (confirm(confirmMsg)) {
-            try {
-                const idsToDelete = mode === 'forEveryone' 
-                    ? (myMessagesInSelection as any[]).map((m: any) => m.id)
-                    : selectedIds;
-                
-                await api.deleteMessages(idsToDelete, mode);
-                queryClient.invalidateQueries({ queryKey: ['messages', activeChat] });
-                setIsSelectMode(false);
-                setSelectedIds([]);
-            } catch (e: any) { alert(e.message); }
+            const confirmMsg = `Удалить ${myMessages.length} ваших сообщ. для всех участников?`;
+            if (confirm(confirmMsg)) {
+                try {
+                    const idsToDelete = myMessages.map(m => m.id);
+                    await api.deleteMessages(idsToDelete, 'forEveryone');
+                    queryClient.invalidateQueries({ queryKey: ['messages', activeChat] });
+                    setIsSelectMode(false);
+                    setSelectedIds([]);
+                } catch (e: any) { alert(e.message); }
+            }
+        } else {
+            if (confirm(`Скрыть ${selectedIds.length} сообщ. в вашей истории?`)) {
+                try {
+                    await api.deleteMessages(selectedIds, 'forMe');
+                    queryClient.invalidateQueries({ queryKey: ['messages', activeChat] });
+                    setIsSelectMode(false);
+                    setSelectedIds([]);
+                } catch (e: any) { alert(e.message); }
+            }
         }
     };
 
@@ -303,7 +283,6 @@ export const ChatPage: React.FC = () => {
         <div className="flex-1 flex bg-white dark:bg-gray-900 overflow-hidden h-[calc(100vh-64px)] lg:h-full relative">
             <ImageViewer isOpen={!!viewerImage} onClose={() => setViewerImage(null)} src={viewerImage || ''} />
 
-            {/* Sidebar (List of Chats) */}
             <div className={`absolute inset-0 md:relative md:flex w-full md:w-80 border-r dark:border-gray-800 flex flex-col h-full bg-white dark:bg-gray-900 transition-transform duration-300 z-20 ${activeChat ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
                 <div className="p-6 border-b dark:border-gray-800 shrink-0">
                     <h2 className="font-black text-2xl dark:text-white tracking-tighter uppercase mb-4">Сообщения</h2>
@@ -350,7 +329,6 @@ export const ChatPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Chat Area (Active Window) */}
             <div className={`absolute inset-0 md:relative md:flex w-full md:flex-1 flex flex-col h-full bg-white dark:bg-gray-900 transition-transform duration-300 z-30 ${activeChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
                 {activeChat ? (
                     <>
@@ -361,7 +339,11 @@ export const ChatPage: React.FC = () => {
                                     <img src={activeConvo?.partnerAvatar || 'https://ui-avatars.com/api/?name=U'} className="w-10 h-10 rounded-xl object-cover shadow-sm" alt="" />
                                     <div className="flex flex-col">
                                         <div className="font-black text-sm uppercase dark:text-white leading-none truncate max-w-[150px]">{activeConvo?.partnerName || '...'}</div>
-                                        {isActingAsBusiness && <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest mt-1">Клиент компании</div>}
+                                        {activeConvo?.businessName && (
+                                            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest mt-1">
+                                                {isActingAsBusiness ? 'Клиент вашей компании' : activeConvo.businessName}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -389,7 +371,7 @@ export const ChatPage: React.FC = () => {
                             className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[#F8FAFC] dark:bg-gray-950"
                         >
                             {messages.map(m => {
-                                const isSelf = m.senderId === currentUser?.id;
+                                const isSelf = m.senderId.toLowerCase() === currentUser?.id.toLowerCase();
                                 const isSelected = selectedIds.includes(m.id);
                                 return (
                                     <div 

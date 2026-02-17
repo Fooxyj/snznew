@@ -20,7 +20,7 @@ export const RentalsPage: React.FC = () => {
     const { data: rentals = [], isLoading: rLoading } = useQuery({ 
         queryKey: ['rentals'], 
         queryFn: api.getRentals,
-        staleTime: 5000 // Небольшое время жизни кэша для свежести списка
+        staleTime: 5000 
     });
     const { data: myBookings = [], isLoading: bLoading } = useQuery({ queryKey: ['myRentalBookings'], queryFn: api.getMyRentals });
     const { data: currentUser } = useQuery({ queryKey: ['user'], queryFn: api.getCurrentUser });
@@ -37,23 +37,9 @@ export const RentalsPage: React.FC = () => {
         if (!selectedItem || !dates.start || !dates.end) return;
         if (selectedItem.authorId === currentUser.id) return alert("Это ваша вещь");
 
-        const startD = new Date(dates.start);
-        const endD = new Date(dates.end);
-        const diffDays = Math.ceil(Math.abs(endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)) || 1;
-        const totalPrice = diffDays * selectedItem.pricePerDay;
-
         try {
-            const contextMsg = JSON.stringify({
-                type: 'rental_inquiry',
-                rentalId: selectedItem.id,
-                title: selectedItem.title,
-                image: selectedItem.image,
-                startDate: dates.start,
-                endDate: dates.end,
-                price: `${totalPrice} ₽ за ${diffDays} дн.`,
-                text: `Здравствуйте! Хочу арендовать "${selectedItem.title}" с ${dates.start} по ${dates.end}.`
-            });
-            const chatId = await api.startChat(selectedItem.authorId, contextMsg);
+            // Переход в чат без авто-сообщения
+            const chatId = await api.startChat(selectedItem.authorId, '');
             navigate(`/chat?id=${chatId}`);
         } catch (e: any) { alert(e.message); }
     };
@@ -131,14 +117,14 @@ export const RentalsPage: React.FC = () => {
                                             </div>
                                             <div className="text-right">
                                                 <div className="text-xs font-bold text-gray-700 dark:text-gray-300">Залог: {item.deposit} ₽</div>
-                                                <div className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">возвратный</div>
+                                                <div className="text-[9px] font-black uppercase tracking-widest">возвратный</div>
                                             </div>
                                         </div>
                                         
                                         {selectedItem?.id === item.id ? (
                                             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-3xl space-y-5 animate-fade-in border border-indigo-100 dark:border-indigo-800 shadow-inner">
                                                 <div className="flex justify-between items-center mb-1">
-                                                    <span className="text-[11px] font-black uppercase text-indigo-600 tracking-[0.2em]">Период аренды</span>
+                                                    <span className="text-[11px] font-black uppercase text-indigo-600 tracking-[0.2em]">Выбрать даты</span>
                                                     <button onClick={() => setSelectedItem(null)} className="text-gray-400 hover:text-red-500"><X className="w-5 h-5"/></button>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-4">
@@ -151,7 +137,7 @@ export const RentalsPage: React.FC = () => {
                                                         <input type="date" className="w-full bg-white dark:bg-gray-700 rounded-xl p-3 text-xs border-none outline-none focus:ring-2 focus:ring-indigo-500 font-bold" value={dates.end} onChange={e => setDates({...dates, end: e.target.value})} />
                                                     </div>
                                                 </div>
-                                                <Button className="w-full bg-indigo-600 font-black py-5 rounded-2xl text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-indigo-500/30 active:scale-95" onClick={handleBook} disabled={!dates.start || !dates.end}>Отправить запрос</Button>
+                                                <Button className="w-full bg-indigo-600 font-black py-5 rounded-2xl text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-indigo-500/30 active:scale-95" onClick={handleBook} disabled={!dates.start || !dates.end}>Написать владельцу</Button>
                                             </div>
                                         ) : (
                                             <Button className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] shadow-xl shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-95" onClick={() => setSelectedItem(item)}>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { Vacancy, User } from '../types';
@@ -153,18 +154,11 @@ export const JobsPage: React.FC = () => {
         if (user.id === v.authorId) return alert("Вы разместили эту вакансию");
 
         try {
-            const contextMsg = JSON.stringify({
-                type: 'vacancy_apply',
-                vacancyId: v.id,
-                title: v.title,
-                company: v.companyName,
-                text: `Здравствуйте! Я хочу откликнуться на вакансию "${v.title}" в компании "${v.companyName}".`
-            });
-            
-            const chatId = await api.startChat(v.authorId, contextMsg, v.businessId);
+            // Переход в чат с работодателем без автоматического сообщения
+            const chatId = await api.startChat(v.authorId, '', v.businessId);
             navigate(`/chat?id=${chatId}`);
         } catch (e: any) {
-            alert("Ошибка при создании чата: " + e.message);
+            alert("Ошибка при переходе в чат: " + e.message);
         }
     };
 
@@ -191,7 +185,7 @@ export const JobsPage: React.FC = () => {
                 <div>
                     <h4 className="text-sm font-black uppercase text-blue-900 dark:text-blue-300 tracking-tight">Прямая связь с работодателем</h4>
                     <p className="text-xs text-blue-700 dark:text-blue-400/80 leading-relaxed mt-1 font-medium">
-                        Теперь при отклике на вакансию автоматически создается чат. Вы можете задать вопросы и отправить свое резюме файлом прямо в мессенджере Простора.
+                        Нажмите кнопку отклика, чтобы открыть прямой диалог. Вы сможете лично задать вопросы и отправить резюме файлом.
                     </p>
                 </div>
             </div>

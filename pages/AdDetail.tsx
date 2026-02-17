@@ -34,8 +34,7 @@ export const AdDetail: React.FC = () => {
     const handleWrite = async () => {
         if (!ad || !currentUser) return navigate('/auth');
         try {
-            // Теперь передаем пустую строку в качестве сообщения, 
-            // чтобы просто открыть/создать диалог без автоотправки
+            // Переход в чат без автоматической отправки системного JSON-текста
             const chatId = await api.startChat(ad.authorId, '');
             navigate(`/chat?id=${chatId}`);
         } catch (e: any) { 
@@ -82,7 +81,6 @@ export const AdDetail: React.FC = () => {
                             className="w-full h-auto max-h-[70vh] object-contain block mx-auto" 
                         />
                         
-                        {/* Маркировка рекламы */}
                         {isPaid && (
                             <div className="absolute top-4 right-4 z-20">
                                 <div className="relative group/legal">

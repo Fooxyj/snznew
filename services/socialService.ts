@@ -36,7 +36,7 @@ const formatRelativeDate = (dateStr: string | null | undefined): string => {
 };
 
 const formatMessagePreview = (text: string): string => {
-    if (!text) return 'Нет сообщений';
+    if (!text) return 'Сообщение';
     const trimmed = text.trim();
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
         try {
@@ -46,12 +46,12 @@ const formatMessagePreview = (text: string): string => {
             if (data.type === 'ride_booking') return `Бронь: ${data.fromCity} - ${data.toCity}`;
             if (data.type === 'lost_found_inquiry') return `Бюро: ${data.title || 'Вещь'}`;
             if (data.type === 'rental_inquiry') return `Аренда: ${data.title || 'Вещь'}`;
-            return data.text || 'Системное уведомление';
+            return data.text || 'Вложение';
         } catch (e) {
             return text.length > 50 ? text.substring(0, 50) + '...' : text;
         }
     }
-    return text;
+    return text.length > 50 ? text.substring(0, 50) + '...' : text;
 };
 
 export const socialService = {
@@ -145,7 +145,9 @@ export const socialService = {
 
           if (error || !convo) return null;
 
-          const partnerId = convo.participant1_id === user.id ? convo.participant2_id : convo.participant1_id;
+          const myId = user.id.toLowerCase();
+          const p1 = (convo.participant1_id || "").toLowerCase();
+          const partnerId = p1 === myId ? convo.participant2_id : convo.participant1_id;
           
           const [profRes, bizRes] = await Promise.all([
               supabase.from('profiles').select('id, name, avatar').eq('id', partnerId).maybeSingle(),
@@ -154,16 +156,19 @@ export const socialService = {
                 : Promise.resolve({ data: null })
           ]);
 
+          const bizData = bizRes.data;
+          const isOwner = bizData && (bizData.author_id || "").toLowerCase() === myId;
+
           return {
               id: convo.id,
               participant1Id: convo.participant1_id,
               participant2Id: convo.participant2_id,
               partnerId: partnerId,
-              partnerName: bizRes.data ? (bizRes.data.author_id === user.id ? (profRes.data?.name || 'Клиент') : bizRes.data.name) : (profRes.data?.name || 'Житель Снежинска'),
-              partnerAvatar: bizRes.data ? (bizRes.data.author_id === user.id ? (profRes.data?.avatar || '') : bizRes.data.image) : (profRes.data?.avatar || ''),
+              partnerName: isOwner ? (profRes.data?.name || 'Клиент') : (bizData ? bizData.name : (profRes.data?.name || 'Житель Снежинска')),
+              partnerAvatar: isOwner ? (profRes.data?.avatar || '') : (bizData ? bizData.image : (profRes.data?.avatar || '')),
               businessId: convo.business_id,
-              businessName: bizRes.data?.name,
-              businessOwnerId: bizRes.data?.author_id,
+              businessName: bizData?.name,
+              businessOwnerId: bizData?.author_id,
               lastMessageDate: '',
               lastMessageText: ''
           };
@@ -176,6 +181,8 @@ export const socialService = {
         if (!user) return [];
         
         if (isSupabaseConfigured() && supabase) {
+            const myId = user.id.toLowerCase();
+            
             const { data: convos, error } = await supabase
                 .from('conversations')
                 .select(`id, participant1_id, participant2_id, business_id`)
@@ -219,35 +226,46 @@ export const socialService = {
             const partnerIds = new Set<string>();
             const bizIds = new Set<string>();
             convos.forEach(c => {
-                partnerIds.add(c.participant1_id === user.id ? c.participant2_id : c.participant1_id);
-                if (c.business_id) bizIds.add(c.business_id);
+                const p1 = (c.participant1_id || "").toLowerCase();
+                const pId = p1 === myId ? (c.participant2_id || "").toLowerCase() : (c.participant1_id || "").toLowerCase();
+                partnerIds.add(pId);
+                if (c.business_id) bizIds.add(c.business_id.toLowerCase());
             });
 
             const [profilesRes, businessesRes] = await Promise.all([
-                supabase.from('profiles').select('id, name, avatar').in('id', Array.from(partnerIds)),
+                partnerIds.size > 0 
+                    ? supabase.from('profiles').select('id, name, avatar').in('id', Array.from(partnerIds))
+                    : Promise.resolve({ data: [] }),
                 bizIds.size > 0 
                     ? supabase.from('businesses').select('id, name, image, author_id').in('id', Array.from(bizIds))
                     : Promise.resolve({ data: [] })
             ]);
 
-            const profileMap = new Map<string, any>(profilesRes.data?.map(p => [p.id, p]) || []);
-            const bizMap = new Map<string, any>(businessesRes.data?.map(b => [b.id, b]) || []);
+            // ПРИНУДИТЕЛЬНАЯ НОРМАЛИЗАЦИЯ: ключи в Map всегда в нижнем регистре
+            const profileMap = new Map<string, any>(profilesRes.data?.map(p => [p.id.toLowerCase(), p]) || []);
+            const bizMap = new Map<string, any>(businessesRes.data?.map(b => [b.id.toLowerCase(), b]) || []);
 
             const result = convos
                 .map((c: any) => {
-                    const partnerId = c.participant1_id === user.id ? c.participant2_id : c.participant1_id;
-                    const partnerProfile = profileMap.get(partnerId);
+                    const p1 = (c.participant1_id || "").toLowerCase();
+                    const pId = p1 === myId ? (c.participant2_id || "").toLowerCase() : (c.participant1_id || "").toLowerCase();
+                    const partnerProfile = profileMap.get(pId);
                     const lastMsg = lastMsgMap.get(c.id);
-                    const bizData = c.business_id ? bizMap.get(c.business_id) : null;
                     
-                    const isOwner = bizData?.author_id === user.id;
+                    const bId = (c.business_id || "").toLowerCase();
+                    const bizData = bId ? bizMap.get(bId) : null;
+                    
+                    // КЛЮЧЕВАЯ ЛОГИКА: 
+                    // 1. Если я - автор бизнеса, я вижу имя клиента. 
+                    // 2. Если я - клиент (бизнес не мой), я ВСЕГДА вижу название бизнеса.
+                    const isOwner = bizData && (bizData.author_id || "").toLowerCase() === myId;
                     const rawDate = lastMsg?.created_at || '1970-01-01T00:00:00Z';
 
                     return {
                         id: c.id,
                         participant1Id: c.participant1_id,
                         participant2Id: c.participant2_id,
-                        partnerId: partnerId,
+                        partnerId: pId,
                         partnerName: isOwner ? (partnerProfile?.name || 'Клиент') : (bizData ? bizData.name : (partnerProfile?.name || 'Житель Снежинска')),
                         partnerAvatar: isOwner ? (partnerProfile?.avatar || '') : (bizData ? bizData.image : (partnerProfile?.avatar || '')),
                         businessId: c.business_id,
@@ -255,7 +273,7 @@ export const socialService = {
                         businessOwnerId: bizData?.author_id,
                         lastMessageDate: lastMsg ? formatRelativeDate(rawDate) : '—',
                         lastMessageDateRaw: rawDate,
-                        lastMessageText: lastMsg ? formatMessagePreview(lastMsg.text) : 'Нет сообщений',
+                        lastMessageText: lastMsg ? formatMessagePreview(lastMsg.text) : 'Сообщений нет',
                         unreadCount: unreadMap.get(c.id) || 0
                     };
                 })
@@ -293,7 +311,7 @@ export const socialService = {
                 return data.map(m => ({ 
                     ...m, 
                     conversationId: m.conversation_id, 
-                    senderId: m.sender_id, 
+                    senderId: (m.sender_id || "").toLowerCase(), 
                     createdAt: m.created_at, 
                     isRead: m.is_read,
                     imageUrl: m.image_url,
@@ -404,7 +422,6 @@ export const socialService = {
               if (insertError) throw insertError;
               cid = newConvo?.id;
           }
-          if (text && cid) await this.sendMessage(cid, text);
           return cid!;
       }
       return 'mc_mock';
@@ -509,7 +526,7 @@ export const socialService = {
               media, 
               caption: caption || '', 
               content_config: configStr, 
-              status: isAdmin ? 'published' : 'pending' // Важно: админы постят сразу, юзеры - на модерацию
+              status: isAdmin ? 'published' : 'pending' 
           });
 
           if (error) throw error;
@@ -525,13 +542,12 @@ export const socialService = {
           const { data, error } = await supabase
             .from('stories')
             .select('*, story_views(user_id, profiles(name, avatar))')
-            .eq('status', 'published') // Берем ТОЛЬКО опубликованные
+            .eq('status', 'published') 
             .order('created_at', { ascending: false });
             
           if (error) throw error;
           if (!data) return [];
           
-          // Фильтрация по сроку давности (макс 3 дня)
           const MAX_STORY_AGE = 3 * 24 * 60 * 60 * 1000;
           const now = Date.now();
           const filteredData = data.filter(s => (now - new Date(s.created_at).getTime()) < MAX_STORY_AGE);
@@ -694,7 +710,6 @@ export const socialService = {
       return [];
   },
 
-  // Comment above fix: Added missing createCommunity method to socialService
   async createCommunity(data: any): Promise<void> {
       const user = await authService.getCurrentUser();
       if (!user || !isSupabaseConfigured() || !supabase) return;

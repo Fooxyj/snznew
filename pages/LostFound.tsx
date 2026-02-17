@@ -143,13 +143,11 @@ export const LostFound: React.FC = () => {
         queryFn: () => api.getLostFoundItems(filter)
     });
 
-    // Фильтруем решенные объявления — теперь они мгновенно исчезают из списка
     const activeItems = items.filter(item => !item.isResolved);
 
     const resolveMutation = useMutation({
         mutationFn: api.resolveLostFoundItem,
         onSuccess: () => {
-            // Принудительное обновление списка
             queryClient.invalidateQueries({ queryKey: ['lostFound'] });
         }
     });
@@ -164,14 +162,8 @@ export const LostFound: React.FC = () => {
         if (item.authorId === currentUser.id) return;
 
         try {
-            const contextMsg = JSON.stringify({
-                type: 'lost_found_inquiry',
-                id: item.id,
-                title: item.title,
-                image: item.image,
-                text: `Здравствуйте! Я по поводу объявления в Бюро находок: "${item.title}"`
-            });
-            const chatId = await api.startChat(item.authorId, contextMsg);
+            // Переход в чат без авто-сообщения
+            const chatId = await api.startChat(item.authorId, '');
             navigate(`/chat?id=${chatId}`);
         } catch (e: any) { alert(e.message); }
     };
