@@ -108,6 +108,15 @@ export const businessService = {
     return [];
   },
 
+  async getAllBusinessesForAdmin(): Promise<Business[]> {
+    if (isSupabaseConfigured() && supabase) {
+        const { data, error } = await supabase.from('businesses').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data || []).map(mapBusinessFromDB);
+    }
+    return [];
+  },
+
   async createBusiness(data: any): Promise<Business> {
     const user = await authService.getCurrentUser();
     if (!user) throw new Error("Unauthorized");
@@ -320,7 +329,7 @@ export const businessService = {
 
   async addEmployee(businessId: string, email: string, role: string): Promise<void> {
     if (isSupabaseConfigured() && supabase) {
-        const { data: profile, error } = await supabase.from('profiles').select('id, name, avatar').eq('email', email).maybeSingle();
+        const { data: profile, error } = await supabase.from('profiles').select('id, name, avatar').ilike('email', email).maybeSingle();
         if (error) throw error;
         if (!profile) throw new Error("Пользователь с таким email не найден.");
         
@@ -552,6 +561,62 @@ export const businessService = {
         if (isSupabaseConfigured() && supabase) {
             // Comment above fix: Fixed invalid destructuring assignment with await in default value
             const { error } = await supabase.from('business_posts').delete().eq('id', id);
+            if (error) throw error;
+        }
+      } catch (e: any) { throw e; }
+  },
+
+  async updateBusinessPost(id: string, data: any): Promise<void> {
+      try {
+        if (isSupabaseConfigured() && supabase) {
+            const { error } = await supabase.from('business_posts').update({
+                title: data.title,
+                content: data.content,
+                image: data.image
+            }).eq('id', id);
+            if (error) throw error;
+        }
+      } catch (e: any) { throw e; }
+  },
+
+  async updateService(id: string, data: any): Promise<void> {
+      try {
+        if (isSupabaseConfigured() && supabase) {
+            const { error } = await supabase.from('services').update({
+                title: data.title,
+                price: data.price,
+                duration_min: data.durationMin,
+                description: data.description
+            }).eq('id', id);
+            if (error) throw error;
+        }
+      } catch (e: any) { throw e; }
+  },
+
+  async updateVacancy(id: string, data: any): Promise<void> {
+      try {
+        if (isSupabaseConfigured() && supabase) {
+            const { error } = await supabase.from('vacancies').update({
+                title: data.title,
+                description: data.description,
+                salary_min: data.salaryMin,
+                schedule: data.schedule,
+                contact_phone: data.contactPhone
+            }).eq('id', id);
+            if (error) throw error;
+        }
+      } catch (e: any) { throw e; }
+  },
+
+  async updateCoupon(id: string, data: any): Promise<void> {
+      try {
+        if (isSupabaseConfigured() && supabase) {
+            const { error } = await supabase.from('coupons').update({
+                title: data.title,
+                discount: data.discount,
+                code: data.code,
+                description: data.description
+            }).eq('id', id);
             if (error) throw error;
         }
       } catch (e: any) { throw e; }

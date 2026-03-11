@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CATEGORIES } from '../constants';
 import { Button, formatAddress, formatPhone } from '../components/ui/Common';
-import { MapPin, Phone, Clock, Map as MapIcon, List, Loader2, ArrowRight, Star, User } from 'lucide-react';
+import { MapPin, Phone, Clock, Map as MapIcon, List, Loader2, ArrowRight, Star, User, Building2 } from 'lucide-react';
 import { api } from '../services/api';
 import { YandexMap } from '../components/YandexMap';
 import { BusinessCardSkeleton } from '../components/ui/Skeleton';
@@ -78,9 +78,13 @@ export const BusinessDirectory: React.FC = () => {
           ) : displayedBusinesses.length === 0 ? (
             <div className="text-center py-20 text-gray-500 dark:text-gray-400 flex flex-col items-center">
                 <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
-                    <List className="w-8 h-8 opacity-30" />
+                    <Building2 className="w-8 h-8 opacity-30" />
                 </div>
-                <p>В этой категории пока ничего не найдено.</p>
+                <p className="text-lg font-bold mb-2">В этой категории пока ничего не найдено</p>
+                <p className="text-sm max-w-xs mx-auto mb-8">Возможно, организации еще проходят модерацию или в этой категории пока нет объектов.</p>
+                <Button onClick={() => navigate('/connect-business')} className="rounded-2xl">
+                    Добавить свою организацию
+                </Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">

@@ -224,6 +224,86 @@ export const CreateBusinessPostModal: React.FC<{ businessId: string; isOpen: boo
     );
 };
 
+export const EditBusinessPostModal: React.FC<{ post: any; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ post, isOpen, onClose, onSuccess }) => {
+    const [formData, setFormData] = useState({ title: post?.title || '', content: post?.content || '', image: post?.image || '' });
+    const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+
+    useEffect(() => {
+        if (isOpen && post) {
+            setFormData({
+                title: post.title,
+                content: post.content,
+                image: post.image
+            });
+        }
+    }, [isOpen, post]);
+
+    if (!isOpen) return null;
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        try {
+            const url = await api.uploadImage(file);
+            setFormData(prev => ({ ...prev, image: url }));
+        } catch (e: any) { alert(e.message); } finally { setUploading(false); }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await api.updateBusinessPost(post.id, formData);
+            onSuccess();
+            onClose();
+        } catch (e: any) { alert(e.message); } finally { setLoading(false); }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center px-6 py-4 border-b dark:border-gray-700 shrink-0">
+                    <h3 className="font-bold text-lg dark:text-white uppercase tracking-tight flex items-center gap-2">
+                        <Newspaper className="w-5 h-5 text-blue-500" /> Редактировать новость
+                    </h3>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
+                </div>
+                
+                <form id="edit-post-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5 custom-scrollbar">
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Заголовок</label>
+                        <input className="w-full border rounded-xl p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Текст новости / Акции</label>
+                        <textarea className="w-full border rounded-xl p-4 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none font-medium" rows={6} value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} required />
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-gray-400 mb-1.5 block tracking-widest">Изображение</label>
+                        <div className="relative group rounded-2xl overflow-hidden border dark:border-gray-600 shadow-md">
+                            <img src={formData.image} alt="Preview" className="w-full h-48 object-cover" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                {uploading ? <Loader2 className="w-8 h-8 animate-spin" /> : <Camera className="w-8 h-8" />}
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageUpload} accept="image/*" />
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <div className="px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 shrink-0">
+                    <Button form="edit-post-form" className="w-full py-4 text-lg font-black uppercase tracking-tighter" disabled={loading || uploading}>
+                        {loading ? <Loader2 className="animate-spin w-6 h-6" /> : 'Сохранить изменения'}
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const CreateProductModal: React.FC<{ businessId: string; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ businessId, isOpen, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({ name: '', description: '', price: '', image: '', category: PRODUCT_CATEGORIES[0] });
     const [loading, setLoading] = useState(false);
@@ -410,6 +490,153 @@ export const EditProductModal: React.FC<{ product: Product; isOpen: boolean; onC
                         {loading ? <Loader2 className="animate-spin w-6 h-6" /> : 'Сохранить изменения'}
                     </Button>
                 </div>
+            </div>
+        </div>
+    );
+};
+
+export const EditServiceModal: React.FC<{ service: any; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ service, isOpen, onClose, onSuccess }) => {
+    const [formData, setFormData] = useState({ title: service?.title || '', price: service?.price?.toString() || '', durationMin: service?.durationMin?.toString() || '30', description: service?.description || '' });
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (isOpen && service) {
+            setFormData({
+                title: service.title,
+                price: service.price.toString(),
+                durationMin: service.durationMin.toString(),
+                description: service.description || ''
+            });
+        }
+    }, [isOpen, service]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await api.updateService(service.id, { ...formData, price: Number(formData.price), durationMin: Number(formData.durationMin) });
+            onSuccess();
+            onClose();
+        } catch (e: any) { alert(e.message); } finally { setLoading(false); }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold dark:text-white uppercase">Редактировать услугу</h2>
+                    <button onClick={onClose}><X className="text-gray-400" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Название услуги" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                    <div className="grid grid-cols-2 gap-4">
+                        <input type="number" className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Цена (₽)" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
+                        <input type="number" className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Длительность (мин)" value={formData.durationMin} onChange={e => setFormData({...formData, durationMin: e.target.value})} required />
+                    </div>
+                    <textarea className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Описание (необязательно)" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} />
+                    <Button className="w-full py-3" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Сохранить'}</Button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+export const EditBusinessVacancyModal: React.FC<{ vacancy: any; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ vacancy, isOpen, onClose, onSuccess }) => {
+    const [formData, setFormData] = useState({ title: vacancy?.title || '', description: vacancy?.description || '', salaryMin: vacancy?.salaryMin?.toString() || '', schedule: vacancy?.schedule || 'full', contactPhone: vacancy?.contactPhone || '' });
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (isOpen && vacancy) {
+            setFormData({
+                title: vacancy.title,
+                description: vacancy.description,
+                salaryMin: vacancy.salaryMin?.toString() || '',
+                schedule: vacancy.schedule || 'full',
+                contactPhone: vacancy.contactPhone || ''
+            });
+        }
+    }, [isOpen, vacancy]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await api.updateVacancy(vacancy.id, { ...formData, salaryMin: Number(formData.salaryMin) });
+            onSuccess();
+            onClose();
+        } catch (e: any) { alert(e.message); } finally { setLoading(false); }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold dark:text-white uppercase">Редактировать вакансию</h2>
+                    <button onClick={onClose}><X className="text-gray-400" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Должность" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                    <input type="number" className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Зарплата от (₽)" value={formData.salaryMin} onChange={e => setFormData({...formData, salaryMin: e.target.value})} />
+                    <select className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" value={formData.schedule} onChange={e => setFormData({...formData, schedule: e.target.value})}>
+                        <option value="full">Полный день</option>
+                        <option value="shift">Сменный график</option>
+                        <option value="remote">Удаленно</option>
+                    </select>
+                    <textarea className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Описание и требования" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={4} required />
+                    <Button className="w-full py-3" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Сохранить'}</Button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+export const EditCouponModal: React.FC<{ coupon: any; isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ coupon, isOpen, onClose, onSuccess }) => {
+    const [formData, setFormData] = useState({ title: coupon?.title || '', discount: coupon?.discount || '', code: coupon?.code || '', description: coupon?.description || '' });
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (isOpen && coupon) {
+            setFormData({
+                title: coupon.title,
+                discount: coupon.discount,
+                code: coupon.code,
+                description: coupon.description || ''
+            });
+        }
+    }, [isOpen, coupon]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await api.updateCoupon(coupon.id, formData);
+            onSuccess();
+            onClose();
+        } catch (e: any) { alert(e.message); } finally { setLoading(false); }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold dark:text-white uppercase">Редактировать купон</h2>
+                    <button onClick={onClose}><X className="text-gray-400" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Название акции" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                    <div className="grid grid-cols-2 gap-4">
+                        <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Скидка (напр. 10%)" value={formData.discount} onChange={e => setFormData({...formData, discount: e.target.value})} required />
+                        <input className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Промокод" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} required />
+                    </div>
+                    <textarea className="w-full border rounded-xl p-3 dark:bg-gray-700 dark:text-white" placeholder="Условия акции" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} />
+                    <Button className="w-full py-3" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Сохранить'}</Button>
+                </form>
             </div>
         </div>
     );

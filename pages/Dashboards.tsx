@@ -14,7 +14,7 @@ import {
     Mail, Briefcase, UserCheck, PlaySquare, XCircle
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../components/ToastProvider';
 import { CreateNewsModal } from '../components/CreateNewsModal';
 import { CreateEventModal } from '../components/CreateEventModal';
@@ -74,7 +74,7 @@ export const Profile: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [editingAd, setEditingAd] = useState<Ad | null>(null);
-    const [activeTab, setActiveTab] = useState<'my-ads' | 'favorites' | 'achievements'>('my-ads');
+    const [activeTab, setActiveTab] = useState<'my-ads' | 'favorites' | 'achievements' | 'my-businesses'>('my-ads');
     const [deleteTarget, setDeleteTarget] = useState<{ id: string, title?: string } | null>(null);
     
     const { data: user, isLoading: userLoading } = useQuery({ queryKey: ['user'], queryFn: api.getCurrentUser });
@@ -203,6 +203,9 @@ export const Profile: React.FC = () => {
                 </button>
                 <button onClick={() => setActiveTab('favorites')} className={`pb-4 text-sm font-black uppercase tracking-widest relative flex items-center gap-2 whitespace-nowrap ${activeTab === 'favorites' ? 'text-red-500 border-b-2 border-red-500' : 'text-gray-400'}`}>
                     <Heart className="w-4 h-4" /> Избранное <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full text-[10px] ml-1 font-bold">{displayFavCount}</span>
+                </button>
+                <button onClick={() => setActiveTab('my-businesses')} className={`pb-4 text-sm font-black uppercase tracking-widest relative flex items-center gap-2 whitespace-nowrap ${activeTab === 'my-businesses' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>
+                    <Building2 className="w-4 h-4" /> Мой бизнес <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full text-[10px] ml-1 font-bold">{myBusinesses.length}</span>
                 </button>
             </div>
 
@@ -340,6 +343,53 @@ export const Profile: React.FC = () => {
                         </div>
                     )
                 )}
+                {activeTab === 'my-businesses' && (
+                    <div className="space-y-6 animate-in fade-in">
+                        {myBusinesses.length === 0 ? (
+                            <div className="text-center py-32 text-gray-400 font-bold uppercase tracking-widest border-4 border-dashed rounded-[3rem] dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+                                <p className="mb-6">У вас пока нет зарегистрированного бизнеса</p>
+                                <Link to="/connect-business">
+                                    <Button variant="primary" className="rounded-2xl px-8">
+                                        Подключить бизнес
+                                    </Button>
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {myBusinesses.map(biz => (
+                                    <div key={biz.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] border dark:border-gray-700 shadow-sm flex gap-6 items-center group hover:border-blue-500/50 transition-all cursor-pointer" onClick={() => navigate('/business-crm')}>
+                                        <img src={biz.image} className="w-20 h-20 rounded-2xl object-cover border dark:border-gray-700" alt="" />
+                                        <div className="flex-1">
+                                            <div className="flex items-center justify-between">
+                                                <h3 className="font-black text-lg dark:text-white uppercase tracking-tighter">{biz.name}</h3>
+                                                <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+                                            </div>
+                                            <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">{biz.category}</p>
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <Badge color={biz.verificationStatus === 'verified' ? 'blue' : 'orange'}>
+                                                    {biz.verificationStatus === 'verified' ? 'Верифицирован' : 'На проверке'}
+                                                </Badge>
+                                                {biz.subscription_expires_at && (
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">
+                                                        До {new Date(biz.subscription_expires_at).toLocaleDateString()}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                <Link to="/connect-business" className="flex items-center justify-center p-8 border-4 border-dashed border-gray-100 dark:border-gray-800 rounded-[2.5rem] hover:border-blue-500/30 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all group">
+                                    <div className="text-center">
+                                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-all">
+                                            <Plus className="w-6 h-6 text-gray-400 group-hover:text-blue-600" />
+                                        </div>
+                                        <span className="text-xs font-black uppercase tracking-widest text-gray-400 group-hover:text-blue-600">Добавить еще</span>
+                                    </div>
+                                </Link>
+                            </div>
+                        )}
+                    </div>
+                )}
             </section>
         </div>
     );
@@ -350,7 +400,7 @@ export const AdminDashboard: React.FC = () => {
     const queryClient = useQueryClient();
     const navigate = useNavigate();
 
-    const [activeTab, setActiveTab] = useState<'stats' | 'moderation' | 'feedback' | 'city-data' | 'promotions' | 'users' | 'moderation-logs'>('stats');
+    const [activeTab, setActiveTab] = useState<'stats' | 'moderation' | 'feedback' | 'city-data' | 'promotions' | 'users' | 'moderation-logs' | 'businesses'>('stats');
     const [feedbackSubTab, setFeedbackSubTab] = useState<'reports' | 'ideas'>('reports');
     const [citySubTab, setCitySubTab] = useState<'news' | 'banners' | 'events' | 'transport' | 'quests' | 'campaigns' | 'exclusive_pages' | 'stories'>('news');
     const [userSearch, setUserSearch] = useState('');
@@ -375,8 +425,26 @@ export const AdminDashboard: React.FC = () => {
     });
     const { data: reports = [] } = useQuery({ queryKey: ['adminReports'], queryFn: api.getAdminReports });
     const { data: suggestions = [] } = useQuery({ queryKey: ['adminSuggestions'], queryFn: api.getAdminSuggestions });
-    const { data: profiles = [] } = useQuery({ queryKey: ['adminProfiles', userSearch], queryFn: () => api.getAllProfiles(userSearch), enabled: isAdmin });
+    const { data: profiles = [] } = useQuery({ queryKey: ['adminProfiles', userSearch], queryFn: () => api.getAllProfiles(userSearch), enabled: isAdmin && activeTab === 'users' });
+    const { data: allBusinesses = [], refetch: refetchAllBusinesses } = useQuery({ 
+        queryKey: ['adminBusinesses'], 
+        queryFn: api.getAllBusinessesForAdmin, 
+        enabled: isAdmin && activeTab === 'businesses' 
+    });
     const { data: modLogs = [], isLoading: modLogsLoading } = useQuery({ queryKey: ['moderationLogs'], queryFn: api.getModerationLogs, enabled: isAdmin });
+
+    const extendSubscriptionMutation = useMutation({
+        mutationFn: ({ id, days }: { id: string, days: number }) => {
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + days);
+            return api.updateBusiness(id, { subscription_expires_at: expiresAt.toISOString() });
+        },
+        onSuccess: () => {
+            success("Подписка продлена!");
+            queryClient.invalidateQueries({ queryKey: ['adminBusinesses'] });
+        },
+        onError: (e: any) => showError(`Ошибка: ${e.message}`)
+    });
 
     const { data: banners = [] } = useQuery({ queryKey: ['banners'], queryFn: () => api.getBanners(), enabled: isAdmin && activeTab === 'city-data' });
     const { data: exclusivePages = [] } = useQuery({ queryKey: ['exclusivePages'], queryFn: api.getExclusivePages, enabled: isAdmin && activeTab === 'city-data' });
@@ -570,7 +638,7 @@ export const AdminDashboard: React.FC = () => {
                     <button onClick={() => setActiveTab('moderation')} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'moderation' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 border dark:border-gray-700'}`}><div className="flex items-center gap-3"><Shield className="w-5 h-5" /> Модерация</div> {pending.length > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black">{pending.length}</span>}</button>
                     {isAdmin && <button onClick={() => setActiveTab('moderation-logs')} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'moderation-logs' ? 'bg-gray-900 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 border dark:border-gray-700'}`}><div className="flex items-center gap-3"><History className="w-5 h-5" /> Лог действий</div></button>}
                     <button onClick={() => setActiveTab('feedback')} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'feedback' ? 'bg-red-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 border dark:border-gray-700'}`}><div className="flex items-center gap-3"><MessageSquare className="w-5 h-5" /> Обратная связь</div></button>
-                    {isAdmin && <><button onClick={() => setActiveTab('promotions')} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'promotions' ? 'bg-orange-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 border dark:border-gray-700'}`}><div className="flex items-center gap-3"><Megaphone className="w-5 h-5" /> Реклама</div></button><button onClick={() => setActiveTab('city-data')} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'city-data' ? 'bg-gray-700 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 border dark:border-gray-700'}`}><div className="flex items-center gap-3"><Settings className="w-5 h-5" /> Данные города</div></button><button onClick={() => setActiveTab('users')} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'users' ? 'bg-blue-800 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 border dark:border-gray-700'}`}><div className="flex items-center gap-3"><Users className="w-5 h-5" /> Жители</div></button></>}
+                    {isAdmin && <><button onClick={() => setActiveTab('promotions')} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'promotions' ? 'bg-orange-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 border dark:border-gray-700'}`}><div className="flex items-center gap-3"><Megaphone className="w-5 h-5" /> Реклама</div></button><button onClick={() => setActiveTab('businesses')} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'businesses' ? 'bg-teal-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 border dark:border-gray-700'}`}><div className="flex items-center gap-3"><Building2 className="w-5 h-5" /> Компании</div></button><button onClick={() => setActiveTab('city-data')} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'city-data' ? 'bg-gray-700 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 border dark:border-gray-700'}`}><div className="flex items-center gap-3"><Settings className="w-5 h-5" /> Данные города</div></button><button onClick={() => setActiveTab('users')} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'users' ? 'bg-blue-800 text-white shadow-lg' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 border dark:border-gray-700'}`}><div className="flex items-center gap-3"><Users className="w-5 h-5" /> Жители</div></button></>}
                 </div>
 
                 <div className="lg:col-span-3">
@@ -967,6 +1035,47 @@ export const AdminDashboard: React.FC = () => {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'businesses' && isAdmin && (
+                        <div className="space-y-6 animate-in fade-in">
+                            <h2 className="text-2xl font-black dark:text-white uppercase tracking-tight">Управление компаниями</h2>
+                            <div className="grid grid-cols-1 gap-4">
+                                {allBusinesses.map(biz => {
+                                    const expiry = biz.subscription_expires_at ? new Date(biz.subscription_expires_at) : null;
+                                    const isExpired = expiry ? expiry.getTime() < Date.now() : true;
+                                    
+                                    return (
+                                        <div key={biz.id} className="bg-white dark:bg-gray-800 p-6 rounded-[2.5rem] border dark:border-gray-700 shadow-sm flex flex-col md:flex-row gap-6 items-center">
+                                            <img src={biz.image} className="w-20 h-20 rounded-2xl object-cover border dark:border-gray-700" alt="" />
+                                            <div className="flex-1 text-center md:text-left">
+                                                <h3 className="font-black text-lg dark:text-white uppercase tracking-tighter">{biz.name}</h3>
+                                                <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">{biz.category}</p>
+                                                <div className="mt-2 flex items-center justify-center md:justify-start gap-2">
+                                                    <Badge color={isExpired ? 'red' : 'green'}>
+                                                        {isExpired ? 'Срок истек' : `До ${expiry?.toLocaleDateString('ru-RU')}`}
+                                                    </Badge>
+                                                    <Badge color={biz.verificationStatus === 'verified' ? 'blue' : 'orange'}>
+                                                        {biz.verificationStatus === 'verified' ? 'Верифицирован' : 'На проверке'}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2 justify-center">
+                                                <Button size="sm" variant="outline" className="rounded-xl" onClick={() => extendSubscriptionMutation.mutate({ id: biz.id, days: 30 })} loading={extendSubscriptionMutation.isPending && extendSubscriptionMutation.variables?.id === biz.id}>
+                                                    +30 дней
+                                                </Button>
+                                                <Button size="sm" variant="outline" className="rounded-xl" onClick={() => extendSubscriptionMutation.mutate({ id: biz.id, days: 365 })} loading={extendSubscriptionMutation.isPending && extendSubscriptionMutation.variables?.id === biz.id}>
+                                                    +1 год
+                                                </Button>
+                                                <Button size="sm" variant="outline" className="rounded-xl" onClick={() => navigate(`/business/${biz.id}`)}>
+                                                    Перейти
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}

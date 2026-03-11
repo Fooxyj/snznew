@@ -284,8 +284,8 @@ export const ChatPage: React.FC = () => {
             <ImageViewer isOpen={!!viewerImage} onClose={() => setViewerImage(null)} src={viewerImage || ''} />
 
             <div className={`absolute inset-0 md:relative md:flex w-full md:w-80 border-r dark:border-gray-800 flex flex-col h-full bg-white dark:bg-gray-900 transition-transform duration-300 z-20 ${activeChat ? '-translate-x-full md:translate-x-0' : 'translate-x-0'}`}>
-                <div className="p-6 border-b dark:border-gray-800 shrink-0">
-                    <h2 className="font-black text-2xl dark:text-white tracking-tighter uppercase mb-4">Сообщения</h2>
+                <div className="p-4 sm:p-6 border-b dark:border-gray-800 shrink-0">
+                    <h2 className="font-black text-xl sm:text-2xl dark:text-white tracking-tighter uppercase mb-4">Сообщения</h2>
                     <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl">
                         <button onClick={() => setChatFilter('personal')} className={`flex-1 py-2 text-[9px] font-black uppercase rounded-xl transition-all ${chatFilter === 'personal' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-400'}`}>Личные</button>
                         <button onClick={() => setChatFilter('business')} className={`flex-1 py-2 text-[9px] font-black uppercase rounded-xl transition-all ${chatFilter === 'business' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-400'}`}>Бизнес</button>
@@ -302,24 +302,24 @@ export const ChatPage: React.FC = () => {
                         </div>
                     ) : (
                         filteredConversations.map(c => (
-                            <div key={c.id} onClick={() => handleSelectChat(c.id)} className={`p-5 border-b dark:border-gray-800 cursor-pointer hover:bg-blue-50/50 flex items-center gap-4 transition-all group/item ${activeChat === c.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                            <div key={c.id} onClick={() => handleSelectChat(c.id)} className={`p-4 sm:p-5 border-b dark:border-gray-800 cursor-pointer hover:bg-blue-50/50 flex items-center gap-3 sm:gap-4 transition-all group/item ${activeChat === c.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
                                 <div className="relative shrink-0">
-                                    <img src={c.partnerAvatar || 'https://ui-avatars.com/api/?name=U'} className="w-12 h-12 rounded-2xl object-cover bg-gray-100 shadow-sm" />
+                                    <img src={c.partnerAvatar || 'https://ui-avatars.com/api/?name=U'} className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-cover bg-gray-100 shadow-sm" />
                                     {c.unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full font-black border-2 border-white dark:border-gray-900">{c.unreadCount}</span>}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-1">
-                                        <h4 className="text-sm font-black dark:text-white truncate uppercase tracking-tight">{c.partnerName}</h4>
-                                        <span className="text-[8px] font-black text-gray-400 uppercase shrink-0">{c.lastMessageDate}</span>
+                                        <h4 className="text-xs sm:text-sm font-black dark:text-white truncate uppercase tracking-tight">{c.partnerName}</h4>
+                                        <span className="text-[7px] sm:text-[8px] font-black text-gray-400 uppercase shrink-0">{c.lastMessageDate}</span>
                                     </div>
                                     <div className="flex justify-between items-center gap-2">
-                                        <p className="text-xs truncate text-gray-500 font-medium">{c.lastMessageText}</p>
+                                        <p className="text-[10px] sm:text-xs truncate text-gray-500 font-medium">{c.lastMessageText}</p>
                                         <button 
                                             onClick={(e) => handleDeleteConversation(e, c.id)}
-                                            className="p-1.5 text-gray-400 hover:text-red-500 transition-all shrink-0 bg-gray-50 dark:bg-gray-800 rounded-lg md:opacity-0 group-hover/item:opacity-100"
+                                            className="p-1 text-gray-400 hover:text-red-500 transition-all shrink-0 bg-gray-50 dark:bg-gray-800 rounded-lg opacity-100 md:opacity-0 group-hover/item:opacity-100"
                                             title="Удалить диалог"
                                         >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         </button>
                                     </div>
                                 </div>
@@ -368,7 +368,7 @@ export const ChatPage: React.FC = () => {
 
                         <div 
                             ref={messageContainerRef} 
-                            className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[#F8FAFC] dark:bg-gray-950"
+                            className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[#F8FAFC] dark:bg-gray-95"
                         >
                             {messages.map(m => {
                                 const isSelf = m.senderId.toLowerCase() === currentUser?.id.toLowerCase();

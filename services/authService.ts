@@ -49,11 +49,13 @@ const calculateBadges = (profile: any): string[] => {
     return Array.from(new Set(badges)); // Убираем дубликаты
 };
 
+const ADMIN_EMAILS = ['evgsur23@gmail.com'];
+
 export const authService = {
   initializeAuthListener(callback: (event: string) => void) {
     if (isSupabaseConfigured() && supabase) {
       try {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session) => {
           if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
             Object.assign(CURRENT_USER, { id: '', role: UserRole.GUEST, name: 'Гость' });
             callback(event);
@@ -106,7 +108,7 @@ export const authService = {
                     id: data.user.id,
                     name: name,
                     email: email,
-                    role: 'USER',
+                    role: ADMIN_EMAILS.includes(email) ? UserRole.ADMIN : UserRole.USER,
                     xp: 0,
                     avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
                 }, { onConflict: 'id' });
@@ -173,14 +175,15 @@ export const authService = {
             const profile = profileRes.data;
             const dbFavs = favsRes.data?.map(f => f.item_id) || [];
             
-            const badges = calculateBadges(profile);
+            const role = ADMIN_EMAILS.includes(data.user.email || '') ? UserRole.ADMIN : ((profile?.role as UserRole) || UserRole.USER);
+            const badges = calculateBadges({ ...profile, role });
 
             const user: User = { 
                 ...CURRENT_USER, 
                 id: data.user.id, 
                 email: data.user.email || '',
                 xp: profile?.xp || 0,
-                role: (profile?.role as UserRole) || UserRole.USER,
+                role: role,
                 name: profile?.name || 'Пользователь',
                 avatar: profile?.avatar || '',
                 bio: profile?.about || '', 

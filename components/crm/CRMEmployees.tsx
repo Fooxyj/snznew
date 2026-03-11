@@ -34,8 +34,9 @@ export const CRMEmployees: React.FC<CRMEmployeesProps> = ({ businessId }) => {
     });
 
     const handleAddEmployee = () => {
-        const email = prompt("Введите Email сотрудника:");
-        if (!email) return;
+        const emailInput = prompt("Введите Email сотрудника:");
+        if (!emailInput) return;
+        const email = emailInput.trim().toLowerCase();
         const role = confirm("Это менеджер? (OK - Менеджер, Cancel - Персонал)") ? 'manager' : 'staff';
         addMutation.mutate({ email, role });
     };

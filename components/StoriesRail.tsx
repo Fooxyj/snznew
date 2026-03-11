@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Story, User, UserRole, Business } from '../types';
-import { Plus, X, Loader2, ChevronLeft, ChevronRight, Eye, Users, User as UserIcon, Building2, Check, AlertCircle } from 'lucide-react';
+import { Plus, X, Loader2, ChevronLeft, ChevronRight, Eye, Users, User as UserIcon, Building2, Check, AlertCircle, Pencil, Link as LinkIcon } from 'lucide-react';
 import { Button } from './ui/Common';
 import { StoryEditor } from './StoryEditor';
 import { useNavigate } from 'react-router-dom';
@@ -13,8 +13,9 @@ const StoryViewer: React.FC<{
     allStories: Story[]; 
     initialAuthorId: string;
     currentUser: User | null;
-    onClose: () => void 
-}> = ({ allStories, initialAuthorId, currentUser, onClose }) => {
+    onClose: () => void;
+    onEdit: (story: Story) => void;
+}> = ({ allStories, initialAuthorId, currentUser, onClose, onEdit }) => {
     const navigate = useNavigate();
     
     const authorIds = useMemo(() => {
@@ -31,6 +32,8 @@ const StoryViewer: React.FC<{
     const [progress, setProgress] = useState(0);
     const [isImageLoaded, setIsImageLoaded] = useState(false);
     const [showStats, setShowStats] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
+    
     const timerRef = useRef<any>(null);
     const touchStartRef = useRef<number | null>(null);
 
@@ -94,6 +97,14 @@ const StoryViewer: React.FC<{
         touchStartRef.current = null;
     };
 
+    const handleHold = () => {
+        setIsPaused(true);
+    };
+
+    const handleRelease = () => {
+        setIsPaused(false);
+    };
+
     useEffect(() => {
         if (activeStory) {
             api.viewStory(activeStory.id);
@@ -101,9 +112,8 @@ const StoryViewer: React.FC<{
     }, [activeStory?.id]);
 
     useEffect(() => {
-        if (!activeStory || !isImageLoaded || showStats) return;
+        if (!activeStory || !isImageLoaded || showStats || isPaused) return;
         
-        setProgress(0);
         const duration = 5000;
         const intervalTime = 50;
         const step = 100 / (duration / intervalTime);
@@ -119,7 +129,7 @@ const StoryViewer: React.FC<{
         }, intervalTime);
 
         return () => clearInterval(timerRef.current);
-    }, [activeStory?.id, isImageLoaded, handleNext, showStats]);
+    }, [activeStory?.id, isImageLoaded, handleNext, showStats, isPaused]);
 
     if (!activeStory) return null;
 
@@ -139,7 +149,12 @@ const StoryViewer: React.FC<{
                 </>
             )}
 
-            <div className="relative w-full max-w-lg h-full bg-black flex flex-col overflow-hidden">
+            <div 
+                className="relative w-full max-w-lg h-full bg-black flex flex-col overflow-hidden"
+                onPointerDown={handleHold}
+                onPointerUp={handleRelease}
+                onPointerLeave={handleRelease}
+            >
                 <div className="absolute top-4 left-0 right-0 px-4 flex gap-1.5 z-50">
                     {currentAuthorStories.map((_, idx) => (
                         <div key={idx} className="h-1 bg-white/20 flex-1 rounded-full overflow-hidden">
@@ -189,21 +204,34 @@ const StoryViewer: React.FC<{
                         />
                     </div>
                     
-                    {activeStory.contentConfig?.elements?.map((el: any) => (
-                        <div 
-                            key={el.id} 
-                            className="absolute p-3 rounded-xl text-sm font-black shadow-2xl z-30 select-none whitespace-nowrap" 
-                            style={{ 
-                                left: `${el.x}%`, 
-                                top: `${el.y}%`, 
-                                backgroundColor: el.bg, 
-                                color: el.color, 
-                                transform: 'translate(-50%, -50%)' 
-                            }}
-                        >
-                            {el.content}
-                        </div>
-                    ))}
+                    {activeStory.contentConfig?.elements?.map((el: any) => {
+                        const isLink = el.type === 'link' && el.url;
+                        const Component = isLink ? 'a' : 'div';
+                        const linkProps = isLink ? { 
+                            href: el.url.startsWith('http') ? el.url : `https://${el.url}`,
+                            target: "_blank",
+                            rel: "noopener noreferrer",
+                            onClick: (e: any) => e.stopPropagation()
+                        } : {};
+
+                        return (
+                            <Component 
+                                key={el.id} 
+                                {...linkProps}
+                                className={`absolute p-3 rounded-xl text-sm font-black shadow-2xl z-30 select-none whitespace-nowrap ${isLink ? 'cursor-pointer active:scale-95 transition-transform' : ''}`} 
+                                style={{ 
+                                    left: `${el.x}%`, 
+                                    top: `${el.y}%`, 
+                                    backgroundColor: el.bg, 
+                                    color: el.color, 
+                                    transform: `translate(-50%, -50%) scale(${el.scale || 1})`
+                                }}
+                            >
+                                {el.type === 'link' && <LinkIcon className="w-3 h-3 inline-block mr-1" />}
+                                {el.content}
+                            </Component>
+                        );
+                    })}
                 </div>
 
                 {activeStory.caption && (
@@ -213,13 +241,20 @@ const StoryViewer: React.FC<{
                 )}
 
                 {isMyStory && (
-                    <div className="absolute bottom-8 left-0 right-0 px-6 z-50 flex justify-center">
+                    <div className="absolute bottom-8 left-0 right-0 px-6 z-50 flex justify-center gap-3">
                         <button 
                             onClick={(e) => { e.stopPropagation(); setShowStats(true); }}
                             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-white/20 px-5 py-2.5 rounded-full transition-all text-white active:scale-95 shadow-xl"
                         >
                             <Eye className="w-4 h-4" />
-                            <span className="text-xs font-black uppercase tracking-tighter">{activeStory.viewers?.length || 0} просмотров</span>
+                            <span className="text-xs font-black uppercase tracking-tighter">{activeStory.viewers?.length || 0}</span>
+                        </button>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onEdit(activeStory); }}
+                            className="flex items-center gap-2 bg-blue-600/80 hover:bg-blue-600 backdrop-blur-xl border border-white/20 px-5 py-2.5 rounded-full transition-all text-white active:scale-95 shadow-xl"
+                        >
+                            <Pencil className="w-4 h-4" />
+                            <span className="text-xs font-black uppercase tracking-tighter">Изменить</span>
                         </button>
                     </div>
                 )}
@@ -285,8 +320,11 @@ export const StoriesRail: React.FC = () => {
     const queryClient = useQueryClient();
     const { success, error: showError } = useToast();
     const navigate = useNavigate();
+    
     const [viewAuthorId, setViewAuthorId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
+    const [editingStory, setEditingStory] = useState<Story | null>(null);
+    
     const [selectedBusinessId, setSelectedBusinessId] = useState<string | undefined>(undefined);
     const [showAuthorPicker, setShowAuthorPicker] = useState(false);
 
@@ -320,13 +358,20 @@ export const StoriesRail: React.FC = () => {
 
     const handleCreateClick = () => {
         if (!user) return navigate('/auth');
-        
+        setEditingStory(null);
         if (myBusinesses.length > 0) {
             setShowAuthorPicker(true);
         } else {
             setIsCreating(true);
             setSelectedBusinessId(undefined);
         }
+    };
+
+    const handleEditStory = (story: Story) => {
+        setViewAuthorId(null);
+        setEditingStory(story);
+        setSelectedBusinessId(story.authorId);
+        setIsCreating(true);
     };
 
     const startCreating = (bizId?: string) => {
@@ -337,19 +382,28 @@ export const StoriesRail: React.FC = () => {
 
     const onSaveStory = async (media: string, caption: string, config: any) => {
         try {
-            await api.createStory(media, caption, selectedBusinessId, config);
-            
-            if (user?.role === UserRole.ADMIN) {
-                success("История опубликована!");
+            if (editingStory) {
+                await api.updateEntity('stories', editingStory.id, {
+                    media,
+                    caption,
+                    content_config: config
+                });
+                success("История обновлена!");
             } else {
-                success("История отправлена на модерацию!");
+                await api.createStory(media, caption, selectedBusinessId, config);
+                if (user?.role === UserRole.ADMIN) {
+                    success("История опубликована!");
+                } else {
+                    success("История отправлена на модерацию!");
+                }
             }
             
             setIsCreating(false);
+            setEditingStory(null);
             queryClient.invalidateQueries({ queryKey: ['stories'] });
         } catch (err: any) {
             console.error("Story Save Error:", err);
-            showError(`Не удалось опубликовать: ${err.message}`);
+            showError(`Не удалось сохранить: ${err.message}`);
         }
     };
 
@@ -364,26 +418,29 @@ export const StoriesRail: React.FC = () => {
                         setViewAuthorId(null);
                         queryClient.invalidateQueries({ queryKey: ['stories'] });
                     }} 
+                    onEdit={handleEditStory}
                 />
             )}
 
             {isCreating && (
                 <div className="fixed inset-0 z-[10000] bg-black">
                     <StoryEditor 
+                        initialMedia={editingStory?.media}
+                        initialCaption={editingStory?.caption}
+                        initialConfig={editingStory?.contentConfig}
                         onSave={onSaveStory} 
-                        onClose={() => setIsCreating(false)} 
+                        onClose={() => { setIsCreating(false); setEditingStory(null); }} 
                     />
                 </div>
             )}
 
             {showAuthorPicker && (
                 <div className="fixed inset-0 z-[10001] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowAuthorPicker(false)}>
-                    <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white dark:bg-gray-800 w-full max-sm rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <div className="p-6 border-b dark:border-gray-700">
                             <h3 className="text-xl font-black text-gray-900 dark:text-white">Автор истории</h3>
                             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-1">От чьего имени публикация?</p>
                         </div>
-                        {/* Список с прокруткой для большого количества бизнесов */}
                         <div className="p-4 space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar">
                             <button 
                                 onClick={() => startCreating(undefined)}

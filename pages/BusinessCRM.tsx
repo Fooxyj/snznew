@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Product, Service, UserRole, Vacancy, BusinessPost, Booking } from '../types';
 import { CRMOverview } from '../components/crm/CRMOverview';
@@ -11,7 +11,7 @@ import { CRMEmployees } from '../components/crm/CRMEmployees';
 import { CRMMarketing } from '../components/crm/CRMMarketing';
 import { CRMSettings } from '../components/crm/CRMSettings';
 import { MiniSiteBuilder } from '../components/builder/MiniSiteBuilder';
-import { CreateProductModal, CreateServiceModal, CreateRentalModal, EditProductModal, CreateBusinessVacancyModal, CreateBusinessPostModal, CreateCouponModal } from '../components/CRMModals';
+import { CreateProductModal, CreateServiceModal, CreateRentalModal, EditProductModal, EditBusinessPostModal, EditServiceModal, EditBusinessVacancyModal, EditCouponModal, CreateBusinessVacancyModal, CreateBusinessPostModal, CreateCouponModal } from '../components/CRMModals';
 import { CreateEventModal } from '../components/CreateEventModal';
 import { StoryEditor } from '../components/StoryEditor';
 import { Loader2, LayoutDashboard, ShoppingBag, Calendar, Users, Settings, Megaphone, Menu, X, LogOut, Film, Repeat, ChevronDown, PlusCircle, Check, PlaySquare, Layout as LayoutIcon, Briefcase, Hammer, Star, Building2, Newspaper, CreditCard, MessageCircle, AlertCircle, Clock, Gift } from 'lucide-react';
@@ -30,10 +30,15 @@ const getDaysLabel = (days: number) => {
 export const BusinessCRM: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'products' | 'services' | 'employees' | 'marketing' | 'settings' | 'rentals' | 'events' | 'minisite' | 'vacancies' | 'news' | 'coupons'>('overview');
     const [isSidebarOpen, setSidebarOpen] = useState(false);
-    const [modal, setModal] = useState<'product' | 'service' | 'rental' | 'event' | 'editProduct' | 'story' | 'vacancy' | 'post' | 'coupon' | null>(null);
+    const [modal, setModal] = useState<'product' | 'service' | 'rental' | 'event' | 'editProduct' | 'editPost' | 'editService' | 'editVacancy' | 'editCoupon' | 'story' | 'vacancy' | 'post' | 'coupon' | null>(null);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [editingPost, setEditingPost] = useState<any>(null);
+    const [editingService, setEditingService] = useState<any>(null);
+    const [editingVacancy, setEditingVacancy] = useState<any>(null);
+    const [editingCoupon, setEditingCoupon] = useState<any>(null);
     
     const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
+    const [bookingViewMode, setBookingViewMode] = useState<'list' | 'hall'>('list');
     const [isBusinessDropdownOpen, setIsBusinessDropdownOpen] = useState(false);
 
     const navigate = useNavigate();
@@ -91,6 +96,69 @@ export const BusinessCRM: React.FC = () => {
     const daysRemaining = subscriptionData.daysRemaining;
 
     const isMaster = selectedBusiness?.isMaster;
+
+    // Data Fetching
+    const { data: products = [] } = useQuery({
+        queryKey: ['products', selectedBusinessId],
+        queryFn: () => api.getProducts(selectedBusinessId!),
+        enabled: !!selectedBusinessId
+    });
+
+    const { data: services = [] } = useQuery({
+        queryKey: ['services', selectedBusinessId],
+        queryFn: () => api.getServices(selectedBusinessId!),
+        enabled: !!selectedBusinessId
+    });
+
+    const { data: news = [] } = useQuery({
+        queryKey: ['businessPosts', selectedBusinessId],
+        queryFn: () => api.getBusinessPosts(selectedBusinessId!),
+        enabled: !!selectedBusinessId
+    });
+
+    const { data: bookings = [] } = useQuery({
+        queryKey: ['businessBookings', selectedBusinessId],
+        queryFn: () => api.getBusinessBookings(selectedBusinessId!),
+        enabled: !!selectedBusinessId
+    });
+
+    const { data: vacancies = [] } = useQuery({
+        queryKey: ['vacancies', selectedBusinessId],
+        queryFn: () => api.getVacanciesByBusiness(selectedBusinessId!),
+        enabled: !!selectedBusinessId
+    });
+
+    const { data: coupons = [] } = useQuery({
+        queryKey: ['coupons', selectedBusinessId],
+        queryFn: () => api.getBusinessCoupons(selectedBusinessId!),
+        enabled: !!selectedBusinessId
+    });
+
+    // Mutations
+    const deleteProductMutation = useMutation({
+        mutationFn: (id: string) => api.deleteProduct(id),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', selectedBusinessId] })
+    });
+
+    const deleteServiceMutation = useMutation({
+        mutationFn: (id: string) => api.deleteService(id),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services', selectedBusinessId] })
+    });
+
+    const deletePostMutation = useMutation({
+        mutationFn: (id: string) => api.deleteBusinessPost(id),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['businessPosts', selectedBusinessId] })
+    });
+
+    const deleteVacancyMutation = useMutation({
+        mutationFn: (id: string) => api.deleteEntity('vacancies', id),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['vacancies', selectedBusinessId] })
+    });
+
+    const deleteCouponMutation = useMutation({
+        mutationFn: (id: string) => api.deleteCoupon(id),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['coupons', selectedBusinessId] })
+    });
 
     const menuItems = useMemo(() => {
         const items = [
@@ -219,16 +287,64 @@ export const BusinessCRM: React.FC = () => {
                     {activeTab === 'overview' && <CRMOverview business={selectedBusiness} />}
                     {activeTab === 'minisite' && <MiniSiteBuilder businessId={selectedBusiness.id} />}
                     {activeTab === 'news' && (
-                        <CRMInventory items={[]} type="products" label="Лента новостей" onAdd={() => setModal('post')} onDelete={() => {}} />
+                        <CRMInventory 
+                            items={news} 
+                            type="products" 
+                            label="Лента новостей" 
+                            onAdd={() => setModal('post')} 
+                            onEdit={(p) => { setEditingPost(p); setModal('editPost'); }}
+                            onDelete={(id) => confirm('Удалить новость?') && deletePostMutation.mutate(id)} 
+                        />
                     )}
                     {activeTab === 'bookings' && (
-                        <CRMBookings businessId={selectedBusiness.id} bookings={[]} tables={[]} viewMode="list" onChangeView={() => {}} onTableClick={() => {}} />
+                        <CRMBookings 
+                            businessId={selectedBusiness.id} 
+                            bookings={bookings} 
+                            tables={[]} 
+                            viewMode={bookingViewMode} 
+                            onChangeView={setBookingViewMode} 
+                            onTableClick={() => {}} 
+                        />
                     )}
                     {activeTab === 'products' && (
-                        <CRMInventory items={[]} type="products" label={isMaster ? "Мои работы" : "Товары / Меню"} onAdd={() => setModal('product')} onDelete={() => {}} />
+                        <CRMInventory 
+                            items={products} 
+                            type="products" 
+                            label={isMaster ? "Мои работы" : "Товары / Меню"} 
+                            onAdd={() => setModal('product')} 
+                            onEdit={(p) => { setEditingProduct(p); setModal('editProduct'); }}
+                            onDelete={(id) => confirm('Удалить товар?') && deleteProductMutation.mutate(id)} 
+                        />
                     )}
                     {activeTab === 'services' && (
-                        <CRMInventory items={[]} type="services" label="Услуги и Прайс" onAdd={() => setModal('service')} onDelete={() => {}} />
+                        <CRMInventory 
+                            items={services} 
+                            type="services" 
+                            label="Услуги и Прайс" 
+                            onAdd={() => setModal('service')} 
+                            onEdit={(s) => { setEditingService(s); setModal('editService'); }}
+                            onDelete={(id) => confirm('Удалить услугу?') && deleteServiceMutation.mutate(id)} 
+                        />
+                    )}
+                    {activeTab === 'coupons' && (
+                        <CRMInventory 
+                            items={coupons} 
+                            type="products" 
+                            label="Бонусная программа" 
+                            onAdd={() => setModal('coupon')} 
+                            onEdit={(c) => { setEditingCoupon(c); setModal('editCoupon'); }}
+                            onDelete={(id) => confirm('Удалить купон?') && deleteCouponMutation.mutate(id)} 
+                        />
+                    )}
+                    {activeTab === 'vacancies' && (
+                        <CRMInventory 
+                            items={vacancies} 
+                            type="products" 
+                            label="Вакансии" 
+                            onAdd={() => setModal('vacancy')} 
+                            onEdit={(v) => { setEditingVacancy(v); setModal('editVacancy'); }}
+                            onDelete={(id) => confirm('Удалить вакансию?') && deleteVacancyMutation.mutate(id)} 
+                        />
                     )}
                     {activeTab === 'employees' && <CRMEmployees businessId={selectedBusiness.id} />}
                     {activeTab === 'marketing' && <CRMMarketing businessId={selectedBusiness.id} setActiveTab={setActiveTab} />}
@@ -262,6 +378,21 @@ export const BusinessCRM: React.FC = () => {
             )}
             {modal === 'post' && (
                 <CreateBusinessPostModal businessId={selectedBusiness.id} isOpen={true} onClose={() => setModal(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['businessPosts', selectedBusiness?.id] })} />
+            )}
+            {modal === 'editProduct' && editingProduct && (
+                <EditProductModal product={editingProduct} isOpen={true} onClose={() => setModal(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['products', selectedBusiness?.id] })} />
+            )}
+            {modal === 'editPost' && editingPost && (
+                <EditBusinessPostModal post={editingPost} isOpen={true} onClose={() => setModal(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['businessPosts', selectedBusiness?.id] })} />
+            )}
+            {modal === 'editService' && editingService && (
+                <EditServiceModal service={editingService} isOpen={true} onClose={() => setModal(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['services', selectedBusiness?.id] })} />
+            )}
+            {modal === 'editVacancy' && editingVacancy && (
+                <EditBusinessVacancyModal vacancy={editingVacancy} isOpen={true} onClose={() => setModal(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['vacancies', selectedBusiness?.id] })} />
+            )}
+            {modal === 'editCoupon' && editingCoupon && (
+                <EditCouponModal coupon={editingCoupon} isOpen={true} onClose={() => setModal(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['businessCoupons', selectedBusiness?.id] })} />
             )}
         </div>
     );

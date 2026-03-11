@@ -79,7 +79,7 @@ export const MiniSiteBuilder: React.FC<{ businessId: string }> = ({ businessId }
             <div className="w-full lg:w-[450px] flex flex-col h-full bg-white dark:bg-gray-800 rounded-3xl border dark:border-gray-700 shadow-sm overflow-hidden shrink-0">
                 <div className="p-5 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center">
                     <div>
-                        <h3 className="font-black text-xs uppercase tracking-widest text-gray-500">Снежинск Билдер</h3>
+                        <h3 className="font-black text-xs uppercase tracking-widest text-gray-500">Билдер-ПРОСТОРснз</h3>
                         <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Визуальный редактор</p>
                     </div>
                     <div className="flex gap-1.5">
@@ -92,7 +92,9 @@ export const MiniSiteBuilder: React.FC<{ businessId: string }> = ({ businessId }
                     {blocks.map((block, idx) => (
                         <div key={block.id} className="p-5 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border-2 border-gray-100 dark:border-gray-700 relative group animate-in slide-in-from-left-2">
                             <div className="flex justify-between items-center mb-5">
-                                <Badge color={block.type === 'hero' ? 'blue' : 'gray'} className="px-2 py-0.5">{block.type.toUpperCase()}</Badge>
+                                <Badge color={block.type === 'hero' ? 'blue' : 'gray'} className="px-2 py-0.5">
+                                    {block.type === 'hero' ? 'ПРИВЕТСТВИЕ' : block.type === 'grid' ? 'ТОВАР/УСЛУГА' : 'ЦЕНА'}
+                                </Badge>
                                 <div className="flex gap-1">
                                     <button onClick={() => moveBlock(idx, 'up')} className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"><ChevronUp className="w-4 h-4"/></button>
                                     <button onClick={() => moveBlock(idx, 'down')} className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"><ChevronDown className="w-4 h-4"/></button>
@@ -216,13 +218,13 @@ export const MiniSiteBuilder: React.FC<{ businessId: string }> = ({ businessId }
 
                     <div className="grid grid-cols-1 gap-2 pt-4">
                         <button onClick={() => addBlock('hero')} className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl text-gray-400 hover:border-blue-600 hover:text-blue-600 transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest">
-                            <ImageIcon className="w-4 h-4" /> Добавить обложку
+                            <ImageIcon className="w-4 h-4" /> Добавить приветствие
                         </button>
                         <button onClick={() => addBlock('grid')} className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl text-gray-400 hover:border-blue-600 hover:text-blue-600 transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest">
-                            <Layout className="w-4 h-4" /> Добавить витрину
+                            <Layout className="w-4 h-4" /> Добавить товар/услугу
                         </button>
                         <button onClick={() => addBlock('pricing')} className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl text-gray-400 hover:border-blue-600 hover:text-blue-600 transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest">
-                            <CreditCard className="w-4 h-4" /> Добавить прайс
+                            <CreditCard className="w-4 h-4" /> Добавить цену
                         </button>
                     </div>
                 </div>

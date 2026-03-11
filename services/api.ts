@@ -403,8 +403,8 @@ export const api = {
               allRelevantBizIds.length > 0 ? supabase!.from('businesses').select('id, name, author_id').in('id', allRelevantBizIds) : { data: [] }
           ]);
           
-          const profileMap = new Map<string, any>(profilesRes.data?.map(p => [p.id, p]) || []);
-          const businessMap = new Map<string, any>(bizRes.data?.map(b => [b.id, b]) || []);
+          const profileMap = new Map<string, any>((profilesRes.data?.map(p => [p.id, p]) || []) as [string, any][]);
+          const businessMap = new Map<string, any>((bizRes.data?.map(b => [b.id, b]) || []) as [string, any][]);
 
           // Для товаров нужно найти владельцев бизнесов
           const productOwnerIds = [...new Set(bizRes.data?.map(b => b.author_id).filter(Boolean)) || []];
@@ -491,8 +491,8 @@ export const api = {
           bizIds.length > 0 ? supabase.from('businesses').select('id, name').in('id', bizIds) : { data: [] }
       ]);
       
-      const profMap = new Map(profs.data?.map(p => [p.id, p.name]) || []);
-      const bizMap = new Map(biz.data?.map(b => [b.id, b.name]) || []);
+      const profMap = new Map<string, any>((profs.data?.map(p => [p.id, p.name]) || []) as [string, any][]);
+      const bizMap = new Map<string, any>((biz.data?.map(b => [b.id, b.name]) || []) as [string, any][]);
       
       return (data || []).map(s => ({ 
           ...s, 

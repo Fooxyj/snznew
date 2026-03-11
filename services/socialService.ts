@@ -241,9 +241,8 @@ export const socialService = {
                     : Promise.resolve({ data: [] })
             ]);
 
-            // ПРИНУДИТЕЛЬНАЯ НОРМАЛИЗАЦИЯ: ключи в Map всегда в нижнем регистре
-            const profileMap = new Map<string, any>(profilesRes.data?.map(p => [p.id.toLowerCase(), p]) || []);
-            const bizMap = new Map<string, any>(businessesRes.data?.map(b => [b.id.toLowerCase(), b]) || []);
+            const profileMap = new Map<string, any>((profilesRes.data?.map(p => [p.id.toLowerCase(), p]) || []) as [string, any][]);
+            const bizMap = new Map<string, any>((businessesRes.data?.map(b => [b.id.toLowerCase(), b]) || []) as [string, any][]);
 
             const result = convos
                 .map((c: any) => {
@@ -255,10 +254,26 @@ export const socialService = {
                     const bId = (c.business_id || "").toLowerCase();
                     const bizData = bId ? bizMap.get(bId) : null;
                     
-                    // КЛЮЧЕВАЯ ЛОГИКА: 
-                    // 1. Если я - автор бизнеса, я вижу имя клиента. 
-                    // 2. Если я - клиент (бизнес не мой), я ВСЕГДА вижу название бизнеса.
+                    // КЛЮЧЕВАЯ ПРАВКА: Если есть бизнес-id, мы ДОЛЖНЫ показать имя бизнеса для клиента.
+                    // Если я - автор этого бизнеса, я вижу имя клиента.
                     const isOwner = bizData && (bizData.author_id || "").toLowerCase() === myId;
+                    
+                    let finalName = 'Житель Снежинска';
+                    let finalAvatar = '';
+
+                    if (c.business_id) {
+                        if (isOwner) {
+                            finalName = partnerProfile?.name || 'Клиент';
+                            finalAvatar = partnerProfile?.avatar || '';
+                        } else {
+                            finalName = bizData?.name || 'Компания';
+                            finalAvatar = bizData?.image || '';
+                        }
+                    } else {
+                        finalName = partnerProfile?.name || 'Житель Снежинска';
+                        finalAvatar = partnerProfile?.avatar || '';
+                    }
+
                     const rawDate = lastMsg?.created_at || '1970-01-01T00:00:00Z';
 
                     return {
@@ -266,8 +281,8 @@ export const socialService = {
                         participant1Id: c.participant1_id,
                         participant2Id: c.participant2_id,
                         partnerId: pId,
-                        partnerName: isOwner ? (partnerProfile?.name || 'Клиент') : (bizData ? bizData.name : (partnerProfile?.name || 'Житель Снежинска')),
-                        partnerAvatar: isOwner ? (partnerProfile?.avatar || '') : (bizData ? bizData.image : (partnerProfile?.avatar || '')),
+                        partnerName: finalName,
+                        partnerAvatar: finalAvatar,
                         businessId: c.business_id,
                         businessName: bizData?.name,
                         businessOwnerId: bizData?.author_id,
@@ -558,8 +573,8 @@ export const socialService = {
               supabase.from('profiles').select('id, name, avatar').in('id', profileIds),
               bizIds.length > 0 ? supabase.from('businesses').select('id, name, image').in('id', bizIds) : { data: [] }
           ]);
-          const profMap = new Map<string, any>(profsRes.data?.map(p => [p.id, p]) || []);
-          const bizMap = new Map<string, any>(bizRes.data?.map(b => [b.id, b]) || []);
+          const profMap = new Map<string, any>((profsRes.data?.map(p => [p.id, p]) || []) as [string, any][]);
+          const bizMap = new Map<string, any>((bizRes.data?.map(b => [b.id, b]) || []) as [string, any][]);
           
           return filteredData.map((s: any) => {
               const business = s.business_id ? bizMap.get(s.business_id) : null;

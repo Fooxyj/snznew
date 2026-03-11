@@ -1,5 +1,5 @@
 
-import { Ad, Business, NewsItem, User, UserRole, Event } from './types';
+import { Ad, Business, NewsItem, User, UserRole, Event } from '../types';
 
 // Helper for dynamic dates in mock data
 const getPastDate = (days: number, hours: number = 0) => {
@@ -38,7 +38,8 @@ export const CURRENT_USER: User = {
   role: UserRole.USER,
   xp: 1450, // Level 2
   email: 'alex@snz.ru',
-  favorites: ['b1', 'a2']
+  favorites: ['b1', 'a2'],
+  badges: []
 };
 
 export const NEWS_DATA: NewsItem[] = [

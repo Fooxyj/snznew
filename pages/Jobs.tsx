@@ -154,7 +154,6 @@ export const JobsPage: React.FC = () => {
         if (user.id === v.authorId) return alert("Вы разместили эту вакансию");
 
         try {
-            // Переход в чат с работодателем без автоматического сообщения
             const chatId = await api.startChat(v.authorId, '', v.businessId);
             navigate(`/chat?id=${chatId}`);
         } catch (e: any) {
@@ -178,18 +177,6 @@ export const JobsPage: React.FC = () => {
                 </Button>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-[2.5rem] border border-blue-100 dark:border-blue-900/30 flex items-start gap-4 mb-12">
-                <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
-                   <Zap className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                    <h4 className="text-sm font-black uppercase text-blue-900 dark:text-blue-300 tracking-tight">Прямая связь с работодателем</h4>
-                    <p className="text-xs text-blue-700 dark:text-blue-400/80 leading-relaxed mt-1 font-medium">
-                        Нажмите кнопку отклика, чтобы открыть прямой диалог. Вы сможете лично задать вопросы и отправить резюме файлом.
-                    </p>
-                </div>
-            </div>
-
             {isLoading ? (
                 <div className="grid gap-6">
                     {[1, 2, 3].map(i => (
@@ -202,49 +189,49 @@ export const JobsPage: React.FC = () => {
                     <p className="font-black text-gray-400 uppercase tracking-widest text-sm">Актуальных вакансий пока нет</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 gap-8">
+                <div className="grid grid-cols-1 gap-6 sm:gap-8">
                     {vacancies.map(v => (
-                        <div key={v.id} className="bg-white dark:bg-gray-800 p-8 rounded-[3rem] border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 hover:shadow-2xl transition-all group relative overflow-hidden">
+                        <div key={v.id} className="bg-white dark:bg-gray-800 p-5 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8 hover:shadow-2xl transition-all group relative overflow-hidden min-h-[160px]">
                             {v.tier === 'vip' && <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 -mr-16 -mt-16 rounded-full blur-2xl group-hover:bg-orange-500/20 transition-colors"></div>}
                             
-                            <div className="flex items-center gap-6 flex-1 min-w-0">
-                                <div className="w-20 h-20 rounded-[2rem] bg-gray-50 dark:bg-gray-900 flex items-center justify-center shrink-0 border dark:border-gray-700 overflow-hidden shadow-inner">
+                            <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0 w-full">
+                                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-[2rem] bg-gray-50 dark:bg-gray-900 flex items-center justify-center shrink-0 border dark:border-gray-700 overflow-hidden shadow-inner">
                                     {v.image ? (
                                         <img src={v.image} className="w-full h-full object-cover" alt="" />
                                     ) : (
                                         <Building2 className="w-8 h-8 text-gray-300" />
                                     )}
                                 </div>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <h3 className="text-2xl font-black dark:text-white uppercase tracking-tight truncate group-hover:text-blue-600 transition-colors leading-none">{v.title}</h3>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
+                                        <h3 className="text-lg sm:text-2xl font-black dark:text-white uppercase tracking-tight truncate group-hover:text-blue-600 transition-colors leading-tight">{v.title}</h3>
                                         {v.tier === 'urgent' && <Badge color="red" className="animate-pulse">Срочно</Badge>}
-                                        {v.tier === 'vip' && <Sparkles className="w-5 h-5 text-orange-500" />}
+                                        {v.tier === 'vip' && <Sparkles className="w-4 h-4 text-orange-500" />}
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-4 text-sm font-bold text-gray-400 uppercase tracking-widest">
+                                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-sm font-bold text-gray-400 uppercase tracking-widest">
                                         <span className="text-gray-900 dark:text-white">{v.companyName}</span>
-                                        <span className="w-1.5 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full"></span>
+                                        <span className="hidden sm:inline w-1.5 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full"></span>
                                         <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-                                            <Wallet className="w-4 h-4" /> {v.salaryMin ? `от ${v.salaryMin.toLocaleString()} ₽` : 'з/п договорная'}
+                                            <Wallet className="w-3 h-3 sm:w-4 sm:h-4" /> {v.salaryMin ? `от ${v.salaryMin.toLocaleString()} ₽` : 'договорная'}
                                         </span>
                                     </div>
-                                    <p className="mt-4 text-sm text-gray-500 dark:text-gray-400 line-clamp-2 italic font-medium leading-relaxed">
+                                    <p className="mt-3 text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-2 italic font-medium leading-relaxed hidden sm:block">
                                         "{v.description}"
                                     </p>
                                 </div>
                             </div>
                             
-                            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto shrink-0 z-10">
+                            <div className="flex flex-row items-center gap-2 sm:gap-3 w-full md:w-auto shrink-0 z-10">
                                 <a 
                                     href={`tel:${v.contactPhone}`} 
-                                    className="w-14 h-14 rounded-2xl bg-gray-50 dark:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-all border dark:border-gray-700 active:scale-90"
+                                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-gray-50 dark:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-all border dark:border-gray-700 active:scale-90"
                                     title="Позвонить напрямую"
                                 >
-                                    <Phone className="w-6 h-6" />
+                                    <Phone className="w-5 h-5 sm:w-6 sm:h-6" />
                                 </a>
                                 <Button 
                                     onClick={() => handleApply(v)}
-                                    className="w-full sm:w-auto rounded-[1.5rem] px-10 py-4 font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                    className="flex-1 md:flex-none rounded-xl sm:rounded-[1.5rem] px-5 sm:px-10 py-3 sm:py-4 font-black uppercase text-[10px] sm:text-xs tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
                                 >
                                     <MessageSquare className="w-4 h-4" /> Откликнуться
                                 </Button>
@@ -253,10 +240,6 @@ export const JobsPage: React.FC = () => {
                     ))}
                 </div>
             )}
-            
-            <div className="mt-16 text-center">
-                <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em]">© ПРОСТОР РАБОТА • 2025</p>
-            </div>
         </div>
     );
 };
